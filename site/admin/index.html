@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration — Assas Pilates Ballet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>Assas Pilates<br>Ballet</h1>
+      <p>Administration</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <span class="nav-label">Tableau de bord</span>
+        <a class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">◈</span> Vue d'ensemble
+        </a>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">Contenu du site</span>
+        <a class="nav-item" data-page="schedule">
+          <span class="nav-icon">📅</span> Emploi du temps
+        </a>
+        <a class="nav-item" data-page="team">
+          <span class="nav-icon">👤</span> Équipe
+        </a>
+        <a class="nav-item" data-page="tarifs">
+          <span class="nav-icon">💳</span> Carnets & Tarifs
+        </a>
+        <a class="nav-item" data-page="infos">
+          <span class="nav-icon">ℹ</span> Infos pratiques
+        </a>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">Module réservation</span>
+        <a class="nav-item" data-page="booking-config">
+          <span class="nav-icon">⚙</span> Configuration Stripe
+        </a>
+        <a class="nav-item" data-page="booking-list">
+          <span class="nav-icon">📋</span> Réservations
+        </a>
+        <a class="nav-item" data-page="planning">
+          <span class="nav-icon">📆</span> Planning cours
+        </a>
+        <a class="nav-item" data-page="carnets">
+          <span class="nav-icon">🎫</span> Carnets clients
+        </a>
+        <a class="nav-item" data-page="clients">
+          <span class="nav-icon">👥</span> Clients
+        </a>
+      </div>
+      <div class="nav-section" style="margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:16px">
+        <a class="nav-item" href="../index.html">
+          <span class="nav-icon">↗</span> Voir le site
+        </a>
+        <a class="nav-item" href="../booking/index.html">
+          <span class="nav-icon">📆</span> Page réservation
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="admin-main">
+    <!-- Mobile top bar (hidden on desktop) -->
+    <div class="mobile-topbar">
+      <button class="hamburger" onclick="openSidebar()">☰</button>
+      <span style="font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;color:var(--dark)">Administration</span>
+      <div></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h2>Tableau de bord</h2>
+        <p>Vue d'ensemble du studio Assas Pilates Ballet</p>
+      </div>
+      <div class="stats-grid" id="dashboard-stats"></div>
+      <div class="grid-2" style="margin-top:20px">
+        <div class="card">
+          <div class="card-header">
+            <h3>Emploi du temps (cette semaine)</h3>
+            <button class="btn btn-sm btn-outline" onclick="showPage('schedule')">Modifier</button>
+          </div>
+          <div class="card-body p0">
+            <div id="dash-schedule" class="mini-grid"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <h3>Équipe</h3>
+              <button class="btn btn-sm btn-outline" onclick="showPage('team')">Gérer</button>
+            </div>
+            <div class="card-body p0" id="dash-team"></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Formules actives</h3>
+              <button class="btn btn-sm btn-outline" onclick="showPage('tarifs')">Gérer</button>
+            </div>
+            <div class="card-body p0" id="dash-tarifs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOI DU TEMPS -->
+    <div class="page" id="page-schedule">
+      <div class="page-header">
+        <h2>Emploi du temps</h2>
+        <p>Gérez les créneaux de cours hebdomadaires — les modifications sont instantanément visibles sur le site</p>
+      </div>
+      <div id="schedule-alert"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3 id="slot-form-title">Nouveau créneau</h3></div>
+          <div class="card-body">
+            <input type="hidden" id="slot-id">
+            <div class="form-group">
+              <label>Jour de la semaine</label>
+              <div class="day-pills" id="slot-days"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Début</label><input type="time" id="slot-start" value="09:00"></div>
+              <div class="form-group"><label>Fin</label><input type="time" id="slot-end" value="09:55"></div>
+            </div>
+            <div class="form-group">
+              <label>Intitulé du cours</label>
+              <input type="text" id="slot-title" placeholder="Ex: Cours Semi Collectif Mat – DÉBUTANT">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Type</label>
+                <select id="slot-type">
+                  <option value="collectif">Semi-collectif</option>
+                  <option value="prive">Cours privé</option>
+                  <option value="duo">Duo</option>
+                  <option value="munz">Munz Floor</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Lieu</label>
+                <select id="slot-location">
+                  <option value="assas">Studio Assas (Duguay-Trouin)</option>
+                  <option value="lieu2">LIEU2 (Munz Floor)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Professeur·e</label>
+              <input type="text" id="slot-teacher" placeholder="Leïla Dilhac">
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveSlot()">Enregistrer</button>
+              <button class="btn btn-outline" onclick="resetSlotForm()">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Tous les créneaux</h3>
+            <span class="badge" id="slot-count"></span>
+          </div>
+          <div class="card-body p0 table-responsive">
+            <table class="table" id="slots-table">
+              <thead><tr><th>Jour</th><th>Horaire</th><th>Cours</th><th>Type</th><th>Lieu</th><th>Prof</th><th></th></tr></thead>
+              <tbody id="slots-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉQUIPE -->
+    <div class="page" id="page-team">
+      <div class="page-header">
+        <h2>Équipe</h2>
+        <p>Gérez les membres affichés sur le site</p>
+      </div>
+      <div id="team-alert"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3 id="team-form-title">Nouveau membre</h3></div>
+          <div class="card-body">
+            <input type="hidden" id="member-id">
+            <div class="form-group"><label>Prénom & Nom</label><input type="text" id="member-name" placeholder="Leïla Dilhac"></div>
+            <div class="form-group"><label>Rôle / Titre</label><input type="text" id="member-role" placeholder="Fondatrice · Instructrice Pilates"></div>
+            <div class="form-group"><label>Biographie</label><textarea id="member-bio" rows="4" placeholder="Présentation du membre..."></textarea></div>
+            <div class="form-group"><label>Spécialités <small>(séparées par des virgules)</small></label><input type="text" id="member-tags" placeholder="Pilates, Barre au sol, Danse classique"></div>
+            <div class="form-group">
+              <label>Ordre d'affichage</label>
+              <select id="member-order">
+                <option value="0">1er (Fondatrice)</option>
+                <option value="1">2e</option>
+                <option value="2">3e</option>
+                <option value="3">4e</option>
+                <option value="4">5e</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveMember()">Enregistrer</button>
+              <button class="btn btn-outline" onclick="resetMemberForm()">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Membres de l'équipe</h3></div>
+          <div class="card-body p0">
+            <table class="table">
+              <thead><tr><th>Nom</th><th>Rôle</th><th>Ordre</th><th></th></tr></thead>
+              <tbody id="team-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TARIFS -->
+    <div class="page" id="page-tarifs">
+      <div class="page-header">
+        <h2>Carnets & Tarifs</h2>
+        <p>Gérez vos formules et leur mise en avant</p>
+      </div>
+      <div id="tarifs-alert"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3 id="tarif-form-title">Nouvelle formule</h3></div>
+          <div class="card-body">
+            <input type="hidden" id="tarif-id">
+            <div class="form-group"><label>Nom de la formule</label><input type="text" id="tarif-name" placeholder="Carnet 10 séances"></div>
+            <div class="form-group"><label>Type de cours</label><input type="text" id="tarif-label" placeholder="Semi-collectif Mat"></div>
+            <div class="form-group"><label>Description / Nb séances</label><input type="text" id="tarif-sessions" placeholder="10 séances — valable 6 mois"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Prix (€)</label><input type="number" id="tarif-price" placeholder="350" min="0"></div>
+              <div class="form-group"><label>Note (optionnel)</label><input type="text" id="tarif-note" placeholder="soit 35€/séance"></div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="tarif-featured">
+                Mettre en avant (bandeau "Recommandé")
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="tarif-is-carnet" onchange="toggleCarnetFields()">
+                C'est un carnet (utilisable pour réserver)
+              </label>
+            </div>
+            <div id="carnet-fields-block" style="display:none">
+              <div class="form-row">
+                <div class="form-group"><label>Nombre de séances</label><input type="number" id="tarif-session-count" min="1" max="50" placeholder="10"></div>
+                <div class="form-group"><label>Validité (mois)</label><input type="number" id="tarif-validity" min="1" max="24" placeholder="6"></div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveTarifForm()">Enregistrer</button>
+              <button class="btn btn-outline" onclick="resetTarifForm()">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Formules actives</h3></div>
+          <div class="card-body p0">
+            <table class="table">
+              <thead><tr><th>Formule</th><th>Séances</th><th>Prix</th><th>Avant</th><th></th></tr></thead>
+              <tbody id="tarifs-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFOS -->
+    <div class="page" id="page-infos">
+      <div class="page-header">
+        <h2>Informations pratiques</h2>
+        <p>Modifiez les coordonnées et règles affichées sur le site</p>
+      </div>
+      <div id="infos-alert"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Coordonnées</h3></div>
+          <div class="card-body">
+            <div class="form-group"><label>Adresse — Studio Pilates</label><input type="text" id="info-addr1"></div>
+            <div class="form-group"><label>Adresse — Munz Floor®</label><input type="text" id="info-addr2"></div>
+            <div class="form-group"><label>Téléphone</label><input type="text" id="info-tel"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="info-email"></div>
+            <div class="form-group"><label>Instagram</label><input type="text" id="info-instagram"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Règles du studio</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group"><label>Délai annulation (heures)</label><input type="number" id="info-cancel" min="0"></div>
+              <div class="form-group"><label>Retard max. (minutes)</label><input type="number" id="info-retard" min="0"></div>
+            </div>
+            <div class="form-group"><label>Message ponctualité</label><textarea id="info-ponct" rows="4"></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn btn-primary" onclick="saveInfosForm()">Enregistrer les modifications</button>
+      </div>
+    </div>
+
+    <!-- STRIPE CONFIG -->
+    <div class="page" id="page-booking-config">
+      <div class="page-header">
+        <h2>Configuration Stripe</h2>
+        <p>Paramètres du module de réservation en ligne</p>
+      </div>
+      <div class="card" style="max-width:600px">
+        <div class="card-header"><h3>Clés API Stripe</h3></div>
+        <div class="card-body">
+          <div class="info-banner">
+            ℹ️ Ces clés sont utilisées par le plugin WordPress <code>booking-manager</code>. Elles doivent être configurées dans <strong>WordPress → Réservations → Paramètres</strong>.
+          </div>
+          <div class="form-group" style="margin-top:20px">
+            <label>Mode</label>
+            <select id="stripe-mode">
+              <option value="test">Test (développement)</option>
+              <option value="live">Production</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Clé publique (pk_test_... ou pk_live_...)</label><input type="text" id="stripe-pk" placeholder="pk_test_..."></div>
+          <div class="form-group"><label>Clé secrète (sk_test_... ou sk_live_...)</label><input type="password" id="stripe-sk" placeholder="sk_test_..."></div>
+          <div class="form-group">
+            <label>Webhook URL (à copier dans Stripe Dashboard)</label>
+            <div class="copy-field">
+              <input type="text" readonly value="https://votre-site.com/wp-json/booking-manager/v1/webhook" id="webhook-url">
+              <button class="btn btn-sm btn-outline" onclick="copyWebhook()">Copier</button>
+            </div>
+          </div>
+          <div class="form-group"><label>Webhook Secret (whsec_...)</label><input type="password" id="stripe-ws" placeholder="whsec_..."></div>
+          <div class="form-group"><label>Délai annulation (heures avant le cours)</label><input type="number" id="stripe-cancel" value="24" min="0"></div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveStripeConfig()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="max-width:600px;margin-top:16px">
+        <div class="card-header"><h3>Plugin WordPress</h3></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:#666;line-height:1.7">Le module de réservation est géré par le plugin <strong>booking-manager</strong> (dans le dossier <code>/plugin</code> de ce projet). Pour l'installer :</p>
+          <ol style="font-size:13px;color:#555;line-height:2.2;margin:12px 0 0 20px">
+            <li>Zippez le dossier <code>plugin/</code></li>
+            <li>WordPress → Extensions → Ajouter → Téléverser</li>
+            <li>Activez le plugin</li>
+            <li>Allez dans <strong>Réservations → Paramètres</strong> et entrez vos clés Stripe</li>
+            <li>Ajoutez <code>[booking_courses]</code> sur la page de réservation</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- RÉSERVATIONS -->
+    <div class="page" id="page-booking-list">
+      <div class="page-header">
+        <h2>Réservations</h2>
+        <p>Toutes les réservations effectuées en ligne</p>
+      </div>
+      <div id="bookings-alert"></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="bl-filter-status" onchange="renderBookingList()" style="padding:6px 10px;border:1px solid var(--border);font-size:12px;font-family:var(--font-sans)">
+              <option value="all">Tous les statuts</option>
+              <option value="confirmed">Confirmées</option>
+              <option value="cancelled">Annulées</option>
+            </select>
+            <select id="bl-filter-type" onchange="renderBookingList()" style="padding:6px 10px;border:1px solid var(--border);font-size:12px;font-family:var(--font-sans)">
+              <option value="all">Tous les paiements</option>
+              <option value="stripe">Carte bancaire</option>
+              <option value="carnet">Carnet</option>
+            </select>
+            <input id="bl-search" type="text" placeholder="Rechercher (nom, email, réf…)" oninput="renderBookingList()" style="padding:6px 12px;border:1px solid var(--border);font-size:12px;font-family:var(--font-sans);flex:1;min-width:160px">
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="exportBookingsCSV()">Exporter CSV</button>
+        </div>
+        <div class="card-body p0">
+          <table class="table" id="bookings-table">
+            <thead><tr><th>Référence</th><th>Client</th><th>Cours</th><th>Date cours</th><th>Lieu</th><th>Paiement</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="bookings-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="bl-stats" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- CARNETS -->
+    <div class="page" id="page-carnets">
+      <div class="page-header">
+        <h2>Carnets clients</h2>
+        <p>Créez et gérez les codes carnets. Partagez le code généré avec le client après encaissement.</p>
+      </div>
+      <div id="carnets-alert"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3 id="carnet-form-title">Créer un carnet</h3></div>
+          <div class="card-body">
+            <input type="hidden" id="carnet-edit-code">
+            <div class="form-group">
+              <label>Formule</label>
+              <select id="carnet-tarif-id" onchange="updateCarnetFormFromTarif()">
+                <option value="">— Choisir une formule carnet —</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Nom du client</label><input type="text" id="carnet-client-name" placeholder="Marie Dupont"></div>
+              <div class="form-group"><label>Email client</label><input type="email" id="carnet-client-email" placeholder="marie@exemple.com"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Séances totales</label><input type="number" id="carnet-sessions" min="1" max="50" value="10"></div>
+              <div class="form-group"><label>Date d'expiration</label><input type="date" id="carnet-expires"></div>
+            </div>
+            <div class="form-group">
+              <label>Séances restantes (modif. manuelle)</label>
+              <input type="number" id="carnet-remaining" min="0" max="50" value="10">
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="carnet-save-btn" onclick="saveCarnet()">Générer le carnet</button>
+              <button class="btn btn-outline" onclick="resetCarnetForm()">Annuler</button>
+            </div>
+            <div id="generated-code-block" style="display:none;margin-top:20px;padding:16px;background:#f0faf0;border:1px solid #b8ddb8">
+              <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#2E6B30;margin-bottom:8px">Code à transmettre au client :</div>
+              <div id="generated-code" style="font-size:24px;letter-spacing:.12em;font-weight:500;color:#1a1a18;margin-bottom:10px"></div>
+              <button class="btn btn-sm btn-outline" onclick="copyCode()">Copier</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Carnets actifs</h3>
+            <span class="badge" id="carnets-count"></span>
+          </div>
+          <div class="card-body p0">
+            <table class="table">
+              <thead><tr><th>Code</th><th>Client</th><th>Séances</th><th>Expiration</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="carnets-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- CLIENTS -->
+    <div class="page" id="page-clients">
+      <div class="page-header">
+        <h2>Clients</h2>
+        <p>Tous les clients inscrits. Cliquez sur une ligne pour voir le profil complet.</p>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>Liste des clients</h3>
+          <span class="badge" id="clients-count"></span>
+        </div>
+        <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+          <input type="text" id="clients-search" placeholder="Rechercher par nom ou email…"
+                 oninput="filterClients()"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);font-family:inherit;font-size:13px;outline:none;background:#faf9f6">
+        </div>
+        <div class="card-body p0 table-responsive">
+          <table class="table">
+            <thead><tr><th>Client</th><th>Téléphone</th><th>Cours</th><th>Carnet</th><th>Dernier cours</th><th></th></tr></thead>
+            <tbody id="clients-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANNING -->
+    <div class="page" id="page-planning">
+      <div class="page-header">
+        <h2>Planning cours</h2>
+        <p>Vue semaine — cours et élèves inscrits</p>
+      </div>
+      <div id="planning-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Mobile overlay -->
+<div class="mobile-overlay" id="mobile-overlay" onclick="closeSidebar()"></div>
+
+<script src="../js/data.js"></script>
+<script src="admin.js"></script>
+<script>
+function openSidebar()  { document.querySelector('.sidebar').classList.add('open'); document.getElementById('mobile-overlay').classList.add('active'); }
+function closeSidebar() { document.querySelector('.sidebar').classList.remove('open'); document.getElementById('mobile-overlay').classList.remove('active'); }
+</script>
+</body>
+</html>

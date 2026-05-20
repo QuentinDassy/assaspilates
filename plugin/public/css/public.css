@@ -1,0 +1,219 @@
+/* ===== Booking Manager - Public CSS ===== */
+
+/* Variables */
+:root {
+    --bm-primary: #2563eb;
+    --bm-primary-dark: #1d4ed8;
+    --bm-success: #16a34a;
+    --bm-warning: #d97706;
+    --bm-danger: #dc2626;
+    --bm-gray: #6b7280;
+    --bm-gray-light: #f3f4f6;
+    --bm-border: #e5e7eb;
+    --bm-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    --bm-radius: 12px;
+}
+
+/* ---- Grid Cours ---- */
+.bm-courses-wrapper { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.bm-courses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+
+/* ---- Carte cours ---- */
+.bm-course-card {
+    background: #fff;
+    border: 1px solid var(--bm-border);
+    border-radius: var(--bm-radius);
+    overflow: hidden;
+    box-shadow: var(--bm-shadow);
+    transition: transform .2s, box-shadow .2s;
+    display: flex;
+    flex-direction: column;
+}
+.bm-course-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.12); }
+.bm-course-card.bm-course-full { opacity: .75; }
+
+.bm-course-header {
+    padding: 20px 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+.bm-course-title { margin: 0; font-size: 1.1rem; color: #111; flex: 1; }
+.bm-course-body { padding: 16px 20px; flex: 1; }
+.bm-course-desc { color: var(--bm-gray); font-size: .9rem; margin-bottom: 12px; }
+
+.bm-course-meta { list-style: none; padding: 0; margin: 0; }
+.bm-course-meta li { font-size: .875rem; color: #374151; padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+.bm-icon { font-size: 1rem; }
+
+.bm-course-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--bm-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+.bm-course-price { font-size: 1.25rem; font-weight: 700; color: var(--bm-primary); }
+
+/* ---- Badges ---- */
+.bm-badge { font-size: .75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+.bm-badge-success { background: #dcfce7; color: #15803d; }
+.bm-badge-warning { background: #fef9c3; color: #a16207; }
+.bm-badge-danger  { background: #fee2e2; color: #b91c1c; }
+
+/* ---- Boutons ---- */
+.bm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background .15s, transform .1s;
+    text-decoration: none;
+}
+.bm-btn:active { transform: scale(0.98); }
+.bm-btn-primary { background: var(--bm-primary); color: #fff; }
+.bm-btn-primary:hover { background: var(--bm-primary-dark); color: #fff; }
+.bm-btn-danger { background: var(--bm-danger); color: #fff; }
+.bm-btn-danger:hover { background: #b91c1c; }
+.bm-btn-link { background: none; color: var(--bm-primary); text-decoration: underline; padding: 8px 0; }
+.bm-btn-full { width: 100%; }
+.bm-btn-disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; }
+
+/* ---- Modal ---- */
+.bm-modal { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; }
+.bm-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+.bm-modal-content {
+    position: relative;
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+    animation: bm-slide-in .25s ease;
+}
+@keyframes bm-slide-in { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+.bm-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--bm-gray);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background .15s;
+}
+.bm-modal-close:hover { background: var(--bm-gray-light); }
+
+/* ---- Form groups ---- */
+.bm-form-group { margin-bottom: 16px; }
+.bm-form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: .9rem; color: #374151; }
+.bm-form-group input,
+.bm-form-group textarea,
+.bm-form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--bm-border);
+    border-radius: 8px;
+    font-size: .95rem;
+    transition: border-color .15s;
+    box-sizing: border-box;
+}
+.bm-form-group input:focus,
+.bm-form-group textarea:focus { outline: none; border-color: var(--bm-primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+/* ---- Stripe card element ---- */
+.bm-card-element {
+    border: 1.5px solid var(--bm-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 16px 0;
+    background: #fff;
+    transition: border-color .15s;
+}
+.bm-card-element.StripeElement--focus { border-color: var(--bm-primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.bm-card-element.StripeElement--invalid { border-color: var(--bm-danger); }
+
+/* ---- Résumé et total ---- */
+.bm-course-summary {
+    background: var(--bm-gray-light);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: .9rem;
+}
+.bm-course-summary p { margin: 4px 0; color: #374151; }
+.bm-total-display {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-weight: 700;
+    color: var(--bm-primary);
+    font-size: 1.1rem;
+    text-align: right;
+}
+
+/* ---- Loading ---- */
+.bm-loading { text-align: center; padding: 40px 0; }
+.bm-spinner {
+    width: 40px; height: 40px;
+    border: 4px solid var(--bm-border);
+    border-top-color: var(--bm-primary);
+    border-radius: 50%;
+    animation: bm-spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+@keyframes bm-spin { to { transform: rotate(360deg); } }
+
+/* ---- Success / Error ---- */
+#bm-step-success, #bm-step-error { text-align: center; padding: 20px 0; }
+.bm-success-icon, .bm-error-icon { font-size: 3rem; margin-bottom: 12px; }
+.bm-error-message { color: var(--bm-danger); font-size: .875rem; margin: 8px 0; min-height: 20px; }
+
+/* ---- Alertes ---- */
+.bm-alert { padding: 16px 20px; border-radius: 10px; margin: 16px 0; }
+.bm-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+.bm-alert-error   { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+.bm-info          { color: var(--bm-gray); font-size: .875rem; }
+
+/* ---- Page gestion réservation ---- */
+.bm-manage-wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
+.bm-booking-card { background: #fff; border: 1px solid var(--bm-border); border-radius: var(--bm-radius); padding: 28px; box-shadow: var(--bm-shadow); }
+.bm-meta-list { list-style: none; padding: 0; }
+.bm-meta-list li { padding: 6px 0; color: #374151; }
+.bm-cancel-section { margin-top: 24px; }
+.bm-loading-state { text-align: center; padding: 60px 0; }
+
+/* ---- Status ---- */
+.bm-status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: .8rem; font-weight: 600; }
+.bm-status-confirmed { background: #dcfce7; color: #15803d; }
+.bm-status-pending   { background: #fef9c3; color: #a16207; }
+.bm-status-cancelled { background: #fee2e2; color: #b91c1c; }
+.bm-status-refunded  { background: #e0f2fe; color: #0369a1; }
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+    .bm-courses-grid { grid-template-columns: 1fr; }
+    .bm-modal-content { padding: 24px 20px; margin: 10px; border-radius: 12px; }
+    .bm-course-footer { flex-direction: column; align-items: stretch; }
+}

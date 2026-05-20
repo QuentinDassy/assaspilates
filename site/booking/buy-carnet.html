@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acheter un carnet — Assas Pilates Ballet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--mid:#5c5c5c;--muted:#8c8c8c;
+  --warm:#5c8a82;--accent:#93bdb0;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
+  --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
+}
+body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
+a{color:var(--accent);text-decoration:none;transition:opacity .2s}
+a:hover{opacity:.75}
+
+/* NAV */
+.nav{background:#fff;border-bottom:1px solid var(--border);padding:0 5%;height:80px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav-logo{display:flex;align-items:center}.nav-logo-img{height:40px;width:auto;display:block}
+.nav-links{display:flex;gap:16px;align-items:center}
+.nav-back{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm)}
+.nav-link{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);border:1px solid var(--border);padding:7px 16px;transition:all .15s}
+.nav-link:hover{border-color:var(--dark);color:var(--dark);opacity:1}
+
+/* PAGE HEADER */
+.page-header{background:var(--cream-deep);border-bottom:1px solid var(--border);padding:52px 5% 48px;text-align:center}
+.page-eyebrow{font-size:10.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--warm);margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:16px}
+.page-eyebrow::before,.page-eyebrow::after{content:'';display:block;width:24px;height:1px;background:var(--warm);opacity:.5}
+.page-title{font-family:var(--font-serif);font-size:clamp(36px,5vw,58px);font-weight:300;letter-spacing:.02em;margin-bottom:14px}
+.page-sub{font-size:13.5px;color:var(--muted);line-height:1.8;max-width:500px;margin:0 auto}
+
+.booking-layout{max-width:1060px;margin:0 auto;padding:48px 24px;display:grid;grid-template-columns:1fr 340px;gap:36px;align-items:start}
+.booking-sidebar{position:sticky;top:24px}
+
+/* STEPS */
+.steps{display:flex;align-items:center;margin-bottom:32px}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#bbb}
+.step.active{color:var(--dark)}
+.step.done{color:var(--accent)}
+.step-num{width:28px;height:28px;border:1px solid currentColor;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.step.done .step-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.step-sep{flex:1;height:1px;background:var(--border);margin:0 12px}
+
+/* CARNET CARDS */
+.carnets-choice-grid{display:flex;flex-direction:column;gap:12px}
+.carnet-choice-card{background:#fff;border:1px solid var(--border);padding:32px 36px;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:32px}
+.carnet-choice-card:hover{border-color:var(--accent);box-shadow:0 8px 32px rgba(0,0,0,.06)}
+.carnet-choice-card.selected{border-color:var(--dark);border-width:2px;box-shadow:0 8px 32px rgba(0,0,0,.08)}
+.carnet-badge{position:absolute;top:-12px;left:28px;background:var(--accent);color:#fff;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:4px 14px}
+.carnet-label{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--warm);margin-bottom:8px}
+.carnet-name{font-family:var(--font-serif);font-size:30px;font-weight:300;color:var(--dark);margin-bottom:6px;letter-spacing:.02em}
+.carnet-sessions{font-size:13px;color:var(--muted);margin-bottom:16px}
+.carnet-tags{display:flex;gap:8px;flex-wrap:wrap}
+.carnet-tag{font-size:10px;padding:3px 10px;border:1px solid var(--border);color:var(--warm);letter-spacing:.06em}
+.carnet-price-col{text-align:right;flex-shrink:0}
+.carnet-price{font-family:var(--font-serif);font-size:56px;font-weight:300;color:var(--dark);line-height:1}
+.carnet-price-currency{font-size:24px;vertical-align:top;margin-top:8px;display:inline-block}
+.carnet-price-note{font-size:11px;color:#aaa;margin-top:8px;font-style:italic}
+.carnet-select-btn{margin-top:20px;display:inline-block;padding:9px 24px;border:1px solid var(--dark);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dark);font-family:var(--font-sans);background:none;cursor:pointer;transition:all .2s}
+.carnet-choice-card:hover .carnet-select-btn,
+.carnet-choice-card.selected .carnet-select-btn{background:var(--dark);color:#fff}
+
+/* FORM */
+.booking-form{display:flex;flex-direction:column;gap:16px}
+.form-section-title{font-family:var(--font-serif);font-size:24px;font-weight:400;margin-bottom:16px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#666}
+.form-group input{padding:11px 14px;border:1px solid var(--border);background:#fff;font-family:var(--font-sans);font-size:13px;color:var(--dark);outline:none;transition:border .18s}
+.form-group input:focus{border-color:var(--accent)}
+
+/* PAYMENT */
+.stripe-element{border:1px solid var(--border);padding:12px 14px;background:#fff;margin-bottom:16px;transition:border .18s}
+.stripe-element.focused{border-color:var(--accent)}
+.card-error{color:var(--error);font-size:12px;min-height:18px;margin-top:-8px}
+
+/* BUTTONS */
+.btn-primary{width:100%;padding:14px;background:var(--dark);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
+.btn-primary:hover{background:var(--accent)}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed}
+.btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
+.btn-outline:hover{border-color:var(--dark);color:var(--dark)}
+
+/* SIDEBAR */
+.summary-card{background:#fff;border:1px solid var(--border);padding:24px}
+.summary-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.summary-empty{text-align:center;padding:20px 0;color:#bbb;font-size:13px;font-style:italic}
+.summary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f4f2ee;font-size:13px}
+.summary-row:last-child{border-bottom:none}
+.summary-label{color:#888;flex:1}
+.summary-val{font-weight:500;text-align:right;font-size:13px}
+.summary-total{display:flex;justify-content:space-between;padding:16px 0 0;margin-top:8px;border-top:2px solid var(--dark)}
+.summary-total .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#666;align-self:center}
+.summary-total .amount{font-family:var(--font-serif);font-size:32px;font-weight:300;color:var(--dark)}
+.security-badge{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:11px;color:#999;justify-content:center}
+
+/* ALERTS */
+.alert{padding:12px 16px;margin-bottom:16px;font-size:13px;border:1px solid}
+.alert-error{background:#fdf5f5;border-color:#f0cccc;color:var(--error)}
+
+/* SUCCESS */
+.result-screen{text-align:center;padding:60px 20px;max-width:560px;margin:0 auto}
+.result-icon{font-size:52px;margin-bottom:20px}
+.result-title{font-family:var(--font-serif);font-size:36px;font-weight:300;margin-bottom:16px}
+.result-sub{font-size:14px;color:#888;line-height:1.8;margin-bottom:28px}
+.result-box{border:1px solid var(--border);padding:28px;text-align:left;margin-bottom:20px;background:#fff}
+.code-display{font-family:var(--font-serif);font-size:28px;color:var(--accent);letter-spacing:.12em;text-align:center;padding:16px;border:1px dashed var(--accent);background:#FFF9F5;margin:16px 0}
+.result-box p{font-size:13px;line-height:2;color:var(--mid)}
+.result-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.btn-manage{display:inline-block;padding:12px 24px;background:var(--dark);color:#fff;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-family:var(--font-sans);transition:background .2s}
+.btn-manage:hover{background:var(--accent)}
+
+/* LOADING */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(250,248,243,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-overlay.active{display:flex}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:#888;letter-spacing:.1em}
+
+.carnet-type-section{margin-bottom:32px}
+.carnet-type-label{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--warm);padding:16px 0 12px;border-top:1px solid var(--border);margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.carnet-type-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.carnets-type-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.carnet-mini-card{background:#fff;border:1px solid var(--border);padding:20px 18px;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative}
+.carnet-mini-card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.carnet-mini-card.selected{border-color:var(--dark);border-width:2px;background:#fdfcf9}
+.carnet-mini-name{font-family:var(--font-serif);font-size:19px;font-weight:300;color:var(--dark);margin-bottom:3px}
+.carnet-mini-sessions{font-size:11px;color:var(--muted);margin-bottom:10px}
+.carnet-mini-price{font-family:var(--font-serif);font-size:32px;font-weight:300;color:var(--dark);line-height:1}
+.carnet-mini-currency{font-size:16px;vertical-align:top;margin-top:4px;display:inline-block}
+.carnet-mini-note{font-size:10px;color:#aaa;margin-top:4px;font-style:italic}
+.carnet-mini-card.featured-card{border-color:var(--accent)}
+.carnet-mini-check{position:absolute;top:10px;right:12px;color:var(--accent);font-size:16px;display:none}
+.carnet-mini-card.selected .carnet-mini-check{display:block}
+/* Returning client banner */
+.returning-banner{background:#f0f7f0;border:1px solid #c3dfc3;padding:11px 14px;font-size:13px;color:#2a6a2a;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+@media(max-width:768px){
+  .booking-layout{grid-template-columns:1fr}
+  .booking-sidebar{position:static}
+  .form-row{grid-template-columns:1fr}
+  .carnet-choice-card{grid-template-columns:1fr}
+  .carnets-type-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="../index.html"><img src="../images/logo-leilapilates.png" alt="Assas Pilates Ballet" class="nav-logo-img"></a>
+  <div class="nav-links">
+    <a class="nav-back" href="../index.html">← Retour au site</a>
+    <a class="nav-link" href="manage.html">Mon espace</a>
+    <a class="nav-link" href="index.html">Réserver un cours</a>
+  </div>
+</nav>
+
+<div id="loading-overlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Traitement en cours...</div>
+</div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-eyebrow">Nos formules</div>
+  <div class="page-title">Acheter un carnet</div>
+  <p class="page-sub">Profitez de nos tarifs préférentiels avec un carnet de séances. Réservez vos cours en ligne depuis votre espace personnel.</p>
+</div>
+
+<!-- BUY SCREEN -->
+<div id="buy-screen">
+  <div class="booking-layout">
+    <div class="booking-main">
+
+      <div class="steps">
+        <div class="step active" id="step-1-ind"><div class="step-num">1</div><span>Choisir un carnet</span></div>
+        <div class="step-sep"></div>
+        <div class="step" id="step-2-ind"><div class="step-num">2</div><span>Vos coordonnées</span></div>
+        <div class="step-sep"></div>
+        <div class="step" id="step-3-ind"><div class="step-num">3</div><span>Paiement</span></div>
+      </div>
+
+      <!-- STEP 1: CHOOSE CARNET -->
+      <div id="step-1">
+        <div id="carnets-choice-grid" class="carnets-choice-grid"></div>
+      </div>
+
+      <!-- STEP 2: PERSONAL INFO -->
+      <div id="step-2" style="display:none">
+        <div class="form-section-title">Vos coordonnées</div>
+        <div id="step2-alert"></div>
+        <div class="booking-form">
+          <!-- Email first — triggers recognition -->
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" id="f-email" placeholder="marie@exemple.com" autocomplete="email" onblur="checkExistingClient()">
+          </div>
+
+          <!-- Shown after email is entered -->
+          <div id="client-info-section" style="display:none">
+            <div id="returning-banner" class="returning-banner" style="display:none">
+              ✓ Compte existant — vos informations ont été pré-remplies.
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
+              <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
+            </div>
+            <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
+
+            <!-- New client: create password -->
+            <div id="new-password-section">
+              <div class="form-row">
+                <div class="form-group"><label>Mot de passe *</label><input type="password" id="f-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"></div>
+                <div class="form-group"><label>Confirmer *</label><input type="password" id="f-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"></div>
+              </div>
+              <p style="font-size:12px;color:#999;margin-top:-8px">Ce mot de passe vous permettra d'accéder à votre espace personnel.</p>
+            </div>
+
+            <!-- Existing client: enter password -->
+            <div id="existing-password-section" style="display:none">
+              <div class="form-group">
+                <label>Mot de passe *</label>
+                <input type="password" id="f-password-existing" placeholder="Votre mot de passe" autocomplete="current-password">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:24px">
+          <button class="btn-outline" onclick="goStep(1)">← Retour</button>
+          <button class="btn-primary" onclick="goStep(3)" style="flex:1">Continuer →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: PAYMENT -->
+      <div id="step-3" style="display:none">
+        <div id="step3-alert"></div>
+        <div class="form-section-title">Paiement sécurisé</div>
+        <div class="form-group" style="margin-bottom:12px"><label>Numéro de carte</label></div>
+        <div id="stripe-card" class="stripe-element"></div>
+        <div class="card-error" id="card-error"></div>
+        <button class="btn-primary" id="pay-btn" onclick="processPurchase()">Confirmer et payer</button>
+        <div class="security-badge">🔒 Paiement sécurisé par Stripe — vos données ne sont jamais stockées</div>
+        <button class="btn-outline" onclick="goStep(2)" style="width:100%;margin-top:12px;display:block">← Retour</button>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="booking-sidebar">
+      <div class="summary-card">
+        <div class="summary-title">Récapitulatif</div>
+        <div id="summary-content"><div class="summary-empty">Aucun carnet sélectionné</div></div>
+      </div>
+      <div class="summary-card" style="margin-top:16px">
+        <div style="font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#666;margin-bottom:12px">Bon à savoir</div>
+        <p style="font-size:12px;line-height:1.8;color:#888">Le carnet est nominatif et valable pour tous les cours semi-collectifs. La validité court dès la date d'achat.</p>
+        <p style="font-size:12px;line-height:1.8;color:#888;margin-top:8px">Tarif -26 ans : 10% de réduction sur présentation d'une pièce d'identité.</p>
+        <p style="font-size:12px;line-height:1.8;color:#888;margin-top:8px">Questions ? <a href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div id="success-screen" style="display:none">
+  <div class="result-screen">
+    <div class="result-icon">✅</div>
+    <div class="result-title">Votre carnet est activé !</div>
+    <p class="result-sub">Conservez précieusement votre code ci-dessous. Il vous sera demandé à chaque réservation.</p>
+    <div class="result-box" id="success-details"></div>
+    <div class="result-actions">
+      <a id="btn-espace" href="manage.html" class="btn-manage">Accéder à mon espace</a>
+      <a id="btn-reserver" href="index.html?mode=carnet" class="btn-outline">Réserver un cours</a>
+      <a href="../index.html" class="btn-outline">Retour au site</a>
+    </div>
+  </div>
+</div>
+
+<script src="../js/data.js"></script>
+<script>
+let currentStep       = 1;
+let selectedTarif     = null;
+let stripe            = null;
+let cardElement       = null;
+let isReturningClient = false;
+
+const STRIPE_PUBLIC_KEY = (() => {
+  try { return JSON.parse(localStorage.getItem('apb_stripe') || '{}').pk || 'pk_test_VOTRE_CLE_ICI'; } catch(e) { return 'pk_test_VOTRE_CLE_ICI'; }
+})();
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  renderCarnetChoices();
+  try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
+});
+
+function renderCarnetChoices() {
+  const allCarnets = getTarifs().filter(t => t.isCarnet);
+  const grid = document.getElementById('carnets-choice-grid');
+
+  const groups = [
+    { key: 'collectif', label: 'Semi-Collectif Mat' },
+    { key: 'duo',       label: 'Cours Duo Wall Unit' },
+    { key: 'prive',     label: 'Cours Privé Mat + Machine' },
+  ];
+
+  grid.innerHTML = groups.map(g => {
+    const items = allCarnets.filter(t => t.type === g.key);
+    if (!items.length) return '';
+    return `<div class="carnet-type-section">
+      <div class="carnet-type-label">${g.label}</div>
+      <div class="carnets-type-row">
+        ${items.map(t => {
+          const isSel = selectedTarif && selectedTarif.id === t.id;
+          return `<div class="carnet-mini-card${isSel ? ' selected' : ''}${t.featured ? ' featured-card' : ''}" onclick="selectCarnet(${t.id})">
+            ${t.featured ? '<div class="carnet-badge" style="font-size:9px;padding:3px 10px;top:-10px;left:14px">Recommandé</div>' : ''}
+            <div class="carnet-mini-check">✓</div>
+            <div class="carnet-mini-name">${t.name}</div>
+            <div class="carnet-mini-sessions">${t.sessions}</div>
+            <div class="carnet-mini-price"><span class="carnet-mini-currency">€</span>${t.price}</div>
+            ${t.note ? `<div class="carnet-mini-note">${t.note}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== CLIENT RECOGNITION =====
+function checkExistingClient() {
+  const email = document.getElementById('f-email').value.trim();
+  if (!email || !email.includes('@')) return;
+
+  document.getElementById('client-info-section').style.display = 'block';
+  isReturningClient = hasClientPassword(email);
+
+  document.getElementById('returning-banner').style.display   = isReturningClient ? 'flex' : 'none';
+  document.getElementById('new-password-section').style.display      = isReturningClient ? 'none' : 'block';
+  document.getElementById('existing-password-section').style.display = isReturningClient ? 'block' : 'none';
+
+  if (isReturningClient) {
+    const carnets = getCarnetsByEmail(email);
+    if (carnets.length) {
+      document.getElementById('f-firstname').value = carnets[0].clientFirstName || '';
+      document.getElementById('f-lastname').value  = carnets[0].clientLastName  || '';
+      document.getElementById('f-phone').value     = carnets[0].clientPhone     || '';
+    }
+  }
+}
+
+function selectCarnet(id) {
+  const tarifs = getTarifs();
+  selectedTarif = tarifs.find(t => t.id === id) || null;
+  renderCarnetChoices();
+  updateSummary();
+  if (selectedTarif) setTimeout(() => goStep(2), 200);
+}
+
+// ===== STEPS =====
+function goStep(step) {
+  if (step === 2 && !selectedTarif) return;
+
+  if (step === 3) {
+    const first = document.getElementById('f-firstname').value.trim();
+    const last  = document.getElementById('f-lastname').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const setAlert = msg => { document.getElementById('step2-alert').innerHTML = `<div class="alert alert-error">${msg}</div>`; };
+
+    if (!first || !last || !email) { setAlert('Veuillez remplir tous les champs obligatoires (*).'); return; }
+    if (!email.includes('@'))      { setAlert('Email invalide.'); return; }
+
+    if (isReturningClient) {
+      const pwd = document.getElementById('f-password-existing').value;
+      if (!pwd) { setAlert('Veuillez entrer votre mot de passe.'); return; }
+      if (!checkClientPassword(email, pwd)) { setAlert('Mot de passe incorrect.'); return; }
+    } else {
+      const pwd  = document.getElementById('f-password').value;
+      const pwd2 = document.getElementById('f-password2').value;
+      if (!pwd || !pwd2) { setAlert('Veuillez remplir tous les champs obligatoires (*).'); return; }
+      if (pwd.length < 6)  { setAlert('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+      if (pwd !== pwd2)    { setAlert('Les mots de passe ne correspondent pas.'); return; }
+    }
+
+    document.getElementById('step2-alert').innerHTML = '';
+    mountStripeCard();
+  }
+
+  currentStep = step;
+  ['step-1','step-2','step-3'].forEach((id, i) => {
+    document.getElementById(id).style.display = (i + 1 === step) ? 'block' : 'none';
+  });
+  [1, 2, 3].forEach(i => {
+    const ind = document.getElementById(`step-${i}-ind`);
+    ind.classList.toggle('active', i === step);
+    ind.classList.toggle('done',   i < step);
+    ind.querySelector('.step-num').textContent = i < step ? '✓' : i;
+  });
+  updateSummary();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== SUMMARY =====
+function updateSummary() {
+  const container = document.getElementById('summary-content');
+  if (!selectedTarif) {
+    container.innerHTML = '<div class="summary-empty">Aucun carnet sélectionné</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="summary-row"><span class="summary-label">Carnet</span><span class="summary-val">${selectedTarif.name}</span></div>
+    <div class="summary-row"><span class="summary-label">Séances</span><span class="summary-val">${selectedTarif.sessionCount || '?'}</span></div>
+    <div class="summary-row"><span class="summary-label">Validité</span><span class="summary-val">${selectedTarif.validityMonths || 3} mois</span></div>
+    <div class="summary-row"><span class="summary-label">Type</span><span class="summary-val">Semi-collectif</span></div>
+    <div class="summary-total">
+      <span class="label">Total</span>
+      <span class="amount">${selectedTarif.price}€</span>
+    </div>
+  `;
+}
+
+// ===== STRIPE =====
+function mountStripeCard() {
+  if (!stripe) {
+    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">⚠️ Stripe non configuré. Entrez votre clé publique dans l\'<a href="../admin/">admin</a>.</div>';
+    document.getElementById('pay-btn').disabled = true;
+    return;
+  }
+  if (cardElement) return;
+  const elements = stripe.elements({ fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400&display=swap' }] });
+  cardElement = elements.create('card', {
+    style: {
+      base: { fontSize: '14px', fontFamily: "'DM Sans',sans-serif", color: '#373737', '::placeholder': { color: '#bbb' } },
+      invalid: { color: '#c0392b' }
+    },
+    hidePostalCode: true,
+  });
+  cardElement.mount('#stripe-card');
+  cardElement.on('change', e => {
+    document.getElementById('card-error').textContent = e.error ? e.error.message : '';
+    document.querySelector('.stripe-element').classList.toggle('focused', e.complete);
+  });
+}
+
+// ===== PURCHASE =====
+async function processPurchase() {
+  if (!selectedTarif) return;
+  if (!stripe || !cardElement) {
+    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">Stripe non initialisé.</div>';
+    return;
+  }
+  const btn = document.getElementById('pay-btn');
+  btn.disabled = true;
+  btn.textContent = 'Traitement...';
+  document.getElementById('card-error').textContent = '';
+  showLoading(true);
+
+  // Production: await fetch('/wp-json/booking-manager/v1/buy-carnet', { ... })
+  // DEMO — simulation paiement
+  await new Promise(r => setTimeout(r, 1800));
+  showLoading(false);
+
+  const first = document.getElementById('f-firstname').value.trim();
+  const last  = document.getElementById('f-lastname').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+
+  const carnet = createCarnetFromPurchase(selectedTarif.id, first, last, email, phone);
+  if (!carnet) {
+    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
+    btn.disabled = false;
+    btn.textContent = 'Confirmer et payer';
+    return;
+  }
+
+  if (!isReturningClient) {
+    const password = document.getElementById('f-password').value;
+    setClientPassword(email, password);
+  }
+  showSuccess(carnet, email);
+}
+
+function showSuccess(carnet, email) {
+  try { localStorage.setItem('apb_session', JSON.stringify({ email, firstName: carnet.clientFirstName, lastName: carnet.clientLastName, phone: carnet.clientPhone || '' })); } catch(e) {}
+  document.getElementById('buy-screen').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+
+  document.getElementById('success-details').innerHTML = `
+    <p style="margin-bottom:12px"><strong>Bonjour ${carnet.clientFirstName} ${carnet.clientLastName},</strong></p>
+    <p>Votre carnet a bien été enregistré :</p>
+    <p style="margin-top:12px">📦 <strong>${carnet.tarifName}</strong> — ${carnet.totalSessions} séances</p>
+    <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
+    <p style="margin-top:12px;font-size:12px;color:#999">Accédez à votre espace personnel pour retrouver votre carnet à tout moment.</p>
+  `;
+
+  const espaceUrl = 'manage.html?email=' + encodeURIComponent(email);
+  const reservUrl = 'index.html?mode=carnet&carnet=' + encodeURIComponent(carnet.code);
+  document.getElementById('btn-espace').href   = espaceUrl;
+  document.getElementById('btn-reserver').href = reservUrl;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showLoading(show) {
+  document.getElementById('loading-overlay').classList.toggle('active', show);
+}
+</script>
+</body>
+</html>

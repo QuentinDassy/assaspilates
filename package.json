@@ -1,0 +1,10 @@
+{
+  "name": "assas-pilates-ballet",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "serve site -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  }
+}
