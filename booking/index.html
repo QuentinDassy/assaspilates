@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réservation — Assas Pilates Ballet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --cream:#faf7f2;--dark:#373737;--mid:#5c5c5c;--warm:#5c8a82;--accent:#93bdb0;
+  --border:#e2ddd6;--success:#2d6a2d;--error:#c0392b;--green:#2E6B30;
+  --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
+}
+body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+
+.nav{background:#fff;border-bottom:1px solid var(--border);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav-logo{display:flex;align-items:center}.nav-logo-img{height:40px;width:auto;display:block}
+.nav-links{display:flex;gap:16px;align-items:center}
+.nav-back{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--warm)}
+.nav-manage{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dark);border:1px solid var(--border);padding:6px 14px}
+
+.booking-layout{max-width:1100px;margin:0 auto;padding:40px 20px;display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start}
+.booking-sidebar{position:sticky;top:24px}
+
+.page-title{font-family:var(--font-serif);font-size:38px;font-weight:300;margin-bottom:6px}
+.page-sub{font-size:13px;color:#888;margin-bottom:24px;line-height:1.6}
+
+/* MODE TOGGLE */
+.mode-toggle{display:flex;gap:0;border:1px solid var(--border);background:#fff;margin-bottom:28px;width:fit-content}
+.mode-btn{padding:10px 22px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-family:var(--font-sans);background:none;border:none;cursor:pointer;color:#999;transition:all .15s;white-space:nowrap}
+.mode-btn.active{background:var(--dark);color:#fff}
+
+.carnet-input-block{background:#fff;border:1px solid var(--border);padding:20px;margin-bottom:24px}
+.carnet-input-block label{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#666;display:block;margin-bottom:8px}
+.carnet-input-row{display:flex;gap:8px}
+.carnet-input-row input{flex:1;padding:10px 14px;border:1px solid var(--border);background:var(--cream);font-family:var(--font-sans);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--dark);outline:none}
+.carnet-input-row input:focus{border-color:var(--accent)}
+.btn-validate{padding:10px 20px;background:var(--dark);color:#fff;border:none;cursor:pointer;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-family:var(--font-sans);white-space:nowrap}
+.carnet-status{margin-top:10px;font-size:12px;padding:8px 12px;border-left:3px solid}
+.carnet-ok{background:#f0faf0;border-color:var(--green);color:var(--green)}
+.carnet-err{background:#fdf5f5;border-color:var(--error);color:var(--error)}
+
+/* STEPS */
+.steps{display:flex;align-items:center;margin-bottom:28px}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#bbb}
+.step.active{color:var(--dark)}
+.step.done{color:var(--accent)}
+.step-num{width:28px;height:28px;border:1px solid currentColor;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.step.done .step-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.step-sep{flex:1;height:1px;background:var(--border);margin:0 12px}
+
+/* FILTERS */
+.filters-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:6px 14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;letter-spacing:.08em;font-family:var(--font-sans);transition:all .15s}
+.filter-btn.active{background:var(--dark);color:#fff;border-color:var(--dark)}
+.filter-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+.day-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
+.day-tab{padding:10px 16px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;color:#999;border-bottom:2px solid transparent;white-space:nowrap;font-family:var(--font-sans);background:none;border-top:none;border-left:none;border-right:none;transition:all .15s}
+.day-tab.active{color:var(--dark);border-bottom-color:var(--accent)}
+
+.courses-list{display:flex;flex-direction:column;gap:10px}
+.course-item{background:#fff;border:1px solid var(--border);padding:16px 20px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s,transform .15s}
+.course-item:hover{border-color:var(--accent);transform:translateX(2px)}
+.course-item.selected{border-color:var(--dark);border-width:2px}
+.course-item.full{opacity:.5;cursor:not-allowed}
+.course-time{font-size:13px;color:var(--warm);margin-bottom:3px;letter-spacing:.04em}
+.course-name{font-weight:500;font-size:14px;margin-bottom:3px}
+.course-teacher{font-size:12px;color:#999}
+.course-date{font-size:11px;color:#bbb;margin-top:3px}
+.course-right{text-align:right;flex-shrink:0}
+.course-price{font-family:var(--font-serif);font-size:22px;color:var(--dark)}
+.course-price.free{font-size:15px;color:var(--green);letter-spacing:.05em}
+.course-spots{font-size:11px;margin-top:4px}
+.spots-ok{color:var(--success)}
+.spots-warn{color:#d97706}
+.spots-none{color:var(--error)}
+
+.badges{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.badge-type{display:inline-block;padding:2px 8px;font-size:10px;letter-spacing:.08em}
+.badge-collectif{background:#FFF3E0;color:#BF5000}
+.badge-prive{background:#E8F5E9;color:#2E6B30}
+.badge-duo{background:#E3F2FD;color:#1455A0}
+.badge-munz{background:#EDE7F6;color:#512DA8}
+.badge-loc-assas{background:#FFF8F0;color:var(--warm);border:1px solid #E8D8C0}
+.badge-loc-lieu2{background:#F0FAF0;color:var(--green);border:1px solid #B8DDB8}
+
+/* FORM */
+.booking-form{display:flex;flex-direction:column;gap:16px}
+.form-section-title{font-family:var(--font-serif);font-size:22px;font-weight:400;margin-bottom:16px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#666}
+.form-group input,.form-group select,.form-group textarea{padding:11px 14px;border:1px solid var(--border);background:#fff;font-family:var(--font-sans);font-size:13px;color:var(--dark);outline:none;transition:border .18s}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.qty-control{display:flex;align-items:center;border:1px solid var(--border);width:fit-content}
+.qty-btn{width:38px;height:38px;background:#fff;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;font-family:var(--font-sans)}
+.qty-val{padding:0 20px;font-size:16px;font-family:var(--font-serif);border-left:1px solid var(--border);border-right:1px solid var(--border);height:38px;display:flex;align-items:center}
+
+/* PAYMENT */
+.stripe-element{border:1px solid var(--border);padding:12px 14px;background:#fff;margin-bottom:16px;transition:border .18s}
+.stripe-element.focused{border-color:var(--accent)}
+.card-error{color:var(--error);font-size:12px;min-height:18px;margin-top:-8px}
+
+/* CARNET CONFIRM BOX */
+.carnet-confirm-box{background:#f0faf0;border:1px solid #b8ddb8;padding:20px;margin-bottom:20px}
+.carnet-confirm-box h4{font-family:var(--font-serif);font-size:18px;font-weight:300;margin-bottom:8px;color:var(--green)}
+.carnet-confirm-box p{font-size:13px;color:#444;line-height:1.7}
+
+/* BUTTONS */
+.btn-primary{width:100%;padding:14px;background:var(--dark);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
+.btn-primary:hover{background:var(--accent)}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed}
+.btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
+.btn-outline:hover{border-color:var(--dark);color:var(--dark)}
+
+/* SIDEBAR */
+.summary-card{background:#fff;border:1px solid var(--border);padding:24px}
+.summary-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.summary-empty{text-align:center;padding:20px 0;color:#bbb;font-size:13px;font-style:italic}
+.summary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f4f2ee;font-size:13px}
+.summary-row:last-child{border-bottom:none}
+.summary-label{color:#888;flex:1}
+.summary-val{font-weight:500;text-align:right}
+.summary-total{display:flex;justify-content:space-between;padding:16px 0 0;margin-top:8px;border-top:2px solid var(--dark)}
+.summary-total .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#666;align-self:center}
+.summary-total .amount{font-family:var(--font-serif);font-size:32px;font-weight:300;color:var(--dark)}
+.security-badge{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:11px;color:#999;justify-content:center}
+
+/* SUCCESS / ERROR */
+.result-screen{text-align:center;padding:60px 20px;max-width:540px;margin:0 auto}
+.result-icon{font-size:52px;margin-bottom:20px}
+.result-title{font-family:var(--font-serif);font-size:36px;font-weight:300;margin-bottom:16px}
+.result-sub{font-size:14px;color:#888;line-height:1.8;margin-bottom:28px}
+.result-box{border:1px solid var(--border);padding:20px;text-align:left;margin-bottom:20px}
+.result-box p{font-size:13px;line-height:2;color:var(--mid)}
+.booking-ref{font-family:var(--font-serif);font-size:20px;color:var(--accent);letter-spacing:.08em;margin:12px 0 4px}
+.result-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.btn-manage{display:inline-block;padding:12px 24px;background:var(--dark);color:#fff;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-family:var(--font-sans)}
+
+/* LOADING */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(250,248,243,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-overlay.active{display:flex}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:#888;letter-spacing:.1em}
+
+.empty-day{text-align:center;padding:40px;color:#bbb;font-size:13px;font-style:italic}
+.alert{padding:12px 16px;margin-bottom:16px;font-size:13px;border:1px solid}
+.alert-error{background:#fdf5f5;border-color:#f0cccc;color:var(--error)}
+.alert-info{background:#FFF8F0;border-color:#E8D8C0;color:var(--warm)}
+/* CART */
+.cart-item{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f4f2ee;gap:8px}
+.cart-item:last-of-type{border-bottom:none}
+.cart-item-info{flex:1;min-width:0}
+.cart-item-name{font-weight:500;font-size:13px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cart-item-meta{font-size:11px;color:#aaa;line-height:1.5}
+.cart-item-price{font-weight:500;white-space:nowrap;font-size:13px;color:var(--dark);text-align:right}
+.cart-item-rm{cursor:pointer;color:#ccc;font-size:20px;line-height:1;padding:0 2px;background:none;border:none;flex-shrink:0;transition:color .15s;align-self:flex-start}
+.cart-item-rm:hover{color:var(--error)}
+.cart-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--accent);color:#fff;border-radius:50%;font-size:11px;margin-left:8px;vertical-align:middle}
+/* CARNET LOGIN */
+.carnet-panel{background:#fff;border:1px solid var(--border);padding:20px 24px;margin-bottom:24px}
+.carnet-panel-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:4px;letter-spacing:.02em}
+.carnet-logged-bar{display:flex;align-items:center;justify-content:space-between;background:#f0faf0;border:1px solid #b8ddb8;padding:12px 18px;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.carnet-logged-name{font-weight:500;font-size:13px;color:var(--dark)}
+.btn-link-sm{background:none;border:none;cursor:pointer;font-size:11px;color:var(--warm);font-family:var(--font-sans);text-decoration:underline;white-space:nowrap}
+.carnet-option{background:#fff;border:1px solid var(--border);padding:14px 18px;margin-bottom:8px;cursor:pointer;transition:all .15s;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.carnet-option:hover{border-color:var(--accent)}
+.carnet-option.selected{border-color:var(--dark);border-width:2px;background:var(--cream)}
+.carnet-option-left{flex:1;min-width:0}
+.carnet-option-name{font-weight:500;font-size:13px;margin-bottom:2px}
+.carnet-option-meta{font-size:11px;color:#888}
+.carnet-option-count{font-family:var(--font-serif);font-size:28px;color:var(--accent);line-height:1;white-space:nowrap;text-align:right}
+.carnet-option-count-sub{font-size:10px;color:#aaa;text-align:right}
+/* COURSE ADD */
+.course-add-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb;transition:all .15s;flex-shrink:0;margin-bottom:4px;background:#fff;pointer-events:none}
+.course-item.in-cart .course-add-btn{background:var(--accent);border-color:var(--accent);color:#fff;font-size:13px;font-weight:600}
+.course-item.full .course-add-btn{opacity:.3}
+/* BUY CARNET (inline) */
+.carnets-choice-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.carnet-choice-card{background:#fff;border:1px solid var(--border);padding:24px 28px;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:24px}
+.carnet-choice-card:hover{border-color:var(--accent);box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.carnet-choice-card.selected{border-color:var(--dark);border-width:2px}
+.carnet-badge{position:absolute;top:-10px;left:24px;background:var(--accent);color:#fff;font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:3px 12px}
+.carnet-label{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--warm);margin-bottom:6px}
+.carnet-name{font-family:var(--font-serif);font-size:26px;font-weight:300;color:var(--dark);margin-bottom:4px}
+.carnet-sessions{font-size:12px;color:#888;margin-bottom:12px}
+.carnet-tags{display:flex;gap:6px;flex-wrap:wrap}
+.carnet-tag{font-size:10px;padding:2px 9px;border:1px solid var(--border);color:var(--warm)}
+.carnet-price-col{text-align:right;flex-shrink:0}
+.carnet-price{font-family:var(--font-serif);font-size:46px;font-weight:300;color:var(--dark);line-height:1}
+.carnet-price-currency{font-size:20px;vertical-align:top;margin-top:6px;display:inline-block}
+.carnet-price-note{font-size:11px;color:#aaa;margin-top:6px;font-style:italic}
+.carnet-select-btn{margin-top:16px;display:inline-block;padding:8px 20px;border:1px solid var(--dark);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dark);font-family:var(--font-sans);background:none;cursor:pointer;transition:all .2s}
+.carnet-choice-card:hover .carnet-select-btn,.carnet-choice-card.selected .carnet-select-btn{background:var(--dark);color:#fff}
+.buy-summary-card{background:#fff;border:1px solid var(--border);padding:24px;margin-bottom:16px}
+.buy-summary-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+
+/* ===== MOBILE CART BAR ===== */
+.mobile-cart-bar{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:990;
+  background:var(--dark);color:#fff;padding:12px 16px;
+  align-items:center;justify-content:space-between;gap:12px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.18);
+}
+.mobile-cart-bar-info{flex:1;min-width:0}
+.mobile-cart-bar-label{font-size:11px;color:rgba(255,255,255,.55);letter-spacing:.06em}
+.mobile-cart-bar-total{font-family:var(--font-serif);font-size:22px;font-weight:300;line-height:1.1}
+.mobile-cart-bar-btn{
+  background:var(--accent);color:#fff;border:none;padding:10px 18px;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  font-family:var(--font-sans);cursor:pointer;white-space:nowrap;flex-shrink:0;
+}
+.mobile-cart-bar-btn:disabled{background:#666;cursor:not-allowed}
+
+@media(max-width:768px){
+  .booking-layout{
+    grid-template-columns:1fr;
+    padding-bottom:80px; /* space for mobile cart bar */
+  }
+  .booking-sidebar{position:static;order:3}
+  .booking-main{order:1}
+
+  /* Filters: horizontal scroll, no wrap */
+  .filters-bar{
+    flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:6px;gap:6px;
+    scrollbar-width:none;
+  }
+  .filters-bar::-webkit-scrollbar{display:none}
+  .filter-btn{flex-shrink:0;white-space:nowrap}
+  .filter-sep{flex-shrink:0}
+
+  /* Day tabs scrollable */
+  .day-tabs{overflow-x:auto;scrollbar-width:none}
+  .day-tabs::-webkit-scrollbar{display:none}
+  .day-tab{flex-shrink:0}
+
+  /* Steps: compact */
+  .steps{gap:4px}
+  .step{font-size:10px;letter-spacing:.06em;gap:4px}
+  .step-num{width:22px;height:22px;font-size:10px}
+  .step-sep{margin:0 4px;min-width:12px}
+  .step span:not(.step-num){display:none} /* hide label text on very small, keep numbers */
+
+  /* Course cards */
+  .course-item{padding:12px 14px;gap:10px}
+  .course-name{font-size:13px}
+  .course-price{font-size:18px}
+  .course-add-btn{width:28px;height:28px;font-size:15px}
+
+  /* Mode toggle */
+  .mode-toggle{width:100%}
+  .mode-btn{flex:1;text-align:center;padding:10px 8px;font-size:10px}
+
+  /* Forms */
+  .form-row{grid-template-columns:1fr}
+
+  /* Page title */
+  .page-title{font-size:28px}
+
+  /* Nav */
+  .nav{padding:10px 16px}
+  .nav-links{gap:8px}
+  .nav-back{font-size:11px}
+  .nav-manage{font-size:11px;padding:5px 10px}
+
+  /* Summary cards in sidebar — compact on mobile */
+  .summary-card{padding:16px}
+  .summary-title{font-size:16px}
+
+  /* Mobile cart bar active */
+  .mobile-cart-bar{display:flex}
+
+  /* Carnet cards */
+  .carnet-choice-card{grid-template-columns:1fr;gap:12px;padding:16px}
+  .carnet-price{font-size:36px}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="../index.html"><img src="../images/logo-leilapilates.png" alt="Assas Pilates Ballet" class="nav-logo-img"></a>
+  <div class="nav-links">
+    <a class="nav-back" href="../index.html">← Retour au site</a>
+    <a class="nav-manage" href="manage.html">Mon espace</a>
+  </div>
+</nav>
+
+<div id="loading-overlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Traitement en cours...</div>
+</div>
+
+<!-- BOOKING INTERFACE -->
+<div id="booking-screen">
+  <div class="booking-layout">
+    <div class="booking-main">
+      <div class="page-title">Réservation en ligne</div>
+      <p class="page-sub">Choisissez votre créneau, renseignez vos coordonnées et réglez en ligne.</p>
+
+      <!-- MODE TOGGLE -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-unit-btn" onclick="setMode('unit')">Payer à l'unité</button>
+        <button class="mode-btn" id="mode-carnet-btn" onclick="setMode('carnet')">Utiliser mon carnet</button>
+        <button class="mode-btn" id="mode-buy-btn" onclick="setMode('buy')">Acheter un carnet</button>
+      </div>
+
+      <!-- CARNET LOGIN BLOCK -->
+      <div id="carnet-block" style="display:none">
+        <!-- Form de connexion -->
+        <div id="carnet-login-panel" class="carnet-panel">
+          <div class="carnet-panel-title">Connexion client</div>
+          <p style="font-size:13px;color:#888;margin-bottom:16px;line-height:1.6">Connectez-vous avec l'email et le mot de passe de votre compte pour utiliser vos séances.</p>
+          <div id="carnet-login-err"></div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Email</label>
+            <input type="email" id="cl-email" placeholder="votre@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')loginForCarnet()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Mot de passe</label>
+            <input type="password" id="cl-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginForCarnet()">
+          </div>
+          <button class="btn-primary" style="margin-top:4px" onclick="loginForCarnet()">Se connecter</button>
+          <p style="text-align:center;margin-top:14px;font-size:12px;color:#aaa">Pas encore de compte ? <a href="buy-carnet.html">Acheter un carnet →</a></p>
+        </div>
+        <!-- Connecté : choisir un carnet -->
+        <div id="carnet-logged-panel" style="display:none">
+          <div class="carnet-logged-bar">
+            <div>
+              <div class="carnet-logged-name" id="cl-logged-name"></div>
+              <div id="cl-carnet-summary" style="font-size:12px;color:var(--green);margin-top:2px"></div>
+            </div>
+            <button class="btn-link-sm" onclick="logoutCarnet()">Changer de compte</button>
+          </div>
+          <div id="carnet-picker"></div>
+        </div>
+      </div>
+
+      <!-- BUY CARNET BLOCK (inline) -->
+      <div id="buy-block" style="display:none">
+        <!-- Step nav -->
+        <div class="steps" id="buy-steps" style="margin-bottom:24px">
+          <div class="step active" id="buy-step-1-ind"><div class="step-num">1</div> Choisir un carnet</div>
+          <div class="step-sep"></div>
+          <div class="step" id="buy-step-2-ind"><div class="step-num">2</div> Vos coordonnées</div>
+          <div class="step-sep"></div>
+          <div class="step" id="buy-step-3-ind"><div class="step-num">3</div> Paiement</div>
+        </div>
+        <!-- Step 1: pick carnet -->
+        <div id="buy-step-1">
+          <div id="buy-carnets-grid" class="carnets-choice-grid"></div>
+        </div>
+        <!-- Step 2: personal info -->
+        <div id="buy-step-2" style="display:none">
+          <div class="form-section-title">Vos coordonnées</div>
+          <div id="buy-step2-alert"></div>
+          <div class="booking-form">
+            <div class="form-row">
+              <div class="form-group"><label>Prénom *</label><input type="text" id="bf-firstname" placeholder="Marie" autocomplete="given-name"></div>
+              <div class="form-group"><label>Nom *</label><input type="text" id="bf-lastname" placeholder="Dupont" autocomplete="family-name"></div>
+            </div>
+            <div class="form-group"><label>Email *</label><input type="email" id="bf-email" placeholder="marie@exemple.com" autocomplete="email"></div>
+            <div class="form-group"><label>Téléphone</label><input type="tel" id="bf-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Mot de passe *</label><input type="password" id="bf-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"></div>
+              <div class="form-group"><label>Confirmer *</label><input type="password" id="bf-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"></div>
+            </div>
+            <p style="font-size:12px;color:#999;margin-top:-6px">Ce mot de passe vous permettra d'accéder à votre espace et de réserver via carnet.</p>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:24px">
+            <button class="btn-outline" onclick="buyGoStep(1)">← Retour</button>
+            <button class="btn-primary" onclick="buyGoStep(3)" style="flex:1">Continuer →</button>
+          </div>
+        </div>
+        <!-- Step 3: payment -->
+        <div id="buy-step-3" style="display:none">
+          <div id="buy-step3-alert"></div>
+          <div class="form-section-title">Paiement sécurisé</div>
+          <div class="form-group" style="margin-bottom:12px"><label>Numéro de carte</label></div>
+          <div id="buy-stripe-card" class="stripe-element"></div>
+          <div class="card-error" id="buy-card-error"></div>
+          <button class="btn-primary" id="buy-pay-btn" onclick="buyProcessPurchase()">Confirmer et payer</button>
+          <div class="security-badge">🔒 Paiement sécurisé par Stripe</div>
+          <button class="btn-outline" onclick="buyGoStep(2)" style="width:100%;margin-top:10px;display:block">← Retour</button>
+        </div>
+        <!-- Success -->
+        <div id="buy-success" style="display:none;text-align:center;padding:40px 20px">
+          <div style="font-size:48px;margin-bottom:16px">✅</div>
+          <div style="font-family:var(--font-serif);font-size:30px;font-weight:300;margin-bottom:12px">Votre carnet est activé !</div>
+          <p style="font-size:13px;color:#888;margin-bottom:24px;line-height:1.8">Votre carnet a bien été enregistré. Vous pouvez maintenant réserver vos cours.</p>
+          <div id="buy-success-details" style="border:1px solid var(--border);padding:20px;text-align:left;margin-bottom:20px;background:#fff"></div>
+          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+            <button class="btn-primary" style="width:auto;padding:12px 28px" onclick="setMode('carnet')">Réserver avec mon carnet →</button>
+            <a href="manage.html" class="btn-outline" style="display:inline-block;padding:12px 24px">Mon espace</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEPS -->
+      <div class="steps" id="booking-steps">
+        <div class="step active" id="step-1-ind"><div class="step-num">1</div> Choisir un cours</div>
+        <div class="step-sep"></div>
+        <div class="step" id="step-2-ind"><div class="step-num">2</div> Vos coordonnées</div>
+        <div class="step-sep"></div>
+        <div class="step" id="step-3-ind"><div class="step-num">3</div> <span id="step-3-label">Paiement</span></div>
+      </div>
+
+      <!-- STEP 1: CHOOSE COURSE -->
+      <div id="step-1">
+        <div class="filters-bar">
+          <button class="filter-btn active" onclick="setTypeFilter('all',this)">Tous</button>
+          <button class="filter-btn" onclick="setTypeFilter('collectif',this)">Semi-collectif</button>
+          <button class="filter-btn" onclick="setTypeFilter('prive',this)">Cours privé</button>
+          <button class="filter-btn" onclick="setTypeFilter('duo',this)">Duo</button>
+          <button class="filter-btn" onclick="setTypeFilter('munz',this)">Munz Floor</button>
+          <div class="filter-sep"></div>
+          <button class="filter-btn active" id="loc-all-btn"  onclick="setLocFilter('all',this)">Tous les lieux</button>
+          <button class="filter-btn" id="loc-assas-btn" onclick="setLocFilter('assas',this)">Studio Assas</button>
+          <button class="filter-btn" id="loc-lieu2-btn" onclick="setLocFilter('lieu2',this)">Studio Munz</button>
+        </div>
+        <div class="day-tabs" id="day-tabs"></div>
+        <div class="courses-list" id="courses-list"></div>
+      </div>
+
+      <!-- STEP 2: FORM -->
+      <div id="step-2" style="display:none">
+        <div id="step2-alert"></div>
+        <div class="form-section-title">Vos coordonnées</div>
+        <div class="booking-form">
+          <div class="form-row">
+            <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
+            <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
+          </div>
+          <div class="form-group"><label>Email *</label><input type="email" id="f-email" placeholder="marie@exemple.com" autocomplete="email"></div>
+          <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
+          <div class="form-group">
+            <label>Nombre de participants *</label>
+            <div class="qty-control">
+              <button class="qty-btn" onclick="changeQty(-1)">−</button>
+              <div class="qty-val" id="qty-display">1</div>
+              <button class="qty-btn" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+          <div class="form-group"><label>Message (optionnel)</label><input type="text" id="f-message" placeholder="Niveau, blessures, questions..."></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:24px">
+          <button class="btn-outline" onclick="goStep(1)">← Retour</button>
+          <button class="btn-primary" onclick="goStep(3)" style="flex:1">Continuer →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: PAYMENT (unit) ou CONFIRMATION (carnet) -->
+      <div id="step-3" style="display:none">
+        <div id="step3-alert"></div>
+
+        <!-- Stripe payment -->
+        <div id="stripe-block">
+          <div class="form-section-title">Paiement sécurisé</div>
+          <div class="form-group"><label>Numéro de carte</label></div>
+          <div id="stripe-card" class="stripe-element"></div>
+          <div class="card-error" id="card-error"></div>
+          <button class="btn-primary" id="pay-btn" onclick="processPayment()">Confirmer et payer</button>
+          <div class="security-badge">🔒 Paiement sécurisé par Stripe — vos données ne sont jamais stockées</div>
+        </div>
+
+        <!-- Carnet confirmation -->
+        <div id="carnet-confirm-block" style="display:none">
+          <div class="form-section-title">Confirmer la réservation</div>
+          <div class="carnet-confirm-box">
+            <h4>Paiement via carnet</h4>
+            <p id="carnet-confirm-text"></p>
+          </div>
+          <button class="btn-primary" onclick="processCarnetBooking()">Confirmer la réservation</button>
+        </div>
+
+        <button class="btn-outline" onclick="goStep(2)" style="width:100%;margin-top:10px;display:block">← Retour</button>
+      </div>
+    </div>
+
+    <!-- SIDEBAR / PANIER -->
+    <div class="booking-sidebar">
+      <!-- Panier cours (unit/carnet modes) -->
+      <div id="sidebar-cart" class="summary-card">
+        <div class="summary-title">
+          Mon panier
+          <span id="cart-badge" class="cart-badge" style="display:none">0</span>
+        </div>
+        <div id="cart-list"><div class="summary-empty">Aucun cours sélectionné</div></div>
+        <div id="cart-footer" style="display:none">
+          <div class="summary-total">
+            <span class="label">Total</span>
+            <span class="amount" id="cart-total-val">0€</span>
+          </div>
+          <button class="btn-primary" style="margin-top:12px" onclick="startCheckout()">
+            Réserver <span id="cart-btn-count"></span>
+          </button>
+        </div>
+      </div>
+      <!-- Récap carnet (buy mode) -->
+      <div id="sidebar-buy" class="summary-card" style="display:none">
+        <div class="summary-title">Récapitulatif</div>
+        <div id="buy-summary-content"><div class="summary-empty">Aucun carnet sélectionné</div></div>
+      </div>
+      <div class="summary-card" style="margin-top:16px" id="sidebar-info-cancel">
+        <div style="font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:12px">Politique d'annulation</div>
+        <p style="font-size:12px;line-height:1.8;color:#888">Annulation gratuite jusqu'à <strong style="color:var(--dark)" id="cancel-hours-txt">24h avant</strong> le cours. Au-delà, le cours reste dû.</p>
+        <p style="font-size:12px;line-height:1.8;color:#888;margin-top:8px">Pour annuler ou modifier : <a href="manage.html">Mes réservations</a></p>
+        <p style="font-size:12px;line-height:1.8;color:#888;margin-top:4px">Questions ? <a href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a></p>
+      </div>
+      <div class="summary-card" style="margin-top:16px;display:none" id="sidebar-info-carnet">
+        <div style="font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:12px">Bon à savoir</div>
+        <p style="font-size:12px;line-height:1.8;color:#888">Le carnet est nominatif et valable pour tous les cours semi-collectifs. La validité court dès la date d'achat.</p>
+        <p style="font-size:12px;line-height:1.8;color:#888;margin-top:8px">Questions ? <a href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div id="success-screen" style="display:none">
+  <div class="result-screen">
+    <div class="result-icon">✅</div>
+    <div class="result-title">Réservation confirmée !</div>
+    <p class="result-sub">Votre réservation est enregistrée. Conservez votre référence pour annuler ou modifier.</p>
+    <div class="result-box" id="success-details"></div>
+    <div class="result-actions">
+      <button id="btn-send-confirmation" class="btn-manage" style="display:none;align-items:center;gap:8px;cursor:pointer;border:none">
+        📧 Envoyer la confirmation par email
+      </button>
+      <a href="manage.html" class="btn-manage">Gérer mes réservations</a>
+      <button class="btn-outline" onclick="resetBooking()">Nouvelle réservation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR SCREEN -->
+<div id="error-screen" style="display:none">
+  <div class="result-screen">
+    <div class="result-icon">❌</div>
+    <div class="result-title">Une erreur est survenue</div>
+    <p class="result-sub" id="error-msg">Votre paiement n'a pas pu être traité.</p>
+    <button class="btn-primary" style="width:auto;padding:12px 28px;margin:0 auto;display:block" onclick="goStep(3)">Réessayer</button>
+  </div>
+</div>
+
+<!-- Mobile sticky cart bar -->
+<div class="mobile-cart-bar" id="mobile-cart-bar" style="display:none">
+  <div class="mobile-cart-bar-info">
+    <div class="mobile-cart-bar-label" id="mobile-cart-label">Aucun cours sélectionné</div>
+    <div class="mobile-cart-bar-total" id="mobile-cart-total">—</div>
+  </div>
+  <button class="mobile-cart-bar-btn" id="mobile-cart-btn" onclick="startCheckout()" disabled>
+    Réserver →
+  </button>
+</div>
+
+<script src="../js/data.js"></script>
+<script>
+// ===== STATE =====
+let currentStep    = 1;
+let paymentMode    = 'unit';       // 'unit' | 'carnet' | 'buy'
+let cart           = [];           // [{slot, nextDate, price}]
+let loggedInClient = null;         // {firstName,lastName,email,phone,carnets:[]}
+let selectedCarnet = null;         // carnet object
+let typeFilter     = 'all';
+let locFilter      = 'all';
+let currentDay     = null;
+let stripe         = null;
+let cardElement    = null;
+let justConfirmedBookings = [];    // bookings upgraded pending→confirmed by a 2nd student
+// Buy-carnet state
+let buySelectedTarif = null;
+let buyCurrentStep   = 1;
+let buyCardElement   = null;
+
+const STRIPE_PUBLIC_KEY = (() => {
+  try { return JSON.parse(localStorage.getItem('apb_stripe') || '{}').pk || 'pk_test_VOTRE_CLE_ICI'; } catch(e) { return 'pk_test_VOTRE_CLE_ICI'; }
+})();
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  const infos = getInfos();
+  const h = infos.cancelHours || 24;
+  document.getElementById('cancel-hours-txt').textContent = h + 'h avant';
+
+  // Pre-fill from URL params (e.g. coming from manage page to rebook)
+  const params = new URLSearchParams(location.search);
+  const preSlot   = params.get('slot');
+  const preMode   = params.get('mode');
+  const preCarnet = params.get('carnet');
+  if (preMode === 'carnet') setMode('carnet');
+  else if (preMode === 'buy') setMode('buy');
+  // Restore saved session (stay logged in)
+  try {
+    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
+    if (saved && saved.email && hasClientPassword(saved.email)) {
+      const carnets = getCarnetsByEmail(saved.email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
+      if (carnets.length) {
+        loggedInClient = { firstName: saved.firstName || '', lastName: saved.lastName || '', email: saved.email, phone: saved.phone || '', carnets };
+        selectedCarnet = carnets[0];
+        setMode('carnet');
+        document.getElementById('carnet-login-panel').style.display = 'none';
+        document.getElementById('carnet-logged-panel').style.display = 'block';
+        document.getElementById('cl-logged-name').textContent = `${loggedInClient.firstName} ${loggedInClient.lastName}`.trim() || saved.email;
+        renderCarnetPicker();
+      }
+    }
+  } catch(e) {}
+
+  buildDayTabs();
+  renderCourseList();
+  if (preSlot) {
+    setTimeout(() => toggleCart(parseInt(preSlot)), 100);
+  }
+  if (preCarnet) {
+    setMode('carnet');
+  }
+  initStripe();
+});
+
+function initStripe() {
+  try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
+}
+
+// ===== MODE =====
+function setMode(mode) {
+  paymentMode = mode;
+  document.getElementById('mode-unit-btn').classList.toggle('active', mode === 'unit');
+  document.getElementById('mode-carnet-btn').classList.toggle('active', mode === 'carnet');
+  document.getElementById('mode-buy-btn').classList.toggle('active', mode === 'buy');
+
+  const isBuy = mode === 'buy';
+  document.getElementById('carnet-block').style.display   = mode === 'carnet' ? 'block' : 'none';
+  document.getElementById('buy-block').style.display      = isBuy ? 'block' : 'none';
+  document.getElementById('booking-steps').style.display  = isBuy ? 'none' : '';
+  document.getElementById('step-1').style.display         = isBuy ? 'none' : '';
+  document.getElementById('step-2').style.display         = 'none';
+  document.getElementById('step-3').style.display         = 'none';
+
+  document.getElementById('sidebar-cart').style.display   = isBuy ? 'none' : '';
+  document.getElementById('sidebar-buy').style.display    = isBuy ? 'block' : 'none';
+  document.getElementById('sidebar-info-cancel').style.display = isBuy ? 'none' : '';
+  document.getElementById('sidebar-info-carnet').style.display = isBuy ? 'block' : 'none';
+
+  document.getElementById('step-3-label').textContent = mode === 'carnet' ? 'Confirmation' : 'Paiement';
+  if (mode === 'unit') { loggedInClient = null; selectedCarnet = null; }
+  cart = [];
+  updateCartSidebar();
+  if (!isBuy) {
+    document.getElementById('booking-steps').style.display = '';
+    document.getElementById('step-1').style.display = '';
+    // Reset step indicators to step 1
+    [1,2,3].forEach(i => {
+      const ind = document.getElementById(`step-${i}-ind`);
+      ind.classList.toggle('active', i === 1);
+      ind.classList.toggle('done', false);
+      ind.querySelector('.step-num').textContent = i;
+    });
+    renderCourseList();
+  } else {
+    buySelectedTarif = null;
+    buyCardElement   = null;
+    renderBuyCarnetGrid();
+    updateBuySummary();
+    buyGoStep(1);
+  }
+}
+
+// ===== CARNET LOGIN =====
+function loginForCarnet() {
+  const email = (document.getElementById('cl-email').value || '').trim().toLowerCase();
+  const pwd   = document.getElementById('cl-password').value;
+  const errEl = document.getElementById('carnet-login-err');
+  if (!email || !email.includes('@') || !pwd) {
+    errEl.innerHTML = '<div class="alert alert-error">Veuillez renseigner email et mot de passe.</div>';
+    return;
+  }
+  if (!hasClientPassword(email)) {
+    errEl.innerHTML = '<div class="alert alert-error">Aucun compte trouvé pour cet email.</div>';
+    return;
+  }
+  if (!checkClientPassword(email, pwd)) {
+    errEl.innerHTML = '<div class="alert alert-error">Mot de passe incorrect.</div>';
+    document.getElementById('cl-password').value = '';
+    return;
+  }
+  const carnets = getCarnetsByEmail(email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
+  if (!carnets.length) {
+    errEl.innerHTML = '<div class="alert alert-error">Aucun carnet actif trouvé pour ce compte. <a href="buy-carnet.html">Acheter un carnet →</a></div>';
+    return;
+  }
+  // Get client info from first carnet
+  const c0 = carnets[0];
+  loggedInClient = {
+    firstName: c0.clientFirstName || c0.clientName || '',
+    lastName:  c0.clientLastName || '',
+    email,
+    phone: c0.clientPhone || '',
+    carnets,
+  };
+  // Auto-select the first (usually only) active carnet
+  selectedCarnet = carnets[0] || null;
+  // Persist session
+  try { localStorage.setItem('apb_session', JSON.stringify({ email, firstName: loggedInClient.firstName, lastName: loggedInClient.lastName, phone: loggedInClient.phone })); } catch(e) {}
+  errEl.innerHTML = '';
+  document.getElementById('carnet-login-panel').style.display = 'none';
+  document.getElementById('carnet-logged-panel').style.display = 'block';
+  document.getElementById('cl-logged-name').textContent = `${loggedInClient.firstName} ${loggedInClient.lastName}`.trim() || email;
+  renderCarnetPicker();
+  renderCourseList();
+}
+
+function logoutCarnet() {
+  loggedInClient = null; selectedCarnet = null;
+  try { localStorage.removeItem('apb_session'); } catch(e) {}
+  document.getElementById('carnet-login-panel').style.display = 'block';
+  document.getElementById('carnet-logged-panel').style.display = 'none';
+  document.getElementById('cl-password').value = '';
+  cart = [];
+  updateCartSidebar();
+  renderCourseList();
+}
+
+function renderCarnetPicker() {
+  if (!loggedInClient) return;
+  const html = loggedInClient.carnets.map(c => {
+    const isSel = selectedCarnet && selectedCarnet.code === c.code;
+    return `<div class="carnet-option${isSel ? ' selected' : ''}" onclick="selectCarnet('${c.code}')">
+      <div class="carnet-option-left">
+        <div class="carnet-option-name">${c.tarifName}${isSel ? ' <span style="color:var(--green);font-size:11px">✓ Actif</span>' : ''}</div>
+        <div class="carnet-option-meta">${c.expiresAt ? 'Expire le ' + c.expiresAt : ''}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="carnet-option-count">${c.remainingSessions}</div>
+        <div class="carnet-option-count-sub">séance(s)</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('carnet-picker').innerHTML = html;
+  const total = loggedInClient.carnets.reduce((s,c) => s + c.remainingSessions, 0);
+  document.getElementById('cl-carnet-summary').textContent = total + ' séance(s) disponible(s)';
+}
+
+function selectCarnet(code) {
+  if (!loggedInClient) return;
+  selectedCarnet = loggedInClient.carnets.find(c => c.code === code) || null;
+  renderCarnetPicker();
+  updateCartSidebar();
+  renderCourseList();
+}
+
+// ===== DAYS TABS =====
+function buildDayTabs() {
+  const slots = getSlots();
+  const activeDays = [...new Set(slots.map(s => s.day))].sort();
+  let html = '<button class="day-tab active" onclick="setDay(null,this)">Toute la semaine</button>';
+  activeDays.forEach(d => {
+    html += `<button class="day-tab" onclick="setDay(${d},this)">${DAYS[d]}</button>`;
+  });
+  document.getElementById('day-tabs').innerHTML = html;
+}
+
+function setDay(day, btn) {
+  currentDay = day;
+  document.querySelectorAll('.day-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCourseList();
+}
+
+function setTypeFilter(type, btn) {
+  typeFilter = type;
+  [...document.querySelectorAll('.filter-btn')].slice(0, 5).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCourseList();
+}
+
+function setLocFilter(loc, btn) {
+  locFilter = loc;
+  ['loc-all-btn','loc-assas-btn','loc-lieu2-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderCourseList();
+}
+
+// ===== COURSE LIST =====
+function renderCourseList() {
+  let slots = getSlots().sort((a,b) => a.day - b.day || a.start.localeCompare(b.start));
+  if (currentDay !== null) slots = slots.filter(s => s.day === currentDay);
+  if (typeFilter !== 'all') slots = slots.filter(s => s.type === typeFilter);
+  if (locFilter  !== 'all') slots = slots.filter(s => (s.location || 'assas') === locFilter);
+  if (paymentMode === 'carnet' && selectedCarnet) {
+    const ct = getCarnetSlotType(selectedCarnet);
+    if (ct) slots = slots.filter(s => s.type === ct);
+  }
+
+  const list = document.getElementById('courses-list');
+  if (!slots.length) { list.innerHTML = '<div class="empty-day">Aucun cours disponible pour ces critères.</div>'; return; }
+
+  const grouped = {};
+  slots.forEach(s => { if (!grouped[s.day]) grouped[s.day] = []; grouped[s.day].push(s); });
+
+  let html = '';
+  Object.keys(grouped).sort((a,b)=>a-b).forEach(day => {
+    if (currentDay === null)
+      html += `<div style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--warm);padding:16px 0 8px;margin-top:8px;border-bottom:1px solid var(--border)">${DAYS[day]}</div>`;
+    grouped[day].forEach(s => {
+      const spots   = getAvailableSpots(s);
+      const price   = getPriceForSlot(s);
+      const nextDate= getNextOccurrence(s.day);
+      const loc     = s.location || 'assas';
+      const locInfo = LOCATIONS[loc] || LOCATIONS.assas;
+
+      const inCart = cart.some(c => c.slot.id === s.id);
+      html += `<div class="course-item${inCart?' in-cart':''}${spots===0?' full':''}" onclick="toggleCart(${s.id})">
+        <div>
+          <div class="badges">
+            <span class="badge-type badge-${s.type}">${typeLabel(s.type)}</span>
+            <span class="badge-type badge-loc-${loc}">${locInfo.short}</span>
+          </div>
+          <div class="course-time">${s.start} – ${s.end}</div>
+          <div class="course-name">${s.title}</div>
+          <div class="course-teacher">👤 ${s.teacher}</div>
+          <div class="course-date">Prochain cours : ${formatDateFR(nextDate)}</div>
+        </div>
+        <div class="course-right">
+          <div class="course-add-btn">${inCart ? '✓' : '+'}</div>
+          ${paymentMode === 'carnet' && selectedCarnet
+            ? '<div class="course-price free">1 séance</div>'
+            : `<div class="course-price">${price}€</div>`}
+          ${spotsHTML(spots)}
+        </div>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+
+function getPriceForSlot(slot) {
+  const type = slot.type;
+  if (type === 'prive')     return 80;
+  if (type === 'duo')       return 50;
+  if (type === 'munz')      return 35;
+  if (type === 'collectif') return 30;
+  return 0;
+}
+
+function getAvailableSpots(slot) {
+  if (slot.type === 'prive') return 1;
+  if (slot.type === 'duo')   return 2;
+  // Production: fetch from server
+  return 8;
+}
+
+function spotsHTML(spots) {
+  if (spots === 0)  return '<div class="course-spots spots-none">Complet</div>';
+  if (spots <= 2)   return `<div class="course-spots spots-warn">${spots} place(s)</div>`;
+  return `<div class="course-spots spots-ok">${spots} places</div>`;
+}
+
+function typeLabel(type) {
+  const labels = {collectif:'Semi-collectif',prive:'Cours privé',duo:'Duo',munz:'Munz Floor'};
+  return labels[type] || type;
+}
+
+function getCarnetSlotType(carnet) {
+  if (!carnet) return null;
+  if (carnet.type) return carnet.type;
+  const name = (carnet.tarifName || '').toLowerCase();
+  if (name.includes('privé') || name.includes('prive')) return 'prive';
+  if (name.includes('duo')) return 'duo';
+  return 'collectif';
+}
+
+function toggleCart(id) {
+  const slot = getSlots().find(s => s.id === id);
+  if (!slot || getAvailableSpots(slot) === 0) return;
+  if (paymentMode === 'carnet' && !selectedCarnet) {
+    document.getElementById('carnet-block').scrollIntoView({behavior:'smooth'});
+    document.getElementById('carnet-login-err').innerHTML = '<div class="alert alert-error">Sélectionnez d\'abord un carnet.</div>';
+    return;
+  }
+  if (paymentMode === 'carnet' && selectedCarnet) {
+    const carnetType = getCarnetSlotType(selectedCarnet);
+    if (carnetType && slot.type !== carnetType) return;
+  }
+  const inCart = cart.findIndex(c => c.slot.id === id);
+  if (inCart >= 0) {
+    cart.splice(inCart, 1);
+  } else {
+    const price = paymentMode === 'carnet' ? 0 : getPriceForSlot(slot);
+    cart.push({ slot, nextDate: getNextOccurrence(slot.day), price });
+  }
+  renderCourseList();
+  updateCartSidebar();
+}
+
+function startCheckout() {
+  if (!cart.length) return;
+  if (paymentMode === 'carnet' && !selectedCarnet) {
+    document.getElementById('carnet-block').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  if (paymentMode === 'carnet') {
+    const needed = cart.length;
+    if (needed > selectedCarnet.remainingSessions) {
+      alert(`Votre carnet ne contient que ${selectedCarnet.remainingSessions} séance(s) restante(s) pour ${needed} cours sélectionnés.`);
+      return;
+    }
+  }
+  // Auto-fill form from logged-in client or saved session
+  const fillSrc = loggedInClient || (() => {
+    try { return JSON.parse(localStorage.getItem('apb_session') || 'null'); } catch(e) { return null; }
+  })();
+  if (fillSrc) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el && !el.value) el.value = val || ''; };
+    set('f-firstname', fillSrc.firstName);
+    set('f-lastname',  fillSrc.lastName);
+    set('f-email',     fillSrc.email);
+    set('f-phone',     fillSrc.phone || '');
+  }
+  goStep(2);
+}
+
+// ===== STEPS =====
+function goStep(step) {
+  if (step === 2 && !cart.length) { alert('Veuillez sélectionner au moins un cours.'); return; }
+
+  if (step === 3) {
+    const first = document.getElementById('f-firstname').value.trim();
+    const last  = document.getElementById('f-lastname').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    if (!first || !last || !email) {
+      document.getElementById('step2-alert').innerHTML = '<div class="alert alert-error">Veuillez remplir les champs obligatoires (*).</div>';
+      return;
+    }
+    if (!email.includes('@')) {
+      document.getElementById('step2-alert').innerHTML = '<div class="alert alert-error">Email invalide.</div>';
+      return;
+    }
+    document.getElementById('step2-alert').innerHTML = '';
+
+    if (paymentMode === 'unit') {
+      document.getElementById('stripe-block').style.display = 'block';
+      document.getElementById('carnet-confirm-block').style.display = 'none';
+      mountStripeCard();
+    } else {
+      document.getElementById('stripe-block').style.display = 'none';
+      document.getElementById('carnet-confirm-block').style.display = 'block';
+      document.getElementById('carnet-confirm-text').innerHTML =
+        `<strong>${selectedCarnet.tarifName}</strong> — ${selectedCarnet.remainingSessions} séance(s) restante(s)<br>
+         <strong>${cart.length} séance(s)</strong> seront déduites à la confirmation.`;
+    }
+  }
+
+  currentStep = step;
+  ['step-1','step-2','step-3'].forEach((id,i) => {
+    document.getElementById(id).style.display = (i+1 === step) ? 'block' : 'none';
+  });
+  [1,2,3].forEach(i => {
+    const ind = document.getElementById(`step-${i}-ind`);
+    ind.classList.toggle('active', i === step);
+    ind.classList.toggle('done',   i < step);
+    ind.querySelector('.step-num').textContent = i < step ? '✓' : i;
+  });
+  // Hide mobile cart bar on steps 2 & 3
+  const mBar = document.getElementById('mobile-cart-bar');
+  if (mBar) mBar.style.display = (step === 1 && cart.length) ? 'flex' : 'none';
+  updateCartSidebar();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function changeQty(delta) {
+  const max = 8;
+  const qtyEl = document.getElementById('qty-display');
+  let qty = parseInt(qtyEl.textContent) || 1;
+  qty = Math.max(1, Math.min(max, qty + delta));
+  qtyEl.textContent = qty;
+}
+
+// ===== CART SIDEBAR =====
+function updateCartSidebar() {
+  const listEl   = document.getElementById('cart-list');
+  const footerEl = document.getElementById('cart-footer');
+  const badgeEl  = document.getElementById('cart-badge');
+  const totalEl  = document.getElementById('cart-total-val');
+  const btnCount = document.getElementById('cart-btn-count');
+
+  const mBar  = document.getElementById('mobile-cart-bar');
+  const mLbl  = document.getElementById('mobile-cart-label');
+  const mTot  = document.getElementById('mobile-cart-total');
+  const mBtn  = document.getElementById('mobile-cart-btn');
+
+  if (!cart.length) {
+    listEl.innerHTML = '<div class="summary-empty">Aucun cours sélectionné</div>';
+    footerEl.style.display = 'none';
+    badgeEl.style.display  = 'none';
+    if (mBar && currentStep === 1) { mBar.style.display = 'none'; }
+    return;
+  }
+
+  const total = cart.reduce((s, c) => s + c.price, 0);
+  const totalLabel = paymentMode === 'carnet' ? cart.length + ' séance(s)' : total + '€';
+
+  listEl.innerHTML = cart.map(c => `
+    <div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${c.slot.title.replace('Cours ','')}</div>
+        <div class="cart-item-meta">${formatDateFR(c.nextDate)} · ${c.slot.start}–${c.slot.end}</div>
+        <div class="cart-item-meta">👤 ${c.slot.teacher}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <button class="cart-item-rm" onclick="removeFromCart(${c.slot.id})" title="Retirer">×</button>
+        <div class="cart-item-price">${paymentMode === 'carnet' ? '1 séance' : c.price + '€'}</div>
+      </div>
+    </div>
+  `).join('');
+
+  footerEl.style.display = 'block';
+  badgeEl.style.display  = 'flex';
+  badgeEl.textContent    = cart.length;
+  totalEl.textContent    = totalLabel;
+  btnCount.textContent   = `(${cart.length} cours)`;
+
+  // Mobile cart bar — only show on step 1
+  if (mBar) {
+    if (currentStep === 1) {
+      mBar.style.display = 'flex';
+      if (mLbl) mLbl.textContent = `${cart.length} cours sélectionné${cart.length > 1 ? 's' : ''}`;
+      if (mTot) mTot.textContent = totalLabel;
+      if (mBtn) mBtn.disabled = false;
+    } else {
+      mBar.style.display = 'none';
+    }
+  }
+}
+
+function removeFromCart(slotId) {
+  cart = cart.filter(c => c.slot.id !== slotId);
+  renderCourseList();
+  updateCartSidebar();
+}
+
+// ===== STRIPE =====
+function mountStripeCard() {
+  if (!stripe) {
+    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">⚠️ Stripe non configuré. Entrez votre clé publique dans l\'<a href="../admin/">admin</a>.</div>';
+    document.getElementById('pay-btn').disabled = true;
+    return;
+  }
+  if (cardElement) return;
+  const elements = stripe.elements({ fonts:[{cssSrc:'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400&display=swap'}] });
+  cardElement = elements.create('card', {
+    style:{ base:{ fontSize:'14px', fontFamily:"'DM Sans',sans-serif", color:'#373737', '::placeholder':{color:'#bbb'} }, invalid:{color:'#c0392b'} },
+    hidePostalCode:true,
+  });
+  cardElement.mount('#stripe-card');
+  cardElement.on('change', e => {
+    document.getElementById('card-error').textContent = e.error ? e.error.message : '';
+    document.querySelector('.stripe-element').classList.toggle('focused', e.complete);
+  });
+}
+
+// ===== PAYMENT =====
+async function processPayment() {
+  if (!stripe || !cardElement) {
+    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">⚠️ Stripe non configuré. <a href="../admin/">Configurer →</a></div>';
+    document.getElementById('pay-btn').disabled = true;
+    return;
+  }
+  const btn = document.getElementById('pay-btn');
+  btn.disabled = true; btn.textContent = 'Traitement...';
+  document.getElementById('card-error').textContent = '';
+  showLoading(true);
+
+  const total = cart.reduce((s, c) => s + c.price, 0);
+  // DEMO — simulation paiement
+  await new Promise(r => setTimeout(r, 1800));
+  showLoading(false);
+
+  const savedBookings = cart.map(item => saveNewBooking(item, 'stripe', null, total / cart.length));
+  showSuccess(savedBookings);
+}
+
+async function processCarnetBooking() {
+  if (!selectedCarnet) return;
+  showLoading(true);
+  await new Promise(r => setTimeout(r, 600));
+  showLoading(false);
+
+  let carnets = getCarnets();
+  const idx   = carnets.findIndex(c => c.code === selectedCarnet.code);
+  if (idx !== -1) {
+    carnets[idx].remainingSessions = Math.max(0, carnets[idx].remainingSessions - cart.length);
+    if (carnets[idx].remainingSessions <= 0) carnets[idx].active = false;
+    carnets[idx].bookingIds = carnets[idx].bookingIds || [];
+  }
+
+  const savedBookings = cart.map(item => {
+    const b = saveNewBooking(item, 'carnet', selectedCarnet.code, 0);
+    if (idx !== -1) carnets[idx].bookingIds.push(b.id);
+    return b;
+  });
+
+  if (idx !== -1) saveCarnets(carnets);
+
+  showSuccess(savedBookings);
+}
+
+function getClientInfo() {
+  return {
+    firstName: document.getElementById('f-firstname').value.trim(),
+    lastName:  document.getElementById('f-lastname').value.trim(),
+    email:     document.getElementById('f-email').value.trim(),
+    phone:     document.getElementById('f-phone').value.trim(),
+  };
+}
+
+function saveNewBooking(cartItem, paymentType, carnetCode, totalPaid) {
+  const participants = parseInt(document.getElementById('qty-display').textContent) || 1;
+  const slot = cartItem.slot;
+  const booking = {
+    id:             generateBookingId(),
+    slotId:         slot.id,
+    slotTitle:      slot.title,
+    slotDay:        slot.day,
+    slotStart:      slot.start,
+    slotEnd:        slot.end,
+    slotTeacher:    slot.teacher,
+    slotLocation:   slot.location || 'assas',
+    courseDate:     formatDateISO(cartItem.nextDate),
+    clientFirstName: document.getElementById('f-firstname').value.trim(),
+    clientLastName:  document.getElementById('f-lastname').value.trim(),
+    clientEmail:     document.getElementById('f-email').value.trim(),
+    clientPhone:     document.getElementById('f-phone').value.trim(),
+    clientMessage:   document.getElementById('f-message').value.trim(),
+    participants,
+    paymentType,
+    carnetCode,
+    totalPaid,
+    status:    'confirmed',
+    createdAt: new Date().toISOString(),
+    cancelledAt: null,
+  };
+
+  // Collectif: 1st student waits for a 2nd before the course is confirmed
+  if (slot.type === 'collectif') {
+    let bks = getBookings();
+    const existing = bks.filter(b =>
+      b.slotId === slot.id &&
+      b.courseDate === booking.courseDate &&
+      b.status !== 'cancelled'
+    );
+    if (existing.length === 0) {
+      booking.status = 'pending';
+    } else {
+      // Upgrade any pending bookings for this slot/date to confirmed
+      bks.forEach(b => {
+        if (b.slotId === slot.id && b.courseDate === booking.courseDate && b.status === 'pending') {
+          b.status = 'confirmed';
+          justConfirmedBookings.push({ ...b });
+        }
+      });
+      saveBookings(bks);
+    }
+  }
+
+  const bookings = getBookings();
+  bookings.push(booking);
+  saveBookings(bookings);
+  return booking;
+}
+
+// ===== SCREENS =====
+function showLoading(show) {
+  document.getElementById('loading-overlay').classList.toggle('active', show);
+}
+
+function triggerMailto(href) {
+  const a = document.createElement('a');
+  a.href = href;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => document.body.removeChild(a), 100);
+}
+
+function showSuccess(bookings) {
+  const confirmedEarlier = [...justConfirmedBookings];
+  justConfirmedBookings = [];
+
+  document.getElementById('booking-screen').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+
+  const b0      = bookings[0];
+  const total   = bookings.reduce((s, b) => s + (b.totalPaid || 0), 0);
+  const isPending = bookings.every(b => b.status === 'pending');
+
+  const rows = bookings.map(b => {
+    const loc = LOCATIONS[b.slotLocation] || LOCATIONS.assas;
+    const pendingNote = b.status === 'pending'
+      ? '<br><span style="color:#d97706;font-size:12px">⏳ En attente d\'un second participant</span>'
+      : '';
+    return `<p style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      📚 <strong>${b.slotTitle.replace('Cours ','')}</strong><br>
+      📅 ${formatDateFR(new Date(b.courseDate+'T12:00:00'))} · ${b.slotStart}–${b.slotEnd}<br>
+      📍 ${loc.name} · <span style="color:#bbb;font-size:12px">${b.id}</span>${pendingNote}
+    </p>`;
+  }).join('');
+
+  const titleEl = document.querySelector('#success-screen .result-title');
+  const subEl   = document.querySelector('#success-screen .result-sub');
+  if (titleEl) titleEl.textContent = isPending ? 'Inscription enregistrée' : 'Réservation confirmée !';
+  if (subEl)   subEl.textContent   = isPending
+    ? 'Votre inscription est bien enregistrée. Ce cours collectif sera confirmé dès qu\'un second participant rejoint ce créneau. Vous recevrez un email de confirmation automatiquement.'
+    : 'Votre réservation est enregistrée. Conservez votre référence pour annuler ou modifier.';
+
+  document.getElementById('success-details').innerHTML = `
+    <p><strong>Bonjour ${b0.clientFirstName} ${b0.clientLastName},</strong></p>
+    <p>${bookings.length > 1 ? bookings.length + (isPending ? ' inscriptions en attente :' : ' réservations confirmées :') : (isPending ? 'Votre inscription en attente :' : 'Votre réservation est confirmée :')}</p>
+    ${rows}
+    <p style="margin-top:14px;font-weight:500;color:${total > 0 ? 'var(--accent)' : 'var(--green)'}">
+      ${total > 0 ? 'Total payé : ' + total + '€' : 'Réglé par carnet'}
+    </p>
+  `;
+
+  // Email client
+  const payStr    = total > 0 ? `Total réglé : ${total}€` : 'Réglé par carnet de séances';
+  const manageUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'manage.html';
+  const lines = bookings.map(b => {
+    const d = new Date(b.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const pendingTag = b.status === 'pending' ? ' [EN ATTENTE — 2 participants requis]' : '';
+    return `  - ${b.slotTitle} : ${d} de ${b.slotStart} à ${b.slotEnd} (Réf: ${b.id})${pendingTag}`;
+  }).join('\n');
+
+  const emailSubject = isPending
+    ? `Inscription en attente — Assas Pilates Ballet`
+    : `Confirmation de réservation — Assas Pilates Ballet`;
+  const emailBody = isPending
+    ? `Bonjour ${b0.clientFirstName},\n\nVotre inscription est bien enregistrée :\n\n${lines}\n\n${payStr}\n\nCe cours semi-collectif sera confirmé automatiquement dès qu'un second participant rejoindra ce créneau. Vous recevrez alors un email de confirmation.\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`
+    : `Bonjour ${b0.clientFirstName},\n\nVotre réservation est confirmée chez Assas Pilates Ballet :\n\n${lines}\n\n${payStr}\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
+
+  setTimeout(() => triggerMailto(`mailto:${b0.clientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`), 600);
+
+  // Confirmation emails to students whose pending booking just got confirmed (2nd student effect)
+  confirmedEarlier.forEach((prevB, i) => {
+    const d = new Date(prevB.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const prevSubject = `Confirmation de réservation — Assas Pilates Ballet`;
+    const prevBody = `Bonjour ${prevB.clientFirstName},\n\nBonne nouvelle ! Votre cours est maintenant confirmé — un second participant a rejoint ce créneau.\n\n  - ${prevB.slotTitle} : ${d} de ${prevB.slotStart} à ${prevB.slotEnd} (Réf: ${prevB.id})\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
+    setTimeout(() => triggerMailto(`mailto:${prevB.clientEmail}?subject=${encodeURIComponent(prevSubject)}&body=${encodeURIComponent(prevBody)}`), 1200 + i * 400);
+  });
+
+  // Email notification professeur(s)
+  const infos = getInfos();
+  const studioEmail = infos.email || 'contact@assas-pilates-ballet.com';
+  const slotDates = [...new Set(bookings.map(b => b.slotId + '_' + b.courseDate))];
+  slotDates.forEach((key, idx) => {
+    const [slotIdStr, courseDate] = key.split('_');
+    const ref = bookings.find(b => b.slotId === parseInt(slotIdStr) && b.courseDate === courseDate);
+    if (!ref) return;
+    const allEnrolled = getBookings().filter(b => b.slotId === ref.slotId && b.courseDate === courseDate && b.status !== 'cancelled');
+    const team = getTeam();
+    const tm   = team.find(t => t.name === ref.slotTeacher);
+    const teacherEmail = (tm && tm.email) ? tm.email : studioEmail;
+    const dateLabel = new Date(courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const tSubject = `Nouvelle inscription — ${ref.slotTitle} (${dateLabel})`;
+    const pendingNote = ref.status === 'pending' ? '\n⚠️ Ce créneau est en attente d\'un second participant.' : '';
+    const tBody = `Bonjour ${ref.slotTeacher},\n\nNouvelle inscription à votre cours :${pendingNote}\n${ref.slotTitle}\n${dateLabel}, ${ref.slotStart}–${ref.slotEnd}\n\nÉlèves inscrits (${allEnrolled.length}) :\n${allEnrolled.map(b => `- ${b.clientFirstName} ${b.clientLastName}${b.status==='pending'?' (en attente)':''}`).join('\n')}\n\nCordialement,\nAssas Pilates Ballet`;
+    setTimeout(() => triggerMailto(`mailto:${teacherEmail}?subject=${encodeURIComponent(tSubject)}&body=${encodeURIComponent(tBody)}`), (1000 + confirmedEarlier.length * 400) + idx * 400);
+  });
+
+  const mailtoBtn = document.getElementById('btn-send-confirmation');
+  if (mailtoBtn) {
+    mailtoBtn.textContent = 'Renvoyer l\'email';
+    mailtoBtn.onclick = () => triggerMailto(`mailto:${b0.clientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`);
+    mailtoBtn.style.display = 'inline-flex';
+  }
+}
+
+function resetBooking() {
+  document.getElementById('booking-screen').style.display = 'block';
+  document.getElementById('success-screen').style.display = 'none';
+  cart = []; loggedInClient = null; selectedCarnet = null;
+  cardElement = null;
+  document.getElementById('stripe-card').innerHTML = '';
+  document.getElementById('cl-email').value    = '';
+  document.getElementById('cl-password').value = '';
+  document.getElementById('carnet-login-panel').style.display = 'block';
+  document.getElementById('carnet-logged-panel').style.display = 'none';
+  ['f-firstname','f-lastname','f-email','f-phone','f-message'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  setMode('unit');
+  goStep(1);
+  renderCourseList();
+}
+
+// ===== BUY CARNET (inline) =====
+function renderBuyCarnetGrid() {
+  const tarifs = getTarifs().filter(t => t.isCarnet);
+  document.getElementById('buy-carnets-grid').innerHTML = tarifs.map(t => {
+    const isSel = buySelectedTarif && buySelectedTarif.id === t.id;
+    const validity = t.validityMonths ? `Valable ${t.validityMonths} mois` : '';
+    return `<div class="carnet-choice-card${isSel ? ' selected' : ''}" onclick="buySelectCarnet(${t.id})">
+      ${t.featured ? '<div class="carnet-badge">Recommandé</div>' : ''}
+      <div>
+        <div class="carnet-label">${t.label || 'Cours semi-collectif'}</div>
+        <div class="carnet-name">${t.name}</div>
+        <div class="carnet-sessions">${t.sessions}</div>
+        <div class="carnet-tags">
+          ${validity ? `<span class="carnet-tag">${validity}</span>` : ''}
+          <span class="carnet-tag">Semi-collectif Mat</span>
+          <span class="carnet-tag">Nominatif</span>
+        </div>
+        <button class="carnet-select-btn" onclick="buySelectCarnet(${t.id});event.stopPropagation()">
+          ${isSel ? 'Sélectionné ✓' : 'Choisir ce carnet'}
+        </button>
+      </div>
+      <div class="carnet-price-col">
+        <div class="carnet-price"><span class="carnet-price-currency">€</span>${t.price}</div>
+        ${t.note ? `<div class="carnet-price-note">${t.note}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:#aaa;font-size:13px">Aucun carnet disponible pour le moment.</p>';
+}
+
+function buySelectCarnet(id) {
+  buySelectedTarif = getTarifs().find(t => t.id === id) || null;
+  renderBuyCarnetGrid();
+  updateBuySummary();
+  if (buySelectedTarif) setTimeout(() => buyGoStep(2), 200);
+}
+
+function buyGoStep(step) {
+  if (step === 2 && !buySelectedTarif) return;
+  if (step === 3) {
+    const first = document.getElementById('bf-firstname').value.trim();
+    const last  = document.getElementById('bf-lastname').value.trim();
+    const email = document.getElementById('bf-email').value.trim();
+    const pwd   = document.getElementById('bf-password').value;
+    const pwd2  = document.getElementById('bf-password2').value;
+    const alertEl = document.getElementById('buy-step2-alert');
+    if (!first || !last || !email || !pwd || !pwd2) {
+      alertEl.innerHTML = '<div class="alert alert-error">Veuillez remplir tous les champs obligatoires (*).</div>'; return;
+    }
+    if (!email.includes('@')) {
+      alertEl.innerHTML = '<div class="alert alert-error">Email invalide.</div>'; return;
+    }
+    if (pwd.length < 6) {
+      alertEl.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>'; return;
+    }
+    if (pwd !== pwd2) {
+      alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return;
+    }
+    alertEl.innerHTML = '';
+    buyMountStripe();
+  }
+  buyCurrentStep = step;
+  ['buy-step-1','buy-step-2','buy-step-3','buy-success'].forEach((id, i) => {
+    document.getElementById(id).style.display = (i + 1 === step) ? 'block' : 'none';
+  });
+  [1, 2, 3].forEach(i => {
+    const ind = document.getElementById(`buy-step-${i}-ind`);
+    ind.classList.toggle('active', i === step);
+    ind.classList.toggle('done',   i < step);
+    ind.querySelector('.step-num').textContent = i < step ? '✓' : i;
+  });
+  updateBuySummary();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateBuySummary() {
+  const el = document.getElementById('buy-summary-content');
+  if (!buySelectedTarif) {
+    el.innerHTML = '<div class="summary-empty">Aucun carnet sélectionné</div>'; return;
+  }
+  el.innerHTML = `
+    <div class="summary-row"><span class="summary-label">Carnet</span><span class="summary-val">${buySelectedTarif.name}</span></div>
+    <div class="summary-row"><span class="summary-label">Séances</span><span class="summary-val">${buySelectedTarif.sessionCount || '?'}</span></div>
+    <div class="summary-row"><span class="summary-label">Validité</span><span class="summary-val">${buySelectedTarif.validityMonths || 3} mois</span></div>
+    <div class="summary-total"><span class="label">Total</span><span class="amount">${buySelectedTarif.price}€</span></div>`;
+}
+
+function buyMountStripe() {
+  if (!stripe) {
+    document.getElementById('buy-step3-alert').innerHTML = '<div class="alert alert-error">⚠️ Stripe non configuré. Configurez votre clé dans l\'<a href="../admin/">admin</a>.</div>';
+    document.getElementById('buy-pay-btn').disabled = true;
+    return;
+  }
+  if (buyCardElement) return;
+  const elements = stripe.elements({ fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400&display=swap' }] });
+  buyCardElement = elements.create('card', {
+    style: { base: { fontSize: '14px', fontFamily: "'DM Sans',sans-serif", color: '#373737', '::placeholder': { color: '#bbb' } }, invalid: { color: '#c0392b' } },
+    hidePostalCode: true
+  });
+  buyCardElement.mount('#buy-stripe-card');
+  buyCardElement.on('change', e => {
+    document.getElementById('buy-card-error').textContent = e.error ? e.error.message : '';
+  });
+}
+
+async function buyProcessPurchase() {
+  if (!buySelectedTarif) return;
+  const btn = document.getElementById('buy-pay-btn');
+  btn.disabled = true; btn.textContent = 'Traitement...';
+  document.getElementById('buy-card-error').textContent = '';
+  showLoading(true);
+
+  await new Promise(r => setTimeout(r, 1800));
+  showLoading(false);
+
+  const first = document.getElementById('bf-firstname').value.trim();
+  const last  = document.getElementById('bf-lastname').value.trim();
+  const email = document.getElementById('bf-email').value.trim();
+  const phone = document.getElementById('bf-phone').value.trim();
+  const password = document.getElementById('bf-password').value;
+
+  const carnet = createCarnetFromPurchase(buySelectedTarif.id, first, last, email, phone);
+  if (!carnet) {
+    document.getElementById('buy-step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
+    btn.disabled = false; btn.textContent = 'Confirmer et payer'; return;
+  }
+  setClientPassword(email, password);
+
+  document.getElementById('buy-step-3').style.display = 'none';
+  document.getElementById('buy-success').style.display = 'block';
+  document.getElementById('buy-success-details').innerHTML = `
+    <p style="margin-bottom:10px"><strong>Bonjour ${carnet.clientFirstName} ${carnet.clientLastName},</strong></p>
+    <p>📦 <strong>${carnet.tarifName}</strong> — ${carnet.totalSessions} séances</p>
+    <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
+    <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
+
+  // Pre-fill carnet login for immediate booking
+  document.getElementById('cl-email').value = email;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== INVOICE =====
+function generateInvoice(bookings, client, paymentLabel) {
+  const num  = 'FAC-' + Date.now().toString(36).toUpperCase();
+  const date = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+  const total = bookings.reduce((s,b) => s + (b.totalPaid||0), 0);
+  const rows  = bookings.map(b => {
+    const d = new Date(b.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    return `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">${b.slotTitle.replace('Cours ','')}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#888">${d} ${b.slotStart}–${b.slotEnd}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${b.totalPaid > 0 ? b.totalPaid+'€' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const w = window.open('','_blank');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Facture ${num}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      body{font-family:'DM Sans',sans-serif;max-width:700px;margin:40px auto;padding:0 24px;color:#373737;font-size:14px}
+      .logo{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:.06em;margin-bottom:4px}
+      .studio-info{font-size:12px;color:#888;margin-bottom:32px;line-height:1.8}
+      .invoice-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px}
+      .invoice-num{font-size:24px;font-family:'Cormorant Garamond',serif;font-weight:300}
+      .invoice-date{font-size:13px;color:#888;margin-top:4px}
+      .client-block{background:#faf7f2;padding:16px 20px;margin-bottom:28px;border-left:3px solid #93bdb0}
+      .client-block p{line-height:1.9;margin:0;font-size:13px}
+      table{width:100%;border-collapse:collapse;margin-bottom:20px}
+      th{text-align:left;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#aaa;padding:8px 12px;border-bottom:2px solid #eee}
+      .total-row{display:flex;justify-content:space-between;padding:14px 12px;background:#373737;color:#fff;font-weight:500;font-size:16px}
+      .footer{margin-top:40px;font-size:11px;color:#bbb;text-align:center;border-top:1px solid #eee;padding-top:16px}
+      @media print{button{display:none}}
+    <\/style>
+  <\/head><body>
+    <div class="invoice-header">
+      <div>
+        <div class="logo">Assas Pilates Ballet</div>
+        <div class="studio-info">12, rue Duguay-Trouin — 75006 Paris<br>contact@assas-pilates-ballet.com · 07 45 19 24 61</div>
+      </div>
+      <div style="text-align:right">
+        <div class="invoice-num">Facture ${num}</div>
+        <div class="invoice-date">Émise le ${date}</div>
+      </div>
+    </div>
+    <div class="client-block">
+      <p><strong>${client.firstName} ${client.lastName}</strong><br>${client.email}${client.phone ? '<br>'+client.phone : ''}</p>
+    </div>
+    <table>
+      <thead><tr><th>Cours</th><th>Date & horaire</th><th style="text-align:right">Montant</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="total-row">
+      <span>${paymentLabel}</span>
+      <span>${total > 0 ? total+'€ TTC' : 'Carnet de séances'}</span>
+    </div>
+    <div class="footer">
+      Assas Pilates Ballet — Auto-entrepreneur · TVA non applicable, art. 293 B du CGI<br>
+      ${num} · ${date}
+    </div>
+    <button onclick="window.print()" style="margin-top:24px;padding:10px 24px;background:#373737;color:#fff;border:none;cursor:pointer;font-size:13px;display:block;margin-left:auto">Imprimer / Enregistrer en PDF</button>
+  <\/body><\/html>`);
+  if (w) w.document.close();
+}
+</script>
+</body>
+</html>

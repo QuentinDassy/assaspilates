@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assas Pilates Ballet — Studio Paris 6e</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <a class="nav-logo" href="#" onclick="return showPage('home')">
+    <img src="images/logo-leilapilates.png" alt="Assas Pilates Ballet" class="nav-logo-img">
+  </a>
+  <ul class="nav-links">
+    <li><a href="#" onclick="return showPage('home')" id="nav-home" class="active">Accueil</a></li>
+    <li><a href="#" onclick="return showPage('schedule')" id="nav-schedule">Cours</a></li>
+    <li><a href="#" onclick="return showPage('team')" id="nav-team">L'équipe</a></li>
+    <li><a href="#" onclick="return showPage('tarifs')" id="nav-tarifs">Tarifs</a></li>
+    <li><a href="#" onclick="return showPage('studio')" id="nav-studio">Le studio</a></li>
+    <li><a href="booking/manage.html" id="nav-manage">Mon espace</a></li>
+  </ul>
+  <button class="nav-book" onclick="window.location='booking/index.html'">Réserver</button>
+</nav>
+
+<!-- HOME -->
+<section class="site-section active" id="page-home">
+  <div class="hero">
+    <div class="hero-left">
+      <p class="hero-eyebrow">Studio Pilates — Paris 6e</p>
+      <h1 class="hero-title">Assas<br><em>Pilates</em><br>Ballet</h1>
+      <p class="hero-sub">Un studio intime fondé par Leïla Dilhac, ancienne danseuse de l'Opéra de Paris. Une approche du Pilates ancrée dans la rigueur et la précision de la danse classique.</p>
+      <button class="hero-cta" onclick="window.location='booking/index.html'">Réserver un cours</button>
+      <p class="hero-address">12 rue Duguay-Trouin — Paris 75006</p>
+    </div>
+    <div class="hero-right">
+      <img src="images/hero.jpg" alt="Assas Pilates Ballet — cours de pilates Paris 6e" class="hero-img">
+    </div>
+  </div>
+
+  <div class="pillars-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Notre approche</p>
+      <h2 class="section-title">Une expérience conçue pour vous</h2>
+    </div>
+    <div class="pillars-grid">
+      <div class="pillar">
+        <div class="pillar-num">1</div>
+        <h3>Qualité des professeur·es</h3>
+        <p>Chaque intervenant est issu du monde de la danse professionnelle, formé aux méthodes les plus exigeantes.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">2</div>
+        <h3>Un suivi personnalisé</h3>
+        <p>Des effectifs réduits pour un accompagnement individualisé à chaque séance, quel que soit votre niveau.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">3</div>
+        <h3>Un studio unique</h3>
+        <p>Un cadre intimiste au cœur du 6e arrondissement, entièrement dédié à votre pratique du Pilates.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-schedule-preview">
+    <div class="section-header">
+      <p class="section-eyebrow">Aperçu de la semaine</p>
+      <h2 class="section-title">Cours disponibles</h2>
+    </div>
+    <div id="home-schedule-grid" class="days-grid-mini"></div>
+    <div style="text-align:center;margin-top:32px">
+      <button type="button" class="nav-book" onclick="showPage('schedule'); return false;">Voir l'emploi du temps complet</button>
+    </div>
+  </div>
+</section>
+
+<!-- SCHEDULE -->
+<section class="site-section" id="page-schedule">
+  <div class="schedule-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Planning hebdomadaire</p>
+      <h2 class="section-title">Emploi du temps</h2>
+      <p class="section-sub" id="schedule-updated"></p>
+    </div>
+    <div id="schedule-grid" class="days-grid"></div>
+    <div class="schedule-legend">
+      <div class="legend-item"><span class="legend-dot collectif"></span>Semi-collectif</div>
+      <div class="legend-item"><span class="legend-dot prive"></span>Cours privé</div>
+      <div class="legend-item"><span class="legend-dot duo"></span>Duo</div>
+      <div class="legend-item"><span class="legend-dot munz"></span>Munz Floor</div>
+    </div>
+    <div class="schedule-contact">
+      Pour réserver : <a href="tel:0745192461">07 45 19 24 61</a> — <a href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a>
+      <br><br><a href="booking/index.html" class="btn-inline">Réserver en ligne →</a>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="site-section" id="page-team">
+  <div class="team-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Des professionnels passionnés</p>
+      <h2 class="section-title">L'équipe</h2>
+      <p class="section-sub">Formés aux meilleures méthodes, pour vous accompagner dans votre pratique</p>
+    </div>
+    <div id="team-grid" class="team-grid"></div>
+  </div>
+</section>
+
+<!-- TARIFS -->
+<section class="site-section" id="page-tarifs">
+  <div class="tarifs-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Nos formules</p>
+      <h2 class="section-title">Carnets & Tarifs</h2>
+    </div>
+    <div id="tarifs-grid" class="tarifs-grid"></div>
+    <div class="tarif-reduction">
+      <strong>Tarifs -26 ans</strong> : 10% de réduction sur présentation d'une carte d'identité
+    </div>
+  </div>
+</section>
+
+<!-- STUDIO -->
+<section class="site-section" id="page-studio">
+  <div class="studio-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Notre espace</p>
+      <h2 class="section-title">Le studio</h2>
+    </div>
+    <div class="studio-content">
+      <div class="studio-photos">
+        <img src="images/barre-vestiaire.jpg" alt="Salle de barre — Assas Pilates Ballet" class="studio-photo studio-photo-main">
+        <img src="images/studio-salle.jpg" alt="Salle de pilates" class="studio-photo">
+        <img src="images/reformer-handles.jpg" alt="Reformer Pilates" class="studio-photo">
+      </div>
+      <div class="studio-text">
+        <h3>Un espace pensé pour la pratique</h3>
+        <p>Niché au cœur du 6e arrondissement, notre studio a été conçu pour offrir un cadre intimiste propice à la concentration et au travail en profondeur.</p>
+        <p>Équipé de machines Pilates de haute qualité, il accueille des cours en petit groupe et des séances privées, garantissant une attention constante à chaque élève.</p>
+        <div class="studio-adresses">
+          <div class="adresse-item">
+            <div class="adresse-label">Cours de Pilates</div>
+            <div class="adresse-text">12, rue Duguay-Trouin — Paris 75006</div>
+          </div>
+          <div class="adresse-item">
+            <div class="adresse-label">Cours de Munz Floor®</div>
+            <div class="adresse-text">30, rue Monsieur Le Prince — Paris 75006</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INFOS -->
+<section class="site-section" id="page-infos">
+  <div class="infos-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Tout ce qu'il faut savoir</p>
+      <h2 class="section-title">Informations pratiques</h2>
+    </div>
+    <div class="infos-grid">
+      <div class="info-block">
+        <h3>Annulation & Ponctualité</h3>
+        <p id="info-annulation">Votre créneau est précieux. Si vous ne pouvez pas venir, merci d'annuler au moins <strong>24h avant</strong>. Toute annulation tardive sera due.</p>
+        <p style="margin-top:12px" id="info-retard">Au-delà de <strong>10 minutes de retard</strong>, nous ne pourrons pas vous accueillir. Ce cours restera dû.</p>
+      </div>
+      <div class="info-block">
+        <h3>Tenue & Équipement</h3>
+        <p>Venez en tenue souple et confortable. Les chaussettes antidérapantes sont obligatoires pour les cours sur machine.</p>
+      </div>
+      <div class="info-block">
+        <h3>Accès au studio</h3>
+        <p>Studio situé au cœur du 6e, accessible en métro (lignes 4, 10, 12) ou en vélib.</p>
+        <p style="margin-top:8px"><strong id="info-addr1">12, rue Duguay-Trouin — 75006 Paris</strong></p>
+      </div>
+      <div class="contact-block">
+        <h3>Contact & Réservations</h3>
+        <p>Réservez votre créneau en ligne ou contactez l'équipe directement.</p>
+        <p style="margin-top:16px"><a id="info-tel-link" href="tel:0745192461">07 45 19 24 61</a></p>
+        <p><a id="info-email-link" href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a></p>
+        <p style="margin-top:16px"><a href="https://www.instagram.com/assaspilatesballet/" target="_blank">@assaspilatesballet</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div>
+    <div class="footer-logo">Assas Pilates Ballet</div>
+    <p class="footer-tagline">Un studio fondé par Leïla Dilhac,<br>ancienne danseuse de l'Opéra de Paris.</p>
+  </div>
+  <div class="footer-col">
+    <h4>Navigation</h4>
+    <a href="#" onclick="return showPage('home')">Accueil</a>
+    <a href="#" onclick="return showPage('schedule')">Emploi du temps</a>
+    <a href="#" onclick="return showPage('team')">L'équipe</a>
+    <a href="#" onclick="return showPage('tarifs')">Carnets</a>
+    <a href="#" onclick="return showPage('studio')">Le studio</a>
+    <a href="#" onclick="return showPage('infos')">Infos pratiques</a>
+    <a href="booking/index.html">Réservation en ligne</a>
+  </div>
+  <div class="footer-col">
+    <h4>Contact</h4>
+    <p>12, rue Duguay-Trouin</p>
+    <p>Paris 75006</p>
+    <p style="margin-top:8px"><a href="tel:0745192461">07 45 19 24 61</a></p>
+    <a href="mailto:contact@assas-pilates-ballet.com">contact@assas-pilates-ballet.com</a>
+    <a href="https://www.instagram.com/assaspilatesballet/" target="_blank">Instagram</a>
+  </div>
+</footer>
+<div class="footer-bottom">
+  <p>© 2025 Assas Pilates Ballet</p>
+  <p><a href="#">Mentions légales</a> — <a href="#">CGV</a></p>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/site.js"></script>
+</body>
+</html>
