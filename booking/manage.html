@@ -22,6 +22,8 @@ a:hover{opacity:.75}
 .nav-back{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm)}
 .nav-link{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);border:1px solid var(--border);padding:7px 16px;transition:all .15s}
 .nav-link:hover{border-color:var(--dark);color:var(--dark);opacity:1}
+.nav-link-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.nav-link-primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ===== LOGIN ===== */
 #login-screen{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
@@ -73,6 +75,8 @@ a:hover{opacity:.75}
 .dash-section-title{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--warm)}
 .dash-section-action{font-size:11px;color:var(--accent);letter-spacing:.08em;transition:opacity .2s}
 .dash-section-action:hover{opacity:.7}
+.dash-cta-btn{display:inline-block;padding:9px 20px;background:var(--navy);color:#fff;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-family:var(--font-sans);transition:background .18s;white-space:nowrap}
+.dash-cta-btn:hover{background:var(--accent);opacity:1}
 
 /* CARNET CARD */
 .carnet-card{background:#fff;border:1px solid var(--border);padding:20px 28px;margin-bottom:8px;transition:box-shadow .2s}
@@ -191,7 +195,7 @@ a:hover{opacity:.75}
   <a class="nav-logo" href="../index.html"><img src="../images/logo-leilapilates.png" alt="Assas Pilates Ballet" class="nav-logo-img"></a>
   <div class="nav-links">
     <a class="nav-back" href="../index.html">← Retour au site</a>
-    <a class="nav-link" href="index.html">Réserver un cours</a>
+    <a class="nav-link nav-link-primary" href="index.html">Réserver un cours</a>
     <a class="nav-link" href="buy-carnet.html">Acheter un carnet</a>
   </div>
 </nav>
@@ -255,7 +259,7 @@ a:hover{opacity:.75}
     <div class="dash-section">
       <div class="dash-section-header">
         <div class="dash-section-title">Mes carnets</div>
-        <a class="dash-section-action" href="buy-carnet.html">+ Acheter un carnet</a>
+        <a class="dash-cta-btn" href="buy-carnet.html">+ Acheter un carnet</a>
       </div>
       <div class="dash-tabs" id="carnet-tabs">
         <button class="dash-tab active" onclick="showCarnetTab('active',this)">
@@ -273,7 +277,7 @@ a:hover{opacity:.75}
     <div class="dash-section">
       <div class="dash-section-header">
         <div class="dash-section-title">Mes cours</div>
-        <a class="dash-section-action" href="index.html">+ Réserver un cours</a>
+        <a class="dash-cta-btn" href="index.html">+ Réserver un cours</a>
       </div>
       <div class="dash-tabs" id="cours-tabs">
         <button class="dash-tab active" onclick="showCoursTab('upcoming',this)">
