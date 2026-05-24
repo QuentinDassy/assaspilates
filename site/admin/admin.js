@@ -247,6 +247,7 @@ function saveMember() {
   const m = {
     id:    id ? parseInt(id) : teamNextId++,
     name:  document.getElementById('member-name').value.trim(),
+    email: document.getElementById('member-email').value.trim(),
     role:  document.getElementById('member-role').value.trim(),
     bio:   document.getElementById('member-bio').value.trim(),
     tags:  document.getElementById('member-tags').value.trim(),
@@ -265,12 +266,13 @@ function saveMember() {
 function editMember(id) {
   const m = getTeam().find(t => t.id === id);
   if (!m) return;
-  document.getElementById('member-id').value    = m.id;
-  document.getElementById('member-name').value  = m.name;
-  document.getElementById('member-role').value  = m.role;
-  document.getElementById('member-bio').value   = m.bio;
-  document.getElementById('member-tags').value  = m.tags || '';
-  document.getElementById('member-order').value = m.order || 0;
+  document.getElementById('member-id').value     = m.id;
+  document.getElementById('member-name').value   = m.name;
+  document.getElementById('member-email').value  = m.email || '';
+  document.getElementById('member-role').value   = m.role;
+  document.getElementById('member-bio').value    = m.bio;
+  document.getElementById('member-tags').value   = m.tags || '';
+  document.getElementById('member-order').value  = m.order || 0;
   document.getElementById('team-form-title').textContent = 'Modifier ' + m.name;
 }
 
@@ -282,7 +284,7 @@ function deleteMember(id) {
 }
 
 function resetMemberForm() {
-  ['member-id','member-name','member-role','member-bio','member-tags'].forEach(id => {
+  ['member-id','member-name','member-email','member-role','member-bio','member-tags'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('member-order').value = '0';

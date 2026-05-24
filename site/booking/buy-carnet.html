@@ -78,10 +78,10 @@ a:hover{opacity:.75}
 .card-error{color:var(--error);font-size:12px;min-height:18px;margin-top:-8px}
 
 /* BUTTONS */
-.btn-primary{width:100%;padding:14px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
+.btn-primary{width:100%;padding:14px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px;border-radius:6px}
 .btn-primary:hover{background:var(--accent)}
 .btn-primary:disabled{background:#ccc;cursor:not-allowed}
-.btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
+.btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;border-radius:6px}
 .btn-outline:hover{border-color:var(--dark);color:var(--dark)}
 
 /* SIDEBAR */
@@ -332,6 +332,37 @@ const STRIPE_PUBLIC_KEY = (() => {
 document.addEventListener('DOMContentLoaded', () => {
   renderCarnetChoices();
   try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
+  // Pre-fill from saved session
+  try {
+    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
+    if (saved && saved.email) {
+      const emailEl = document.getElementById('f-email');
+      if (emailEl) {
+        emailEl.value = saved.email;
+        if (saved.firstName) {
+          const fn = document.getElementById('f-firstname');
+          const ln = document.getElementById('f-lastname');
+          const ph = document.getElementById('f-phone');
+          if (fn) fn.value = saved.firstName;
+          if (ln) ln.value = saved.lastName || '';
+          if (ph) ph.value = saved.phone || '';
+          document.getElementById('client-info-section').style.display = 'block';
+          isReturningClient = hasClientPassword(saved.email);
+          const pwSection  = document.getElementById('new-password-section');
+          const existPw    = document.getElementById('existing-password-section');
+          const retBanner  = document.getElementById('returning-banner');
+          if (isReturningClient) {
+            if (pwSection)  pwSection.style.display  = 'none';
+            if (existPw)    existPw.style.display    = 'block';
+            if (retBanner)  retBanner.style.display  = 'block';
+          } else {
+            if (pwSection)  pwSection.style.display  = 'block';
+            if (existPw)    existPw.style.display    = 'none';
+          }
+        }
+      }
+    }
+  } catch(e) {}
 });
 
 function renderCarnetChoices() {
