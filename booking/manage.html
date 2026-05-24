@@ -179,14 +179,28 @@ a:hover{opacity:.75}
 @media(max-width:768px){
   #login-screen{grid-template-columns:1fr}
   .login-visual{display:none}
-  .login-form-side{padding:48px 24px}
+  .login-form-side{padding:40px 24px}
+  .nav{flex-wrap:nowrap;padding:0 4%}
+  .nav-links{gap:8px}
+  .nav-link{padding:5px 10px;font-size:10px}
 }
 @media(max-width:640px){
   .booking-item-compact{flex-wrap:wrap}
   .dash-header{flex-direction:column;align-items:flex-start}
-  .dashboard-wrap{padding:36px 16px 64px}
+  .dashboard-wrap{padding:32px 16px 56px}
   .carnet-compact-sessions{font-size:24px}
   .carnet-card{padding:16px 18px}
+  .login-card{padding:24px 20px}
+  .login-inner{max-width:100%}
+  .dash-section-header{flex-wrap:wrap;gap:8px}
+  .dash-cta-btn{padding:7px 14px;font-size:10px}
+  .dash-tabs{overflow-x:auto;scrollbar-width:none}
+  .dash-tabs::-webkit-scrollbar{display:none}
+  .dash-tab{flex-shrink:0}
+}
+@media(max-width:520px){
+  .nav-link-primary{display:none}
+  .nav-back{font-size:10px}
 }
 </style>
 </head>

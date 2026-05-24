@@ -323,10 +323,29 @@ a{color:var(--accent);text-decoration:none}
   .carnet-choice-card{grid-template-columns:1fr;gap:12px;padding:16px}
   .carnet-price{font-size:36px}
 
-  /* View toggle + week view */
-  .view-toggle{width:100%}
-  .view-btn{flex:1;text-align:center}
-  .week-grid{grid-template-columns:repeat(7,130px)}
+  /* View toggle: hide on mobile — always list view */
+  .view-toggle{display:none}
+  .page-sub{display:none}
+  .week-view-wrap{display:none}
+
+  /* Carnet panel */
+  .carnet-panel{padding:16px}
+  .carnet-option-body{flex-wrap:wrap;gap:8px}
+  .carnet-option-count{font-size:26px}
+
+  /* Buy carnet cards */
+  .carnet-choice-card{grid-template-columns:1fr;gap:12px;padding:16px}
+  .carnet-price{font-size:36px}
+  .carnet-price-col{text-align:left}
+}
+
+@media(max-width:480px){
+  .nav-logo-img{height:32px}
+  .nav-back{display:none}
+  .mode-btn{padding:9px 6px;font-size:9px;letter-spacing:.06em}
+  .steps{margin-bottom:18px}
+  .booking-layout{padding:24px 12px 80px}
+  .carnet-choice-card{padding:14px}
 }
 </style>
 </head>
@@ -707,7 +726,12 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e) {}
 
   buildDayTabs();
-  renderWeekView();
+  // On mobile, always use list view
+  if (window.innerWidth <= 768) {
+    setViewMode('list');
+  } else {
+    renderWeekView();
+  }
   if (preSlot) {
     setTimeout(() => toggleCart(parseInt(preSlot)), 100);
   }

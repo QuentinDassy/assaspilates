@@ -23,7 +23,28 @@
     <li><a href="booking/manage.html" id="nav-manage">Mon espace</a></li>
   </ul>
   <button class="nav-book" onclick="window.location='booking/index.html'">Réserver</button>
+  <button class="nav-hamburger" onclick="toggleMobileNav(true)" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="nav-mobile-overlay" id="nav-mobile-overlay">
+  <div class="nav-mobile-header">
+    <a class="nav-logo" href="#" onclick="toggleMobileNav(false);return showPage('home')">
+      <img src="images/logo-leilapilates.png" alt="Assas Pilates Ballet" class="nav-logo-img">
+    </a>
+    <button class="nav-mobile-close" onclick="toggleMobileNav(false)" aria-label="Fermer">✕</button>
+  </div>
+  <nav class="nav-mobile-links">
+    <a href="#" onclick="toggleMobileNav(false);return showPage('home')" id="mnav-home" class="active">Accueil</a>
+    <a href="#" onclick="toggleMobileNav(false);return showPage('schedule')" id="mnav-schedule">Cours</a>
+    <a href="#" onclick="toggleMobileNav(false);return showPage('team')" id="mnav-team">L'équipe</a>
+    <a href="#" onclick="toggleMobileNav(false);return showPage('tarifs')" id="mnav-tarifs">Tarifs</a>
+    <a href="#" onclick="toggleMobileNav(false);return showPage('studio')" id="mnav-studio">Le studio</a>
+    <a href="booking/manage.html">Mon espace</a>
+  </nav>
+  <a class="nav-mobile-cta" href="booking/index.html">Réserver un cours</a>
+</div>
 
 <!-- HOME -->
 <section class="site-section active" id="page-home">
@@ -69,6 +90,7 @@
       <p class="section-eyebrow">Aperçu de la semaine</p>
       <h2 class="section-title">Cours disponibles</h2>
     </div>
+    <div id="home-schedule-mobile-tabs" class="mobile-day-tabs"></div>
     <div id="home-schedule-grid" class="days-grid-mini"></div>
     <div style="text-align:center;margin-top:32px">
       <button type="button" class="nav-book" onclick="showPage('schedule'); return false;">Voir l'emploi du temps complet</button>
@@ -84,6 +106,7 @@
       <h2 class="section-title">Emploi du temps</h2>
       <p class="section-sub" id="schedule-updated"></p>
     </div>
+    <div id="schedule-mobile-tabs" class="mobile-day-tabs"></div>
     <div id="schedule-grid" class="days-grid"></div>
     <div class="schedule-legend">
       <div class="legend-item"><span class="legend-dot munz"></span>Munz Floor — lieu Rue de Sèvres</div>

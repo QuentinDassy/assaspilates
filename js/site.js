@@ -6,12 +6,27 @@
 function showPage(page) {
   document.querySelectorAll('.site-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.nav-mobile-links a').forEach(a => a.classList.remove('active'));
   const section = document.getElementById('page-' + page);
   if (section) section.classList.add('active');
   const link = document.getElementById('nav-' + page);
   if (link) link.classList.add('active');
+  const mlink = document.getElementById('mnav-' + page);
+  if (mlink) mlink.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   return false;
+}
+
+function toggleMobileNav(open) {
+  const overlay = document.getElementById('nav-mobile-overlay');
+  if (!overlay) return;
+  if (open) {
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } else {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
 }
 
 // ===== RENDER SCHEDULE =====
@@ -23,7 +38,7 @@ function renderSchedule(containerId, mini = false) {
   let html = '';
   DAYS.forEach((day, di) => {
     const daySlots = slots.filter(s => s.day === di).sort((a, b) => a.start.localeCompare(b.start));
-    html += `<div class="day-col">
+    html += `<div class="day-col" data-day="${di}">
       <div class="day-header">${mini ? DAYS_SHORT[di] : day}</div>
       <div class="day-slots">`;
     if (!daySlots.length) {
@@ -50,11 +65,41 @@ function renderSchedule(containerId, mini = false) {
 
   container.innerHTML = html;
 
+  // Populate mobile day-tabs
+  const tabsId = mini ? 'home-schedule-mobile-tabs' : 'schedule-mobile-tabs';
+  const tabsEl = document.getElementById(tabsId);
+  if (tabsEl) {
+    const today = (new Date().getDay() + 6) % 7; // Mon=0
+    let firstWithSlots = -1;
+    tabsEl.innerHTML = DAYS_SHORT.map((label, di) => {
+      const hasSlots = slots.some(s => s.day === di);
+      if (hasSlots && firstWithSlots === -1) firstWithSlots = di;
+      return `<button class="mobile-day-tab" data-di="${di}" onclick="setMobileScheduleDay('${tabsId}','${containerId}',${di})">${label}</button>`;
+    }).join('');
+    const initialDay = slots.some(s => s.day === today) ? today : (firstWithSlots >= 0 ? firstWithSlots : 0);
+    setMobileScheduleDay(tabsId, containerId, initialDay);
+  }
+
   const upd = document.getElementById('schedule-updated');
   if (upd) {
     const now = new Date();
     upd.textContent = `Dernière mise à jour : ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}`;
   }
+}
+
+function setMobileScheduleDay(tabsId, gridId, di) {
+  const tabsEl = document.getElementById(tabsId);
+  const gridEl = document.getElementById(gridId);
+  if (!tabsEl || !gridEl) return;
+  tabsEl.querySelectorAll('.mobile-day-tab').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.di) === di);
+  });
+  gridEl.querySelectorAll('.day-col').forEach(col => {
+    col.classList.toggle('mobile-active', parseInt(col.dataset.day) === di);
+  });
+  // Scroll active tab into view
+  const activeTab = tabsEl.querySelector('.mobile-day-tab.active');
+  if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
 
 // ===== RENDER TEAM =====
