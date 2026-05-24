@@ -9,7 +9,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --cream:#faf7f2;--dark:#373737;--mid:#5c5c5c;--warm:#0A8B7D;--accent:#1AC4AE;
+  --cream:#faf7f2;--dark:#373737;--navy:#1A3A5C;--mid:#5c5c5c;--warm:#0A8B7D;--accent:#1AC4AE;
   --border:#e2ddd6;--success:#2d6a2d;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
@@ -31,7 +31,7 @@ a{color:var(--accent);text-decoration:none}
 /* MODE TOGGLE */
 .mode-toggle{display:flex;gap:0;border:1px solid var(--border);background:#fff;margin-bottom:28px;width:fit-content}
 .mode-btn{padding:10px 22px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-family:var(--font-sans);background:none;border:none;cursor:pointer;color:#999;transition:all .15s;white-space:nowrap}
-.mode-btn.active{background:var(--dark);color:#fff}
+.mode-btn.active{background:var(--navy);color:#fff}
 
 .carnet-input-block{background:#fff;border:1px solid var(--border);padding:20px;margin-bottom:24px}
 .carnet-input-block label{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#666;display:block;margin-bottom:8px}
@@ -55,7 +55,7 @@ a{color:var(--accent);text-decoration:none}
 /* FILTERS */
 .filters-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .filter-btn{padding:6px 14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;letter-spacing:.08em;font-family:var(--font-sans);transition:all .15s}
-.filter-btn.active{background:var(--dark);color:#fff;border-color:var(--dark)}
+.filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .filter-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
 
 .day-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
@@ -111,7 +111,7 @@ a{color:var(--accent);text-decoration:none}
 .carnet-confirm-box p{font-size:13px;color:#444;line-height:1.7}
 
 /* BUTTONS */
-.btn-primary{width:100%;padding:14px;background:var(--dark);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
+.btn-primary{width:100%;padding:14px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
 .btn-primary:hover{background:var(--accent)}
 .btn-primary:disabled{background:#ccc;cursor:not-allowed}
 .btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
@@ -172,15 +172,13 @@ a{color:var(--accent);text-decoration:none}
 .week-slot.in-cart{border-color:var(--dark);background:var(--cream)}
 .week-slot.full{opacity:.4;cursor:not-allowed}
 .week-slot.munz{border-left-color:#D4845A;background:#FEF5EF;border-left-width:3px}
-.week-slot-badge{display:inline-block;font-size:8px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;margin-bottom:5px}
-.week-slot-badge.collectif{background:#E4F9F7;color:#0A6E63}
-.week-slot-badge.prive{background:#F5F0FF;color:#6A3FA0}
-.week-slot-badge.duo{background:#EEF4FF;color:#2A5FAA}
+.week-slot-badge{display:inline-block;font-size:8px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;margin-bottom:5px;background:#f0ede6;color:#888}
 .week-slot-badge.munz{background:#FEF0E8;color:#A0521A}
 .week-slot-time{font-size:11px;color:var(--warm);letter-spacing:.04em;margin-bottom:4px}
-.week-slot-name{font-size:12px;font-weight:500;color:var(--dark);line-height:1.3;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.week-slot-name{font-family:var(--font-serif);font-size:14px;font-weight:400;color:var(--dark);line-height:1.25;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .week-slot-teacher{font-size:10px;color:#bbb;margin-top:2px}
 .week-slot-price{font-size:11px;font-weight:500;color:var(--dark);margin-top:4px}
+.week-day-date{font-size:10px;font-weight:300;opacity:.65;margin-top:2px;letter-spacing:0}
 .week-no-slot{padding:16px 6px;text-align:center;color:#ddd;font-size:11px;font-style:italic}
 .week-legend{display:flex;gap:20px;flex-wrap:wrap;padding:10px 4px;margin-top:2px}
 .week-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mid)}
@@ -195,8 +193,8 @@ a{color:var(--accent);text-decoration:none}
 .cart-item-name{font-weight:500;font-size:13px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cart-item-meta{font-size:11px;color:#aaa;line-height:1.5}
 .cart-item-price{font-weight:500;white-space:nowrap;font-size:13px;color:var(--dark);text-align:right}
-.cart-item-rm{cursor:pointer;color:#ccc;font-size:20px;line-height:1;padding:0 2px;background:none;border:none;flex-shrink:0;transition:color .15s;align-self:flex-start}
-.cart-item-rm:hover{color:var(--error)}
+.cart-item-rm{cursor:pointer;color:#c0392b;font-size:16px;line-height:1;padding:3px 7px;background:#fdf0f0;border:none;flex-shrink:0;transition:all .15s;align-self:flex-start;border-radius:3px}
+.cart-item-rm:hover{background:#c0392b;color:#fff}
 .cart-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--accent);color:#fff;border-radius:50%;font-size:11px;margin-left:8px;vertical-align:middle}
 /* CARNET LOGIN */
 .carnet-panel{background:#fff;border:1px solid var(--border);padding:20px 24px;margin-bottom:24px}
@@ -903,8 +901,10 @@ function renderWeekView() {
   let html = '';
   for (let d = 0; d < 7; d++) {
     const daySlots = byDay[d];
+    const colDate = getNextOccurrence(d);
+    const colDateStr = colDate.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
     html += `<div class="week-col">
-      <div class="week-day-header">${DAYS[d]}</div>
+      <div class="week-day-header">${DAYS[d]}<div class="week-day-date">${colDateStr}</div></div>
       <div class="week-slots">`;
     if (!daySlots.length) {
       html += `<div class="week-no-slot">—</div>`;
