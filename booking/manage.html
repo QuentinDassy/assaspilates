@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--mid:#5c5c5c;--muted:#8c8c8c;
-  --warm:#3D9585;--accent:#6BB5A8;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
+  --warm:#0A8B7D;--accent:#1AC4AE;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
 body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
@@ -61,9 +61,9 @@ a:hover{opacity:.75}
 .alert-info{background:#FFF8F0;border-color:#E8D8C0;color:var(--warm)}
 
 /* ===== DASHBOARD ===== */
-.dashboard-wrap{max-width:800px;margin:0 auto;padding:52px 24px 96px}
+.dashboard-wrap{max-width:1140px;margin:0 auto;padding:52px 24px 96px;display:grid;grid-template-columns:340px 1fr;gap:40px;align-items:start}
 
-.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:56px;flex-wrap:wrap;gap:16px;padding-bottom:40px;border-bottom:1px solid var(--border)}
+.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:0;flex-wrap:wrap;gap:16px;padding-bottom:40px;border-bottom:1px solid var(--border);grid-column:1/-1}
 .dash-greeting{font-family:var(--font-serif);font-size:clamp(32px,5vw,48px);font-weight:300;color:var(--dark);letter-spacing:.02em;line-height:1.1}
 .dash-greeting span{font-style:italic;color:var(--warm)}
 .dash-email-badge{font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:.04em}
@@ -78,12 +78,20 @@ a:hover{opacity:.75}
 .carnet-card{background:#fff;border:1px solid var(--border);padding:20px 28px;margin-bottom:8px;transition:box-shadow .2s}
 .carnet-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.05)}
 .carnet-card.featured-card{border-color:var(--accent)}
+.carnet-card[data-type="collectif"]{border-left:3px solid #1AC4AE}
+.carnet-card[data-type="prive"]{border-left:3px solid #9B72BD}
+.carnet-card[data-type="duo"]{border-left:3px solid #5B8FD4}
+.carnet-card[data-type="munz"]{border-left:3px solid #D4845A}
 
 /* Compact header row (always visible) */
 .carnet-compact-row{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none}
 .carnet-compact-left{flex:1;min-width:0}
-.carnet-compact-name{font-family:var(--font-serif);font-size:20px;font-weight:300;color:var(--dark);margin:3px 0 1px;letter-spacing:.02em}
-.carnet-type-badge{font-size:11px;color:var(--warm);letter-spacing:.04em;margin-top:1px}
+.carnet-compact-name{font-family:var(--font-serif);font-size:24px;font-weight:400;color:var(--dark);margin:4px 0 3px;letter-spacing:.02em}
+.carnet-type-badge{display:inline-block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 9px;border-radius:2px;font-weight:500;margin-top:2px}
+.carnet-type-badge.type-collectif{background:#E4F9F7;color:#0A6E63}
+.carnet-type-badge.type-prive{background:#F5F0FF;color:#6A3FA0}
+.carnet-type-badge.type-duo{background:#EEF4FF;color:#2A5FAA}
+.carnet-type-badge.type-munz{background:#FEF0E8;color:#A0521A}
 .carnet-compact-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .carnet-compact-sessions{font-family:var(--font-serif);font-size:30px;font-weight:300;color:var(--dark);line-height:1}
 .carnet-compact-sub{font-size:9px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;line-height:1.2;text-align:right;max-width:42px}
@@ -158,6 +166,9 @@ a:hover{opacity:.75}
 .result-sub{font-size:14px;color:#888;line-height:1.8;margin-bottom:28px}
 .result-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 
+@media(max-width:960px){
+  .dashboard-wrap{grid-template-columns:1fr;gap:24px}
+}
 @media(max-width:768px){
   #login-screen{grid-template-columns:1fr}
   .login-visual{display:none}
@@ -406,14 +417,16 @@ function renderCarnets(carnets) {
     const actions = isActive
       ? `<a href="index.html?mode=carnet&carnet=${encodeURIComponent(c.code)}" class="btn-outline btn-sm">Utiliser ce carnet</a>`
       : `<a href="buy-carnet.html" class="btn-outline btn-sm">Renouveler</a>`;
+    const resolvedType = resolveCarnetType(c);
     const typeLabel = carnetTypeLabel(c);
+    const typeClass = ` type-${resolvedType}`;
     const safeCode  = c.code.replace(/'/g, "\\'");
-    return `<div class="carnet-card${c.featured ? ' featured-card' : ''}" id="carnet-${c.code}">
+    return `<div class="carnet-card${c.featured ? ' featured-card' : ''}" id="carnet-${c.code}" data-type="${resolvedType}">
       <div class="carnet-compact-row" onclick="toggleCarnet('${safeCode}')">
         <div class="carnet-compact-left">
           ${badge}
           <div class="carnet-compact-name">${c.tarifName || 'Carnet'}</div>
-          <div class="carnet-type-badge">Valable pour : ${typeLabel}</div>
+          <div class="carnet-type-badge${typeClass}">Valable pour : ${typeLabel}</div>
         </div>
         <div class="carnet-compact-right">
           <div style="text-align:right">
@@ -675,15 +688,20 @@ function forgotPassword() {
 }
 
 // ===== CARNET HELPERS =====
+function resolveCarnetType(c) {
+  if (c.type) return c.type;
+  const n = (c.tarifName || '').toLowerCase();
+  if (n.includes('privé') || n.includes('prive')) return 'prive';
+  if (n.includes('duo'))  return 'duo';
+  if (n.includes('munz')) return 'munz';
+  return 'collectif';
+}
+
 function carnetTypeLabel(carnet) {
-  const t = carnet.type;
+  const t = resolveCarnetType(carnet);
   if (t === 'prive') return 'Cours privé Mat + Machine';
   if (t === 'duo')   return 'Cours Duo Wall Unit';
   if (t === 'munz')  return 'Munz Floor®';
-  const name = (carnet.tarifName || '').toLowerCase();
-  if (name.includes('privé') || name.includes('prive')) return 'Cours privé';
-  if (name.includes('duo'))  return 'Cours Duo Wall Unit';
-  if (name.includes('munz')) return 'Munz Floor®';
   return 'Semi-collectif Mat';
 }
 

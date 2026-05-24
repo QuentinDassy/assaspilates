@@ -11,8 +11,8 @@
   --dark: #373737;
   --mid: #5c5c5c;
   --muted: #8c8c8c;
-  --warm: #3D9585;
-  --accent: #6BB5A8;
+  --warm: #0A8B7D;
+  --accent: #1AC4AE;
   --light-border: #e2ddd6;
   --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-sans: 'DM Sans', system-ui, sans-serif;
@@ -162,15 +162,12 @@ a:hover { opacity: .75; }
 .day-slots { padding: 8px; }
 .slot {
   padding: 9px 8px; margin-bottom: 6px;
-  border-left: 2px solid var(--accent); background: var(--white);
+  border-left: 2px solid var(--light-border); background: var(--white);
   transition: border-color .15s;
 }
-.slot-time { color: var(--warm); font-size: 10px; letter-spacing: .06em; margin-bottom: 3px; }
-.slot-title { font-weight: 500; color: var(--dark); font-size: 12px; line-height: 1.35; margin-bottom: 3px; }
-.slot-teacher { color: #aaa; font-size: 10px; }
-.slot.prive { border-left-color: #9B72BD; background: #F8F4FF; }
-.slot.duo { border-left-color: #5B8FD4; background: #EEF4FF; }
-.slot.collectif { border-left-color: var(--accent); }
+.slot-time { color: var(--warm); font-size: 11px; letter-spacing: .06em; margin-bottom: 3px; }
+.slot-title { font-weight: 500; color: var(--dark); font-size: 13px; line-height: 1.35; margin-bottom: 3px; }
+.slot-teacher { color: #aaa; font-size: 11px; }
 .slot.munz { border-left-color: #D4845A; background: #FEF5EF; border-left-width: 3px; }
 .no-class { padding: 22px 6px; text-align: center; color: #ccc; font-size: 11px; font-style: italic; }
 
