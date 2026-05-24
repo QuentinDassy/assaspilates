@@ -13,7 +13,7 @@
   --border:#e2ddd6;--success:#2d6a2d;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
-body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
+body{font-family:var(--font-sans);background:#fff;color:var(--dark);min-height:100vh}
 a{color:var(--accent);text-decoration:none}
 
 .nav{background:#fff;border-bottom:1px solid var(--border);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -118,7 +118,7 @@ a{color:var(--accent);text-decoration:none}
 .btn-outline:hover{border-color:var(--dark);color:var(--dark)}
 
 /* SIDEBAR */
-.summary-card{background:#fff;border:1px solid var(--border);padding:24px}
+.summary-card{background:var(--cream);border:1px solid var(--border);padding:24px}
 .summary-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .summary-empty{text-align:center;padding:20px 0;color:#bbb;font-size:13px;font-style:italic}
 .summary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f4f2ee;font-size:13px}
@@ -204,13 +204,15 @@ a{color:var(--accent);text-decoration:none}
 .carnet-logged-bar{display:flex;align-items:center;justify-content:space-between;background:#f0faf0;border:1px solid #b8ddb8;padding:12px 18px;margin-bottom:16px;gap:12px;flex-wrap:wrap}
 .carnet-logged-name{font-weight:500;font-size:13px;color:var(--dark)}
 .btn-link-sm{background:none;border:none;cursor:pointer;font-size:11px;color:var(--warm);font-family:var(--font-sans);text-decoration:underline;white-space:nowrap}
-.carnet-option{background:#fff;border:1px solid var(--border);padding:14px 18px;margin-bottom:8px;cursor:pointer;transition:all .15s;display:flex;justify-content:space-between;align-items:center;gap:16px}
-.carnet-option:hover{border-color:var(--accent)}
-.carnet-option.selected{border-color:var(--dark);border-width:2px;background:var(--cream)}
+.carnet-option{background:#fff;border:1px solid var(--border);margin-bottom:10px;cursor:pointer;transition:all .15s;overflow:hidden}
+.carnet-option:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.carnet-option.selected{border-color:var(--dark);border-width:2px}
+.carnet-option-header{padding:8px 18px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#fff}
+.carnet-option-body{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px}
 .carnet-option-left{flex:1;min-width:0}
-.carnet-option-name{font-weight:500;font-size:13px;margin-bottom:2px}
+.carnet-option-name{font-weight:500;font-size:14px;margin-bottom:3px;color:var(--dark)}
 .carnet-option-meta{font-size:11px;color:#888}
-.carnet-option-count{font-family:var(--font-serif);font-size:28px;color:var(--accent);line-height:1;white-space:nowrap;text-align:right}
+.carnet-option-count{font-family:var(--font-serif);font-size:34px;color:var(--dark);line-height:1;white-space:nowrap;text-align:right;font-weight:300}
 .carnet-option-count-sub{font-size:10px;color:#aaa;text-align:right}
 /* COURSE ADD */
 .course-add-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb;transition:all .15s;flex-shrink:0;margin-bottom:4px;background:#fff;pointer-events:none}
@@ -477,13 +479,13 @@ a{color:var(--accent);text-decoration:none}
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
           <div class="day-tabs" id="day-tabs" style="flex:1;min-width:0;margin-bottom:0;border:none;padding-bottom:0"></div>
           <div class="view-toggle" id="view-toggle">
-            <button class="view-btn active" id="view-list-btn" onclick="setViewMode('list')">≡ Liste</button>
-            <button class="view-btn" id="view-week-btn" onclick="setViewMode('week')">⊞ Semaine</button>
+            <button class="view-btn" id="view-list-btn" onclick="setViewMode('list')">≡ Liste</button>
+            <button class="view-btn active" id="view-week-btn" onclick="setViewMode('week')">⊞ Semaine</button>
           </div>
         </div>
         <div style="border-bottom:1px solid var(--border);margin-bottom:16px"></div>
-        <div class="courses-list" id="courses-list"></div>
-        <div class="week-view-wrap" id="week-view" style="display:none">
+        <div class="courses-list" id="courses-list" style="display:none"></div>
+        <div class="week-view-wrap" id="week-view">
           <div class="week-grid" id="week-grid"></div>
           <div class="week-legend">
             <div class="week-legend-item"><div class="week-legend-dot" style="background:#D4845A"></div>Munz Floor — lieu Rue de Sèvres</div>
@@ -500,7 +502,7 @@ a{color:var(--accent);text-decoration:none}
             <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
             <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
           </div>
-          <div class="form-group"><label>Email *</label><input type="email" id="f-email" placeholder="marie@exemple.com" autocomplete="email"></div>
+          <div class="form-group"><label>Email *</label><input type="email" id="f-email" placeholder="marie@exemple.com" autocomplete="email" onblur="recognizeEmail()"></div>
           <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
           <div class="form-group">
             <label>Nombre de participants *</label>
@@ -641,7 +643,7 @@ let justConfirmedBookings = [];    // bookings upgraded pending→confirmed by a
 let buySelectedTarif = null;
 let buyCurrentStep   = 1;
 let buyCardElement   = null;
-let viewMode = 'list'; // 'list' | 'week'
+let viewMode = 'week'; // 'list' | 'week'
 
 const STRIPE_PUBLIC_KEY = (() => {
   try { return JSON.parse(localStorage.getItem('apb_stripe') || '{}').pk || 'pk_test_VOTRE_CLE_ICI'; } catch(e) { return 'pk_test_VOTRE_CLE_ICI'; }
@@ -678,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e) {}
 
   buildDayTabs();
-  renderCourseList();
+  renderWeekView();
   if (preSlot) {
     setTimeout(() => toggleCart(parseInt(preSlot)), 100);
   }
@@ -806,18 +808,20 @@ function renderCarnetPicker() {
   const typeNames  = {collectif:'Semi-Collectif Mat',prive:'Cours Privé Mat+Machine',duo:'Duo Wall Unit',munz:'Munz Floor®'};
   const html = loggedInClient.carnets.map(c => {
     const isSel = selectedCarnet && selectedCarnet.code === c.code;
-    const rt = resolveCarnetType(c);
-    const borderColor = typeColors[rt];
-    const typeName = typeNames[rt];
-    return `<div class="carnet-option${isSel ? ' selected' : ''}" onclick="selectCarnet('${c.code}')" style="border-left:3px solid ${borderColor}">
-      <div class="carnet-option-left">
-        <div class="carnet-option-name">${c.tarifName}${isSel ? ' <span style="color:var(--green);font-size:11px">✓ Actif</span>' : ''}</div>
-        <div style="font-size:10px;color:${borderColor};font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-top:3px">${typeName}</div>
-        <div class="carnet-option-meta">${c.expiresAt ? 'Expire le ' + c.expiresAt : ''}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="carnet-option-count">${c.remainingSessions}</div>
-        <div class="carnet-option-count-sub">séance(s)</div>
+    const rt    = resolveCarnetType(c);
+    const color = typeColors[rt];
+    const label = typeNames[rt];
+    return `<div class="carnet-option${isSel ? ' selected' : ''}" onclick="selectCarnet('${c.code}')">
+      <div class="carnet-option-header" style="background:${color}">${label}${isSel ? ' ✓' : ''}</div>
+      <div class="carnet-option-body">
+        <div class="carnet-option-left">
+          <div class="carnet-option-name">${c.tarifName}</div>
+          <div class="carnet-option-meta">${c.expiresAt ? 'Expire le ' + c.expiresAt : 'Sans expiration'}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="carnet-option-count">${c.remainingSessions}</div>
+          <div class="carnet-option-count-sub">séance(s)</div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -832,6 +836,33 @@ function selectCarnet(code) {
   renderCarnetPicker();
   updateCartSidebar();
   renderCourseList();
+}
+
+// ===== EMAIL RECOGNITION (payer à l'unité) =====
+function recognizeEmail() {
+  const emailEl = document.getElementById('f-email');
+  if (!emailEl) return;
+  const email = emailEl.value.trim().toLowerCase();
+  if (!email.includes('@')) return;
+  // Already pre-filled by loggedInClient — skip
+  if (loggedInClient && loggedInClient.email === email) return;
+  // Look up from existing carnets or bookings
+  const carnets  = getCarnetsByEmail(email);
+  const bookings = getBookingsByEmail(email);
+  const src = carnets[0] || bookings[0];
+  if (!src) return;
+  const fn = src.firstName || src.clientFirstName || '';
+  const ln = src.lastName  || src.clientLastName  || '';
+  const ph = src.phone     || src.clientPhone     || '';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+  set('f-firstname', fn);
+  set('f-lastname', ln);
+  set('f-phone', ph);
+  if (fn || ln) {
+    const alertEl = document.getElementById('step2-alert');
+    if (alertEl && !alertEl.innerHTML)
+      alertEl.innerHTML = `<div class="alert alert-info">Bienvenue ${fn} ! Vos informations ont été pré-remplies.</div>`;
+  }
 }
 
 // ===== PASSWORD TOGGLE =====
@@ -873,7 +904,7 @@ function renderWeekView() {
   for (let d = 0; d < 7; d++) {
     const daySlots = byDay[d];
     html += `<div class="week-col">
-      <div class="week-day-header">${DAYS_SHORT[d]}</div>
+      <div class="week-day-header">${DAYS[d]}</div>
       <div class="week-slots">`;
     if (!daySlots.length) {
       html += `<div class="week-no-slot">—</div>`;

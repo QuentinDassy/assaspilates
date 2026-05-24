@@ -12,7 +12,7 @@
   --warm:#0A8B7D;--accent:#1AC4AE;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
-body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
+body{font-family:var(--font-sans);background:#fff;color:var(--dark);min-height:100vh}
 a{color:var(--accent);text-decoration:none;transition:opacity .2s}
 a:hover{opacity:.75}
 
@@ -440,7 +440,7 @@ function renderCarnets(carnets) {
         ${c.expiresAt ? `<div style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Expire le ${c.expiresAt}</div>` : ''}
         <div class="carnet-progress-wrap">
           <div class="carnet-progress-bar"><div class="carnet-progress-fill" style="width:${pct}%"></div></div>
-          <div class="carnet-progress-label"><span>${c.remainingSessions} / ${c.totalSessions} séances</span><span>${pct}%</span></div>
+          <div class="carnet-progress-label"><span>${c.remainingSessions} / ${c.totalSessions} séances restantes</span></div>
         </div>
         <div class="carnet-actions">${actions}</div>
       </div>
