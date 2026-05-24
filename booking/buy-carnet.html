@@ -9,11 +9,11 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--mid:#5c5c5c;--muted:#8c8c8c;
+  --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--navy:#1A3A5C;--mid:#5c5c5c;--muted:#8c8c8c;
   --warm:#0A8B7D;--accent:#1AC4AE;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
-body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
+body{font-family:var(--font-sans);background:#fff;color:var(--dark);min-height:100vh}
 a{color:var(--accent);text-decoration:none;transition:opacity .2s}
 a:hover{opacity:.75}
 
@@ -78,7 +78,7 @@ a:hover{opacity:.75}
 .card-error{color:var(--error);font-size:12px;min-height:18px;margin-top:-8px}
 
 /* BUTTONS */
-.btn-primary{width:100%;padding:14px;background:var(--dark);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
+.btn-primary{width:100%;padding:14px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;transition:background .2s;margin-top:8px}
 .btn-primary:hover{background:var(--accent)}
 .btn-primary:disabled{background:#ccc;cursor:not-allowed}
 .btn-outline{padding:10px 20px;background:transparent;border:1px solid var(--border);color:var(--mid);cursor:pointer;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
@@ -120,19 +120,14 @@ a:hover{opacity:.75}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:#888;letter-spacing:.1em}
 
-.carnet-type-section{margin-bottom:32px}
-.carnet-type-label{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--warm);padding:16px 0 12px;border-top:1px solid var(--border);margin-bottom:14px;display:flex;align-items:center;gap:12px}
-.carnet-type-label::after{content:'';flex:1;height:1px;background:var(--border)}
-/* Per-type section colors */
-.carnet-type-section[data-type="collectif"] .carnet-type-label{color:#2A7A6D}
-.carnet-type-section[data-type="collectif"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#6BB5A8;flex-shrink:0}
-.carnet-type-section[data-type="duo"] .carnet-type-label{color:#2A5FAA}
-.carnet-type-section[data-type="duo"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#5B8FD4;flex-shrink:0}
-.carnet-type-section[data-type="prive"] .carnet-type-label{color:#6A3FA0}
-.carnet-type-section[data-type="prive"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#9B72BD;flex-shrink:0}
-.carnet-type-section[data-type="munz"] .carnet-type-label{color:#A0521A}
-.carnet-type-section[data-type="munz"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#D4845A;flex-shrink:0}
-.carnet-type-section[data-type="collectif"] .carnet-mini-card:hover{border-color:#6BB5A8}
+.carnet-type-section{margin-bottom:36px}
+.carnet-type-banner{padding:14px 24px;margin-bottom:18px;color:#fff;font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:12px}
+.carnet-type-banner::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.3)}
+.carnet-type-section[data-type="collectif"] .carnet-type-banner{background:#1AC4AE}
+.carnet-type-section[data-type="duo"]       .carnet-type-banner{background:#5B8FD4}
+.carnet-type-section[data-type="prive"]     .carnet-type-banner{background:#9B72BD}
+.carnet-type-section[data-type="munz"]      .carnet-type-banner{background:#D4845A}
+.carnet-type-section[data-type="collectif"] .carnet-mini-card:hover{border-color:#1AC4AE}
 .carnet-type-section[data-type="duo"]       .carnet-mini-card:hover{border-color:#5B8FD4}
 .carnet-type-section[data-type="prive"]     .carnet-mini-card:hover{border-color:#9B72BD}
 .carnet-type-section[data-type="munz"]      .carnet-mini-card:hover{border-color:#D4845A}
@@ -341,7 +336,7 @@ function renderCarnetChoices() {
     const items = allCarnets.filter(t => t.type === g.key);
     if (!items.length) return '';
     return `<div class="carnet-type-section" data-type="${g.key}">
-      <div class="carnet-type-label">${g.label}</div>
+      <div class="carnet-type-banner">${g.label}</div>
       <div class="carnets-type-row">
         ${items.map(t => {
           const isSel = selectedTarif && selectedTarif.id === t.id;
