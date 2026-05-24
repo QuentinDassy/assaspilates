@@ -152,14 +152,27 @@ a:hover{opacity:.75}
 .pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:#ccc;padding:2px;transition:color .15s;line-height:1}
 .pw-toggle:hover{color:var(--mid)}
 @media(max-width:768px){
-  .booking-layout{grid-template-columns:1fr}
+  .booking-layout{grid-template-columns:1fr;padding:32px 16px 48px}
   .booking-sidebar{position:static}
   .form-row{grid-template-columns:1fr}
-  .carnet-choice-card{grid-template-columns:1fr}
+  .carnet-choice-card{grid-template-columns:1fr;padding:20px 20px}
+  .carnet-price{font-size:42px}
+  .carnet-price-col{text-align:left}
   .carnets-type-row{grid-template-columns:repeat(2,1fr)}
+  .page-header{padding:36px 5% 32px}
+  .nav{flex-wrap:nowrap;padding:0 4%}
+  .nav-links{gap:8px}
+  .nav-link{padding:5px 10px;font-size:10px}
+  .steps{gap:4px}
+  .step{font-size:10px;gap:4px}
+  .step-num{width:22px;height:22px;font-size:10px}
+  .step-sep{margin:0 4px}
+  .step span:not(.step-num){display:none}
 }
 @media(max-width:480px){
   .carnets-type-row{grid-template-columns:1fr}
+  .nav-back{display:none}
+  .carnet-name{font-size:24px}
 }
 </style>
 </head>

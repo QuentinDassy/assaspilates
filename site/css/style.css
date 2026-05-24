@@ -344,6 +344,52 @@ a:hover { opacity: .75; }
 .footer-bottom p, .footer-bottom a { font-size: 11px; color: rgba(255,255,255,.18); opacity: 1; }
 .footer-bottom a:hover { color: var(--accent); }
 
+/* ---- Hamburger / Mobile Nav ---- */
+.nav-hamburger {
+  display: none; flex-direction: column; gap: 5px;
+  background: none; border: none; cursor: pointer; padding: 6px; flex-shrink: 0;
+}
+.nav-hamburger span { display: block; width: 22px; height: 2px; background: var(--dark); transition: all .25s; }
+
+.nav-mobile-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: var(--cream); flex-direction: column; overflow-y: auto;
+}
+.nav-mobile-overlay.open { display: flex; }
+.nav-mobile-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 5%; height: 80px; border-bottom: 1px solid var(--light-border); flex-shrink: 0;
+}
+.nav-mobile-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 26px; color: var(--dark); padding: 4px; line-height: 1;
+}
+.nav-mobile-links { display: flex; flex-direction: column; padding: 16px 5% 0; }
+.nav-mobile-links a {
+  font-size: clamp(26px, 7vw, 36px); font-family: var(--font-serif); font-weight: 300;
+  color: var(--dark); text-decoration: none;
+  padding: 14px 0; border-bottom: 1px solid var(--light-border);
+  letter-spacing: .02em; transition: color .2s;
+}
+.nav-mobile-links a:hover, .nav-mobile-links a.active { color: var(--accent); }
+.nav-mobile-cta {
+  display: block; margin: 24px 5%; background: var(--navy); color: #fff;
+  padding: 16px; text-align: center;
+  font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  font-family: var(--font-sans); text-decoration: none; transition: background .2s;
+}
+.nav-mobile-cta:hover { background: var(--accent); }
+
+/* ---- Mobile day-tabs (schedule) ---- */
+.mobile-day-tabs { display: none; }
+.mobile-day-tab {
+  padding: 10px 14px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; color: #999; border: none; border-bottom: 2px solid transparent;
+  background: none; font-family: var(--font-sans); white-space: nowrap;
+  transition: color .15s, border-color .15s; flex-shrink: 0;
+}
+.mobile-day-tab.active { color: var(--dark); border-bottom-color: var(--accent); }
+
 /* ---- Responsive ---- */
 @media (max-width: 1024px) {
   .nav-links { gap: 18px; }
@@ -351,39 +397,79 @@ a:hover { opacity: .75; }
 }
 
 @media (max-width: 900px) {
+  /* Nav */
+  .nav-links { display: none; }
+  .nav-hamburger { display: flex; }
+  .site-nav { padding: 0 4%; }
+  .nav-book { padding: 11px 20px; font-size: 11px; }
+
+  /* Hero */
   .hero { grid-template-columns: 1fr; }
   .hero-left { padding: 60px 8%; min-height: auto; }
-  .hero-right { min-height: 300px; }
-  .nav-links { display: none; }
+  .hero-right { min-height: 280px; }
+
+  /* Sections */
   .pillars-grid { grid-template-columns: 1fr; gap: 1px; }
-  .days-grid, .days-grid-mini { grid-template-columns: repeat(4, 1fr); }
   .studio-content { grid-template-columns: 1fr; gap: 40px; }
   .infos-grid { grid-template-columns: 1fr; }
   .site-footer { grid-template-columns: 1fr; gap: 32px; }
   .tarifs-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: repeat(2, 1fr); gap: 28px; }
+
+  /* Schedule: day-by-day with tabs */
+  .days-grid, .days-grid-mini { grid-template-columns: 1fr; border: none; background: none; }
+  .day-col { display: none; }
+  .day-col.mobile-active { display: block; border: 1px solid var(--light-border); }
+  .mobile-day-tabs {
+    display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--light-border); margin-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .mobile-day-tabs::-webkit-scrollbar { display: none; }
+  .schedule-legend { display: none; }
 }
 
 @media (max-width: 640px) {
-  .days-grid {
-    grid-template-columns: repeat(7, 148px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding-bottom: 4px;
-  }
-  .days-grid-mini {
-    grid-template-columns: repeat(7, 118px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  /* Schedule */
   .schedule-section { padding: 40px 0 32px; }
   .schedule-section .section-header { padding: 0 5% 24px; }
+  .schedule-section .days-grid, .schedule-section .mobile-day-tabs { margin: 0 5%; }
+  .schedule-section .schedule-contact { margin: 24px 5% 0; }
   .home-schedule-preview { padding: 40px 0 36px; }
   .home-schedule-preview .section-header { padding: 0 5% 24px; }
-}
+  .home-schedule-preview .days-grid-mini, .home-schedule-preview .mobile-day-tabs { margin: 0 5%; }
 
-@media (max-width: 540px) {
-  .team-grid { grid-template-columns: 1fr; }
+  /* Hero */
   .hero-title { font-size: clamp(40px, 12vw, 60px); }
+  .hero-sub { font-size: 15px; margin-bottom: 32px; }
+  .hero-cta { padding: 14px 28px; }
+  .hero-left { padding: 48px 6%; }
+
+  /* Pillars */
+  .pillars-section { padding: 56px 5%; }
+  .pillar { padding: 32px 20px; }
+
+  /* Team */
+  .team-section { padding: 56px 5%; }
+  .team-grid { grid-template-columns: 1fr; gap: 32px; }
+
+  /* Tarifs */
+  .tarifs-section { padding: 56px 5%; }
+  .tarif-card { padding: 28px 20px; }
+
+  /* Studio */
+  .studio-section { padding: 56px 5%; }
+
+  /* Infos */
+  .infos-section { padding: 56px 5%; }
+  .info-block { padding: 24px 20px; }
+  .contact-block { padding: 24px 20px; }
+
+  /* Section header */
+  .section-header { margin-bottom: 36px; }
+  .section-title { font-size: clamp(28px, 8vw, 44px); }
+
+  /* Footer */
+  .site-footer { padding: 48px 5%; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; padding: 14px 5%; }
 }
