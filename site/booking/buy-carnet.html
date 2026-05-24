@@ -10,7 +10,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--mid:#5c5c5c;--muted:#8c8c8c;
-  --warm:#5c8a82;--accent:#93bdb0;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
+  --warm:#3D9585;--accent:#6BB5A8;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
 body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
@@ -123,9 +123,23 @@ a:hover{opacity:.75}
 .carnet-type-section{margin-bottom:32px}
 .carnet-type-label{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--warm);padding:16px 0 12px;border-top:1px solid var(--border);margin-bottom:14px;display:flex;align-items:center;gap:12px}
 .carnet-type-label::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Per-type section colors */
+.carnet-type-section[data-type="collectif"] .carnet-type-label{color:#2A7A6D}
+.carnet-type-section[data-type="collectif"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#6BB5A8;flex-shrink:0}
+.carnet-type-section[data-type="duo"] .carnet-type-label{color:#2A5FAA}
+.carnet-type-section[data-type="duo"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#5B8FD4;flex-shrink:0}
+.carnet-type-section[data-type="prive"] .carnet-type-label{color:#6A3FA0}
+.carnet-type-section[data-type="prive"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#9B72BD;flex-shrink:0}
+.carnet-type-section[data-type="munz"] .carnet-type-label{color:#A0521A}
+.carnet-type-section[data-type="munz"] .carnet-type-label::before{content:'';width:8px;height:8px;border-radius:50%;background:#D4845A;flex-shrink:0}
+.carnet-type-section[data-type="collectif"] .carnet-mini-card:hover{border-color:#6BB5A8}
+.carnet-type-section[data-type="duo"]       .carnet-mini-card:hover{border-color:#5B8FD4}
+.carnet-type-section[data-type="prive"]     .carnet-mini-card:hover{border-color:#9B72BD}
+.carnet-type-section[data-type="munz"]      .carnet-mini-card:hover{border-color:#D4845A}
+.carnet-type-section[data-type="munz"] .carnet-mini-card{background:linear-gradient(135deg,#fff 85%,#FEF5EF 100%)}
 .carnets-type-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .carnet-mini-card{background:#fff;border:1px solid var(--border);padding:20px 18px;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative}
-.carnet-mini-card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.carnet-mini-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
 .carnet-mini-card.selected{border-color:var(--dark);border-width:2px;background:#fdfcf9}
 .carnet-mini-name{font-family:var(--font-serif);font-size:19px;font-weight:300;color:var(--dark);margin-bottom:3px}
 .carnet-mini-sessions{font-size:11px;color:var(--muted);margin-bottom:10px}
@@ -137,11 +151,19 @@ a:hover{opacity:.75}
 .carnet-mini-card.selected .carnet-mini-check{display:block}
 /* Returning client banner */
 .returning-banner{background:#f0f7f0;border:1px solid #c3dfc3;padding:11px 14px;font-size:13px;color:#2a6a2a;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+/* Password toggle */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:#ccc;padding:2px;transition:color .15s;line-height:1}
+.pw-toggle:hover{color:var(--mid)}
 @media(max-width:768px){
   .booking-layout{grid-template-columns:1fr}
   .booking-sidebar{position:static}
   .form-row{grid-template-columns:1fr}
   .carnet-choice-card{grid-template-columns:1fr}
+  .carnets-type-row{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
   .carnets-type-row{grid-template-columns:1fr}
 }
 </style>
@@ -212,8 +234,14 @@ a:hover{opacity:.75}
             <!-- New client: create password -->
             <div id="new-password-section">
               <div class="form-row">
-                <div class="form-group"><label>Mot de passe *</label><input type="password" id="f-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"></div>
-                <div class="form-group"><label>Confirmer *</label><input type="password" id="f-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"></div>
+                <div class="form-group">
+                  <label>Mot de passe *</label>
+                  <div class="pw-wrap"><input type="password" id="f-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('f-password',this)" tabindex="-1">👁</button></div>
+                </div>
+                <div class="form-group">
+                  <label>Confirmer *</label>
+                  <div class="pw-wrap"><input type="password" id="f-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('f-password2',this)" tabindex="-1">👁</button></div>
+                </div>
               </div>
               <p style="font-size:12px;color:#999;margin-top:-8px">Ce mot de passe vous permettra d'accéder à votre espace personnel.</p>
             </div>
@@ -222,7 +250,10 @@ a:hover{opacity:.75}
             <div id="existing-password-section" style="display:none">
               <div class="form-group">
                 <label>Mot de passe *</label>
-                <input type="password" id="f-password-existing" placeholder="Votre mot de passe" autocomplete="current-password">
+                <div class="pw-wrap">
+                  <input type="password" id="f-password-existing" placeholder="Votre mot de passe" autocomplete="current-password">
+                  <button type="button" class="pw-toggle" onclick="togglePw('f-password-existing',this)" tabindex="-1">👁</button>
+                </div>
               </div>
             </div>
           </div>
@@ -303,12 +334,13 @@ function renderCarnetChoices() {
     { key: 'collectif', label: 'Semi-Collectif Mat' },
     { key: 'duo',       label: 'Cours Duo Wall Unit' },
     { key: 'prive',     label: 'Cours Privé Mat + Machine' },
+    { key: 'munz',      label: 'Munz Floor®' },
   ];
 
   grid.innerHTML = groups.map(g => {
     const items = allCarnets.filter(t => t.type === g.key);
     if (!items.length) return '';
-    return `<div class="carnet-type-section">
+    return `<div class="carnet-type-section" data-type="${g.key}">
       <div class="carnet-type-label">${g.label}</div>
       <div class="carnets-type-row">
         ${items.map(t => {
@@ -503,6 +535,14 @@ function showSuccess(carnet, email) {
 
 function showLoading(show) {
   document.getElementById('loading-overlay').classList.toggle('active', show);
+}
+
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
 }
 </script>
 </body>

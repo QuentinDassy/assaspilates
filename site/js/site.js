@@ -33,7 +33,7 @@ function renderSchedule(containerId, mini = false) {
       shown.forEach(s => {
         const loc = LOCATIONS[s.location || 'assas'] || LOCATIONS.assas;
         const locBadge = !mini && s.location === 'lieu2'
-          ? `<div class="slot-loc" style="font-size:10px;color:#2E6B30;margin-top:2px">📍 ${loc.short}</div>`
+          ? `<div class="slot-loc" style="font-size:10px;color:#D4845A;margin-top:2px">📍 ${loc.short}</div>`
           : '';
         html += `<div class="slot ${s.type}">
           <div class="slot-time">${s.start}${mini ? '' : ' – ' + s.end}</div>
@@ -86,10 +86,11 @@ function renderTarifs() {
   const tarifs = getTarifs();
 
   const tarif_card = t => {
+    const extraClass = t.type === 'munz' ? ' tarif-card-munz' : (t.type === 'decouverte' ? ' tarif-card-decouverte' : '');
     const cta = t.isCarnet
       ? `<a href="booking/buy-carnet.html" class="tarif-cta tarif-cta-carnet">Acheter ce carnet →</a>`
       : `<a href="booking/index.html" class="tarif-cta">Réserver →</a>`;
-    return `<div class="tarif-card ${t.featured ? 'featured' : ''}">
+    return `<div class="tarif-card ${t.featured ? 'featured' : ''}${extraClass}">
       ${t.featured ? '<div class="tarif-badge">Recommandé</div>' : ''}
       ${t.isCarnet ? '<div class="tarif-carnet-tag">Carnet</div>' : ''}
       <div class="tarif-label">${t.label}</div>
@@ -105,6 +106,7 @@ function renderTarifs() {
     { key: 'collectif',  label: 'Semi-Collectif Mat' },
     { key: 'duo',        label: 'Cours Duo Wall Unit' },
     { key: 'prive',      label: 'Cours Privé Mat + Machine' },
+    { key: 'munz',       label: 'Munz Floor®' },
     { key: 'decouverte', label: 'Formule découverte' },
   ];
 
@@ -113,7 +115,7 @@ function renderTarifs() {
     const items = tarifs.filter(t => t.type === g.key);
     if (!items.length) return '';
     items.forEach(t => grouped.add(t.id));
-    return `<div class="tarif-group">
+    return `<div class="tarif-group tarif-group-${g.key}">
       <div class="tarif-group-label">${g.label}</div>
       <div class="tarif-group-grid">${items.map(tarif_card).join('')}</div>
     </div>`;

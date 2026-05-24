@@ -9,7 +9,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --cream:#faf7f2;--dark:#373737;--mid:#5c5c5c;--warm:#5c8a82;--accent:#93bdb0;
+  --cream:#faf7f2;--dark:#373737;--mid:#5c5c5c;--warm:#3D9585;--accent:#6BB5A8;
   --border:#e2ddd6;--success:#2d6a2d;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
@@ -81,10 +81,10 @@ a{color:var(--accent);text-decoration:none}
 
 .badges{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
 .badge-type{display:inline-block;padding:2px 8px;font-size:10px;letter-spacing:.08em}
-.badge-collectif{background:#FFF3E0;color:#BF5000}
-.badge-prive{background:#E8F5E9;color:#2E6B30}
-.badge-duo{background:#E3F2FD;color:#1455A0}
-.badge-munz{background:#EDE7F6;color:#512DA8}
+.badge-collectif{background:#E8F7F4;color:#2A7A6D}
+.badge-prive{background:#F5F0FF;color:#6A3FA0}
+.badge-duo{background:#EEF4FF;color:#2A5FAA}
+.badge-munz{background:#FEF0E8;color:#A0521A}
 .badge-loc-assas{background:#FFF8F0;color:var(--warm);border:1px solid #E8D8C0}
 .badge-loc-lieu2{background:#F0FAF0;color:var(--green);border:1px solid #B8DDB8}
 
@@ -149,6 +149,36 @@ a{color:var(--accent);text-decoration:none}
 .loading-text{font-size:13px;color:#888;letter-spacing:.1em}
 
 .empty-day{text-align:center;padding:40px;color:#bbb;font-size:13px;font-style:italic}
+
+/* PASSWORD TOGGLE */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:#ccc;padding:2px;transition:color .15s;line-height:1}
+.pw-toggle:hover{color:var(--mid)}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:0;border:1px solid var(--border);background:#fff;margin-bottom:12px;width:fit-content}
+.view-btn{padding:7px 14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-family:var(--font-sans);background:none;border:none;cursor:pointer;color:#999;transition:all .15s;white-space:nowrap}
+.view-btn.active{background:var(--dark);color:#fff}
+
+/* WEEK VIEW */
+.week-view-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);min-width:700px}
+.week-col{background:#fafafa}
+.week-day-header{padding:10px 4px;text-align:center;background:var(--dark);color:#fff;font-size:9px;letter-spacing:.2em;text-transform:uppercase}
+.week-slots{padding:4px}
+.week-slot{padding:7px 6px;margin-bottom:4px;border-left:2px solid var(--accent);background:#fff;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.week-slot:hover{border-left-width:3px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.week-slot.in-cart{border-color:var(--dark);background:var(--cream)}
+.week-slot.full{opacity:.4;cursor:not-allowed}
+.week-slot.prive{border-left-color:#9B72BD;background:#F8F4FF}
+.week-slot.duo{border-left-color:#5B8FD4;background:#EEF4FF}
+.week-slot.munz{border-left-color:#D4845A;background:#FEF5EF;border-left-width:3px}
+.week-slot-time{font-size:9px;color:var(--warm);letter-spacing:.04em;margin-bottom:2px}
+.week-slot-name{font-size:10px;font-weight:500;color:var(--dark);line-height:1.25;margin-bottom:1px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.week-slot-teacher{font-size:9px;color:#bbb;margin-top:1px}
+.week-slot-price{font-size:10px;font-weight:500;color:var(--dark);margin-top:3px}
+.week-no-slot{padding:12px 4px;text-align:center;color:#ddd;font-size:10px;font-style:italic}
 .alert{padding:12px 16px;margin-bottom:16px;font-size:13px;border:1px solid}
 .alert-error{background:#fdf5f5;border-color:#f0cccc;color:var(--error)}
 .alert-info{background:#FFF8F0;border-color:#E8D8C0;color:var(--warm)}
@@ -279,6 +309,11 @@ a{color:var(--accent);text-decoration:none}
   /* Carnet cards */
   .carnet-choice-card{grid-template-columns:1fr;gap:12px;padding:16px}
   .carnet-price{font-size:36px}
+
+  /* View toggle + week view */
+  .view-toggle{width:100%}
+  .view-btn{flex:1;text-align:center}
+  .week-grid{grid-template-columns:repeat(7,120px)}
 }
 </style>
 </head>
@@ -324,7 +359,10 @@ a{color:var(--accent);text-decoration:none}
           </div>
           <div class="form-group" style="margin-bottom:12px">
             <label>Mot de passe</label>
-            <input type="password" id="cl-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginForCarnet()">
+            <div class="pw-wrap">
+              <input type="password" id="cl-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginForCarnet()">
+              <button type="button" class="pw-toggle" onclick="togglePw('cl-password',this)" tabindex="-1">👁</button>
+            </div>
           </div>
           <button class="btn-primary" style="margin-top:4px" onclick="loginForCarnet()">Se connecter</button>
           <p style="text-align:center;margin-top:14px;font-size:12px;color:#aaa">Pas encore de compte ? <a href="buy-carnet.html">Acheter un carnet →</a></p>
@@ -368,8 +406,14 @@ a{color:var(--accent);text-decoration:none}
             <div class="form-group"><label>Email *</label><input type="email" id="bf-email" placeholder="marie@exemple.com" autocomplete="email"></div>
             <div class="form-group"><label>Téléphone</label><input type="tel" id="bf-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
             <div class="form-row">
-              <div class="form-group"><label>Mot de passe *</label><input type="password" id="bf-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"></div>
-              <div class="form-group"><label>Confirmer *</label><input type="password" id="bf-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"></div>
+              <div class="form-group">
+                <label>Mot de passe *</label>
+                <div class="pw-wrap"><input type="password" id="bf-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password',this)" tabindex="-1">👁</button></div>
+              </div>
+              <div class="form-group">
+                <label>Confirmer *</label>
+                <div class="pw-wrap"><input type="password" id="bf-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password2',this)" tabindex="-1">👁</button></div>
+              </div>
             </div>
             <p style="font-size:12px;color:#999;margin-top:-6px">Ce mot de passe vous permettra d'accéder à votre espace et de réserver via carnet.</p>
           </div>
@@ -424,8 +468,18 @@ a{color:var(--accent);text-decoration:none}
           <button class="filter-btn" id="loc-assas-btn" onclick="setLocFilter('assas',this)">Studio Assas</button>
           <button class="filter-btn" id="loc-lieu2-btn" onclick="setLocFilter('lieu2',this)">Studio Munz</button>
         </div>
-        <div class="day-tabs" id="day-tabs"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="day-tabs" id="day-tabs" style="flex:1;min-width:0;margin-bottom:0;border:none;padding-bottom:0"></div>
+          <div class="view-toggle" id="view-toggle">
+            <button class="view-btn active" id="view-list-btn" onclick="setViewMode('list')">≡ Liste</button>
+            <button class="view-btn" id="view-week-btn" onclick="setViewMode('week')">⊞ Semaine</button>
+          </div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);margin-bottom:16px"></div>
         <div class="courses-list" id="courses-list"></div>
+        <div class="week-view-wrap" id="week-view" style="display:none">
+          <div class="week-grid" id="week-grid"></div>
+        </div>
       </div>
 
       <!-- STEP 2: FORM -->
@@ -578,6 +632,7 @@ let justConfirmedBookings = [];    // bookings upgraded pending→confirmed by a
 let buySelectedTarif = null;
 let buyCurrentStep   = 1;
 let buyCardElement   = null;
+let viewMode = 'list'; // 'list' | 'week'
 
 const STRIPE_PUBLIC_KEY = (() => {
   try { return JSON.parse(localStorage.getItem('apb_stripe') || '{}').pk || 'pk_test_VOTRE_CLE_ICI'; } catch(e) { return 'pk_test_VOTRE_CLE_ICI'; }
@@ -755,6 +810,69 @@ function selectCarnet(code) {
   renderCourseList();
 }
 
+// ===== PASSWORD TOGGLE =====
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
+}
+
+// ===== VIEW MODE =====
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById('view-list-btn').classList.toggle('active', mode === 'list');
+  document.getElementById('view-week-btn').classList.toggle('active', mode === 'week');
+  document.getElementById('courses-list').style.display = mode === 'list' ? 'flex' : 'none';
+  document.getElementById('week-view').style.display    = mode === 'week' ? 'block' : 'none';
+  // hide day-tabs in week mode (week view always shows all days)
+  document.getElementById('day-tabs').style.visibility = mode === 'week' ? 'hidden' : '';
+  if (mode === 'week') renderWeekView();
+  else renderCourseList();
+}
+
+function renderWeekView() {
+  let slots = getSlots().sort((a,b) => a.day - b.day || a.start.localeCompare(b.start));
+  if (typeFilter !== 'all') slots = slots.filter(s => s.type === typeFilter);
+  if (locFilter  !== 'all') slots = slots.filter(s => (s.location || 'assas') === locFilter);
+  if (paymentMode === 'carnet' && selectedCarnet) {
+    const ct = getCarnetSlotType(selectedCarnet);
+    if (ct) slots = slots.filter(s => s.type === ct);
+  }
+
+  const byDay = {};
+  for (let d = 0; d < 7; d++) byDay[d] = [];
+  slots.forEach(s => { byDay[s.day].push(s); });
+
+  let html = '';
+  for (let d = 0; d < 7; d++) {
+    const daySlots = byDay[d];
+    html += `<div class="week-col">
+      <div class="week-day-header">${DAYS_SHORT[d]}</div>
+      <div class="week-slots">`;
+    if (!daySlots.length) {
+      html += `<div class="week-no-slot">—</div>`;
+    } else {
+      daySlots.forEach(s => {
+        const spots  = getAvailableSpots(s);
+        const price  = getPriceForSlot(s);
+        const inCart = cart.some(c => c.slot.id === s.id);
+        const full   = spots === 0;
+        const priceStr = paymentMode === 'carnet' && selectedCarnet ? '1 séance' : price + '€';
+        html += `<div class="week-slot ${s.type}${inCart?' in-cart':''}${full?' full':''}" onclick="toggleCart(${s.id})">
+          <div class="week-slot-time">${s.start}–${s.end}</div>
+          <div class="week-slot-name">${s.title.replace('Cours ','')}</div>
+          <div class="week-slot-teacher">${s.teacher}</div>
+          <div class="week-slot-price">${full ? 'Complet' : priceStr}</div>
+        </div>`;
+      });
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('week-grid').innerHTML = html;
+}
+
 // ===== DAYS TABS =====
 function buildDayTabs() {
   const slots = getSlots();
@@ -792,6 +910,7 @@ function setLocFilter(loc, btn) {
 
 // ===== COURSE LIST =====
 function renderCourseList() {
+  if (viewMode === 'week') { renderWeekView(); return; }
   let slots = getSlots().sort((a,b) => a.day - b.day || a.start.localeCompare(b.start));
   if (currentDay !== null) slots = slots.filter(s => s.day === currentDay);
   if (typeFilter !== 'all') slots = slots.filter(s => s.type === typeFilter);
