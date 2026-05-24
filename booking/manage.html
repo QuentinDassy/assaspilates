@@ -26,7 +26,7 @@ a:hover{opacity:.75}
 .nav-link-primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ===== LOGIN ===== */
-#login-screen{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
+#login-screen{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 80px)}
 .login-visual{background:linear-gradient(145deg,#1e1e1a 0%,#2a2a24 50%,#1a1a18 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px;position:relative}
 .login-visual::before{content:'';position:absolute;inset:28px;border:1px solid rgba(151,164,144,.15)}
 .login-visual-title{font-family:var(--font-serif);font-size:clamp(36px,4vw,64px);font-weight:300;color:#fff;line-height:1.08;text-align:center;position:relative;z-index:1;letter-spacing:.02em}
@@ -123,19 +123,22 @@ a:hover{opacity:.75}
 .carnet-empty p{font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.7}
 
 /* BOOKING ITEM */
-.booking-item{background:#fff;border:1px solid var(--border);padding:20px 24px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:20px}
+.booking-item{background:#fff;border:1px solid var(--border);padding:20px 24px;margin-bottom:10px;transition:border-color .15s}
+.booking-item:hover{border-color:var(--accent)}
 .booking-item.cancelled{opacity:.55}
 .booking-item.past{opacity:.7}
-.booking-item-title{font-size:14px;font-weight:500;color:var(--dark);margin-bottom:5px}
+.booking-item-compact{display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:16px;user-select:none}
+.booking-item-title{font-size:14px;font-weight:500;color:var(--dark);margin-bottom:4px}
 .booking-item-meta{font-size:12px;color:#999;line-height:1.8}
 .booking-item-meta span{margin-right:12px}
-.booking-item-right{text-align:right;flex-shrink:0}
-.booking-item-status{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;margin-bottom:8px}
+.booking-expand-btn{font-size:12px;color:#ccc;transition:transform .2s;flex-shrink:0}
+.booking-item-expanded{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.booking-item-status{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;flex-shrink:0}
 .status-confirmed{background:#e8f5e9;color:var(--green)}
 .status-pending{background:#FFF9E6;color:#856404;border:1px solid #F0D88C}
 .status-cancelled{background:#fdf5f5;color:var(--error)}
 .status-past{background:#f4f2ee;color:#999}
-.booking-item-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+.booking-item-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
 .empty-section{text-align:center;padding:32px;background:#fff;border:1px solid var(--border);font-size:13px;color:#aaa;font-style:italic}
 
@@ -179,9 +182,7 @@ a:hover{opacity:.75}
   .login-form-side{padding:48px 24px}
 }
 @media(max-width:640px){
-  .booking-item{grid-template-columns:1fr}
-  .booking-item-right{text-align:left}
-  .booking-item-actions{justify-content:flex-start}
+  .booking-item-compact{flex-wrap:wrap}
   .dash-header{flex-direction:column;align-items:flex-start}
   .dashboard-wrap{padding:36px 16px 64px}
   .carnet-compact-sessions{font-size:24px}
@@ -463,9 +464,28 @@ function renderCarnets(carnets) {
 }
 
 // ===== UPCOMING BOOKINGS =====
+const _expandedBookings = new Set();
+
+function toggleBooking(id) {
+  const card = document.getElementById('bk-' + id);
+  if (!card) return;
+  const body  = card.querySelector('.booking-item-expanded');
+  const arrow = card.querySelector('.booking-expand-btn');
+  if (_expandedBookings.has(id)) {
+    _expandedBookings.delete(id);
+    body.style.display = 'none';
+    if (arrow) arrow.style.transform = '';
+  } else {
+    _expandedBookings.add(id);
+    body.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  }
+}
+
 function renderUpcoming(bookings, now) {
   const container = document.getElementById('dash-upcoming');
   const infos     = getInfos();
+  const cancelHours = infos.cancelHours || 24;
 
   const upcoming = bookings
     .filter(b => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.courseDate + 'T' + b.slotEnd + ':00') >= now)
@@ -474,10 +494,7 @@ function renderUpcoming(bookings, now) {
   document.getElementById('cnt-cours-upcoming').textContent = upcoming.length;
 
   if (!upcoming.length) {
-    container.innerHTML = `
-      <div class="empty-section">
-        Aucun cours à venir. <a href="index.html">Réserver un cours →</a>
-      </div>`;
+    container.innerHTML = `<div class="empty-section">Aucun cours à venir. <a href="index.html">Réserver un cours →</a></div>`;
     return;
   }
 
@@ -485,39 +502,46 @@ function renderUpcoming(bookings, now) {
     const loc        = LOCATIONS[b.slotLocation] || LOCATIONS.assas;
     const courseDate = new Date(b.courseDate + 'T12:00:00');
     const cancellable = isCancellable(b);
-    const cancelHours = infos.cancelHours || 24;
     const isPending  = b.status === 'pending';
     const payLabel   = b.paymentType === 'carnet'
       ? 'Carnet de séances'
       : (b.totalPaid > 0 ? `Carte — ${b.totalPaid}€` : 'Carte bancaire');
 
+    const shortDate = courseDate.toLocaleDateString('fr-FR', {weekday:'short', day:'numeric', month:'short'});
+
     let actionsHTML = '';
     if (cancellable) {
-      actionsHTML = `
-        <button class="btn-danger btn-sm" onclick="askCancel('${b.id}')">Annuler</button>
-        ${!isPending ? `<button class="btn-outline btn-sm" onclick="rebookCourse(${b.slotId},'${b.id}','${b.paymentType}')">Changer de créneau</button>` : ''}`;
+      actionsHTML = `<button class="btn-danger btn-sm" onclick="askCancel('${b.id}');event.stopPropagation()">Annuler</button>
+        ${!isPending ? `<button class="btn-outline btn-sm" onclick="rebookCourse(${b.slotId},'${b.id}','${b.paymentType}');event.stopPropagation()">Changer de créneau</button>` : ''}`;
     } else {
-      actionsHTML = `<span style="font-size:11px;color:#aaa">Annulation impossible (moins de ${cancelHours}h)</span>`;
+      const mSubj = encodeURIComponent(`Modification — ${b.slotTitle} — ${b.courseDate}`);
+      const mBody = encodeURIComponent(`Bonjour,\n\nJe souhaite modifier ma réservation.\n\nCours : ${b.slotTitle}\nDate : ${formatDateFR(courseDate)}\nHoraire : ${b.slotStart}–${b.slotEnd}\nRéférence : ${b.id}\n\nMerci`);
+      actionsHTML = `<a href="mailto:contact@assas-pilates-ballet.com?subject=${mSubj}&body=${mBody}" class="btn-outline btn-sm" onclick="event.stopPropagation()">✉ Contacter le studio pour modifier</a>
+        <span style="font-size:11px;color:#aaa;align-self:center">Moins de ${cancelHours}h — annulation par email uniquement</span>`;
     }
 
     const pendingNote = isPending
-      ? `<div class="booking-item-meta" style="margin-top:6px;color:#856404;font-size:12px">⏳ En attente d'un second participant — confirmation automatique à l'inscription suivante</div>`
+      ? `<p style="font-size:12px;color:#856404;margin-top:6px">⏳ En attente d'un second participant</p>`
       : '';
 
-    return `<div class="booking-item">
-      <div>
-        <div class="booking-item-title">${b.slotTitle}</div>
+    return `<div class="booking-item" id="bk-${b.id}">
+      <div class="booking-item-compact" onclick="toggleBooking('${b.id}')">
+        <div style="flex:1;min-width:0">
+          <div class="booking-item-title">${b.slotTitle.replace('Cours ','')}</div>
+          <div class="booking-item-meta">📅 ${shortDate} &nbsp;·&nbsp; 🕐 ${b.slotStart}–${b.slotEnd}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <span class="booking-item-status ${isPending ? 'status-pending' : 'status-confirmed'}">${isPending ? 'En attente' : 'Confirmé'}</span>
+          <span class="booking-expand-btn">▾</span>
+        </div>
+      </div>
+      <div class="booking-item-expanded" style="display:none">
         <div class="booking-item-meta">
-          <span>📅 ${formatDateFR(courseDate)}</span>
-          <span>🕐 ${b.slotStart}–${b.slotEnd}</span>
           <span>📍 ${loc.short}</span>
           <span>👤 ${b.slotTeacher}</span>
+          <span style="color:var(--accent)">💳 ${payLabel}</span>
         </div>
-        <div class="booking-item-meta" style="margin-top:4px;color:var(--accent)">💳 ${payLabel}</div>
         ${pendingNote}
-      </div>
-      <div class="booking-item-right">
-        <div><span class="booking-item-status ${isPending ? 'status-pending' : 'status-confirmed'}">${isPending ? 'En attente' : 'Confirmé'}</span></div>
         <div class="booking-item-actions">${actionsHTML}</div>
       </div>
     </div>`;
