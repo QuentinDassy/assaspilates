@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --cream:#faf7f2;--cream-deep:#f0ede6;--dark:#373737;--mid:#5c5c5c;--muted:#8c8c8c;
-  --warm:#5c8a82;--accent:#93bdb0;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
+  --warm:#3D9585;--accent:#6BB5A8;--border:#e2ddd6;--error:#c0392b;--green:#2E6B30;
   --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif
 }
 body{font-family:var(--font-sans);background:var(--cream);color:var(--dark);min-height:100vh}
@@ -75,21 +75,33 @@ a:hover{opacity:.75}
 .dash-section-action:hover{opacity:.7}
 
 /* CARNET CARD */
-.carnet-card{background:#fff;border:1px solid var(--border);padding:32px 36px;margin-bottom:12px;transition:box-shadow .2s}
-.carnet-card:hover{box-shadow:0 8px 32px rgba(0,0,0,.05)}
-.carnet-card.featured-card{border-color:var(--accent);background:linear-gradient(135deg,#fff 70%,#FFF9F5 100%)}
-.carnet-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
-.carnet-card-name{font-family:var(--font-serif);font-size:28px;font-weight:300;color:var(--dark);margin-bottom:6px;letter-spacing:.02em}
-.carnet-card-code{font-size:14px;color:var(--accent);letter-spacing:.14em;font-family:'Courier New',monospace}
-.carnet-card-expiry{font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.04em}
-.carnet-sessions-count{text-align:right;flex-shrink:0}
-.carnet-sessions-big{font-family:var(--font-serif);font-size:64px;font-weight:300;line-height:1;color:var(--dark)}
-.carnet-sessions-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#bbb;margin-top:4px}
-.carnet-progress-wrap{margin-bottom:24px}
+.carnet-card{background:#fff;border:1px solid var(--border);padding:20px 28px;margin-bottom:8px;transition:box-shadow .2s}
+.carnet-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+.carnet-card.featured-card{border-color:var(--accent)}
+
+/* Compact header row (always visible) */
+.carnet-compact-row{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none}
+.carnet-compact-left{flex:1;min-width:0}
+.carnet-compact-name{font-family:var(--font-serif);font-size:20px;font-weight:300;color:var(--dark);margin:3px 0 1px;letter-spacing:.02em}
+.carnet-type-badge{font-size:11px;color:var(--warm);letter-spacing:.04em;margin-top:1px}
+.carnet-compact-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.carnet-compact-sessions{font-family:var(--font-serif);font-size:30px;font-weight:300;color:var(--dark);line-height:1}
+.carnet-compact-sub{font-size:9px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;line-height:1.2;text-align:right;max-width:42px}
+.carnet-expand-btn{font-size:13px;color:#ccc;transition:transform .2s;flex-shrink:0}
+
+/* Expanded body */
+.carnet-expanded-body{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.carnet-progress-wrap{margin-bottom:16px}
 .carnet-progress-bar{height:3px;background:var(--border);overflow:hidden}
 .carnet-progress-fill{height:100%;background:var(--accent);transition:width .5s cubic-bezier(.4,0,.2,1)}
-.carnet-progress-label{display:flex;justify-content:space-between;font-size:11px;color:#bbb;margin-top:8px;letter-spacing:.04em}
+.carnet-progress-label{display:flex;justify-content:space-between;font-size:11px;color:#bbb;margin-top:6px;letter-spacing:.04em}
 .carnet-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* Password toggle */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;color:#ccc;padding:2px;transition:color .15s;line-height:1}
+.pw-toggle:hover{color:var(--mid)}
 .badge-status{display:inline-block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:4px 12px}
 .badge-active{background:#EEF7EE;color:var(--green);border:1px solid #C8E6C9}
 .badge-expired{background:#fdf5f5;color:var(--error)}
@@ -155,11 +167,10 @@ a:hover{opacity:.75}
   .booking-item{grid-template-columns:1fr}
   .booking-item-right{text-align:left}
   .booking-item-actions{justify-content:flex-start}
-  .carnet-card-top{flex-direction:column}
-  .carnet-sessions-count{text-align:left}
-  .carnet-sessions-big{font-size:48px}
   .dash-header{flex-direction:column;align-items:flex-start}
   .dashboard-wrap{padding:36px 16px 64px}
+  .carnet-compact-sessions{font-size:24px}
+  .carnet-card{padding:16px 18px}
 }
 </style>
 </head>
@@ -199,15 +210,20 @@ a:hover{opacity:.75}
         </div>
         <div class="form-group">
           <label>Mot de passe *</label>
-          <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
-                 onkeydown="if(event.key==='Enter')login()">
+          <div class="pw-wrap">
+            <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
+                   onkeydown="if(event.key==='Enter')login()">
+            <button type="button" class="pw-toggle" onclick="togglePw('l-password',this)" tabindex="-1">👁</button>
+          </div>
         </div>
         <button class="btn-primary" onclick="login()">Accéder à mon espace</button>
+        <p style="margin-top:12px;text-align:center;font-size:12px">
+          <a href="#" onclick="forgotPassword();return false;" style="color:var(--warm);opacity:1">Mot de passe oublié ?</a>
+        </p>
       </div>
 
       <p style="margin-top:20px;text-align:center;font-size:12px;color:#bbb;line-height:2">
-        Pas encore client ? <a href="buy-carnet.html" style="opacity:1">Acheter un carnet</a> · <a href="index.html" style="opacity:1">Réserver un cours</a><br>
-        Aide : <a href="mailto:contact@assas-pilates-ballet.com" style="opacity:1">contact@assas-pilates-ballet.com</a>
+        Pas encore client ? <a href="buy-carnet.html" style="opacity:1">Acheter un carnet</a> · <a href="index.html" style="opacity:1">Réserver un cours</a>
       </p>
     </div>
   </div>
@@ -384,34 +400,37 @@ function renderCarnets(carnets) {
     const isEmpty   = c.remainingSessions <= 0;
     const isActive  = c.active && !isExpired && !isEmpty;
     const pct = Math.round((c.remainingSessions / (c.totalSessions || 1)) * 100);
-    let badge = isActive
+    const badge = isActive
       ? '<span class="badge-status badge-active">Actif</span>'
       : (isExpired ? '<span class="badge-status badge-expired">Expiré</span>' : '<span class="badge-status badge-empty">Épuisé</span>');
     const actions = isActive
       ? `<a href="index.html?mode=carnet&carnet=${encodeURIComponent(c.code)}" class="btn-outline btn-sm">Utiliser ce carnet</a>`
       : `<a href="buy-carnet.html" class="btn-outline btn-sm">Renouveler</a>`;
-    return `<div class="carnet-card${c.featured ? ' featured-card' : ''}">
-      <div class="carnet-card-top">
-        <div>
+    const typeLabel = carnetTypeLabel(c);
+    const safeCode  = c.code.replace(/'/g, "\\'");
+    return `<div class="carnet-card${c.featured ? ' featured-card' : ''}" id="carnet-${c.code}">
+      <div class="carnet-compact-row" onclick="toggleCarnet('${safeCode}')">
+        <div class="carnet-compact-left">
           ${badge}
-          <div class="carnet-card-name" style="margin-top:8px">${c.tarifName || 'Carnet'}</div>
-          ${c.expiresAt ? `<div class="carnet-card-expiry">Expire le ${c.expiresAt}</div>` : ''}
+          <div class="carnet-compact-name">${c.tarifName || 'Carnet'}</div>
+          <div class="carnet-type-badge">Valable pour : ${typeLabel}</div>
         </div>
-        <div class="carnet-sessions-count">
-          <div class="carnet-sessions-big">${c.remainingSessions}</div>
-          <div class="carnet-sessions-label">séance${c.remainingSessions > 1 ? 's' : ''} restante${c.remainingSessions > 1 ? 's' : ''}</div>
-        </div>
-      </div>
-      <div class="carnet-progress-wrap">
-        <div class="carnet-progress-bar">
-          <div class="carnet-progress-fill" style="width:${pct}%"></div>
-        </div>
-        <div class="carnet-progress-label">
-          <span>${c.remainingSessions} / ${c.totalSessions} séances</span>
-          <span>${pct}%</span>
+        <div class="carnet-compact-right">
+          <div style="text-align:right">
+            <div class="carnet-compact-sessions">${c.remainingSessions}</div>
+            <div class="carnet-compact-sub">séance${c.remainingSessions !== 1 ? 's' : ''}<br>restante${c.remainingSessions !== 1 ? 's' : ''}</div>
+          </div>
+          <span class="carnet-expand-btn">▾</span>
         </div>
       </div>
-      <div class="carnet-actions">${actions}</div>
+      <div class="carnet-expanded-body" style="display:none">
+        ${c.expiresAt ? `<div style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Expire le ${c.expiresAt}</div>` : ''}
+        <div class="carnet-progress-wrap">
+          <div class="carnet-progress-bar"><div class="carnet-progress-fill" style="width:${pct}%"></div></div>
+          <div class="carnet-progress-label"><span>${c.remainingSessions} / ${c.totalSessions} séances</span><span>${pct}%</span></div>
+        </div>
+        <div class="carnet-actions">${actions}</div>
+      </div>
     </div>`;
   };
 
@@ -631,6 +650,58 @@ function generateInvoice(bookingId) {
     </button>
   <\/body><\/html>`);
   w.document.close();
+}
+
+// ===== PASSWORD TOGGLE =====
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
+}
+
+// ===== FORGOT PASSWORD =====
+function forgotPassword() {
+  const email = (document.getElementById('l-email').value || '').trim();
+  const subject = 'Réinitialisation de mot de passe — Assas Pilates Ballet';
+  const body = email
+    ? `Bonjour,\n\nJe souhaite réinitialiser mon mot de passe pour l'adresse : ${email}\n\nMerci`
+    : `Bonjour,\n\nJe souhaite réinitialiser mon mot de passe.\n\nMon adresse email : \n\nMerci`;
+  const a = document.createElement('a');
+  a.href = `mailto:contact@assas-pilates-ballet.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  document.body.appendChild(a); a.click(); setTimeout(() => document.body.removeChild(a), 100);
+  document.getElementById('login-alert').innerHTML = '<div class="alert alert-info">Un email va s\'ouvrir pour contacter le studio. Votre mot de passe sera réinitialisé manuellement.</div>';
+}
+
+// ===== CARNET HELPERS =====
+function carnetTypeLabel(carnet) {
+  const t = carnet.type;
+  if (t === 'prive') return 'Cours privé Mat + Machine';
+  if (t === 'duo')   return 'Cours Duo Wall Unit';
+  if (t === 'munz')  return 'Munz Floor®';
+  const name = (carnet.tarifName || '').toLowerCase();
+  if (name.includes('privé') || name.includes('prive')) return 'Cours privé';
+  if (name.includes('duo'))  return 'Cours Duo Wall Unit';
+  if (name.includes('munz')) return 'Munz Floor®';
+  return 'Semi-collectif Mat';
+}
+
+const _expandedCarnets = new Set();
+function toggleCarnet(code) {
+  const card = document.getElementById('carnet-' + code);
+  if (!card) return;
+  const body  = card.querySelector('.carnet-expanded-body');
+  const arrow = card.querySelector('.carnet-expand-btn');
+  if (_expandedCarnets.has(code)) {
+    _expandedCarnets.delete(code);
+    body.style.display = 'none';
+    if (arrow) arrow.style.transform = '';
+  } else {
+    _expandedCarnets.add(code);
+    body.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  }
 }
 
 // ===== AUTO-LOGIN VIA URL PARAM =====
