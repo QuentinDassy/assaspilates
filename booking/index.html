@@ -178,9 +178,9 @@ a{color:var(--accent);text-decoration:none}
 .week-slot-name{font-family:var(--font-serif);font-size:14px;font-weight:400;color:var(--dark);line-height:1.25;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .week-slot-teacher{font-size:10px;color:#bbb;margin-top:2px}
 .week-slot-price{font-size:11px;font-weight:500;color:var(--dark);margin-top:4px}
-/* Compact mode: hide details, reveal on hover or when in cart */
+/* Compact mode: hide details, reveal on click (.expanded) or when in cart */
 .week-slot-name,.week-slot-teacher,.week-slot-price{display:none}
-.week-slot:hover .week-slot-name,.week-slot:hover .week-slot-teacher,.week-slot:hover .week-slot-price,
+.week-slot.expanded .week-slot-name,.week-slot.expanded .week-slot-teacher,.week-slot.expanded .week-slot-price,
 .week-slot.in-cart .week-slot-name,.week-slot.in-cart .week-slot-teacher,.week-slot.in-cart .week-slot-price{display:block}
 /* Buy type sections */
 .buy-type-section{margin-bottom:24px}
@@ -243,6 +243,11 @@ a{color:var(--accent);text-decoration:none}
 .buy-summary-card{background:#fff;border:1px solid var(--border);padding:24px;margin-bottom:16px}
 .buy-summary-title{font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 
+/* ROUNDED BUTTONS */
+.btn-primary,.btn-outline,.btn-danger,.btn-validate,.nav-book,.mode-btn,.filter-btn,.day-tab,.view-btn,.mobile-cart-bar-btn,.carnet-select-btn,.btn-link-sm{border-radius:6px}
+.step-num{border-radius:50%}
+.step-label{display:inline}
+
 /* ===== MOBILE CART BAR ===== */
 .mobile-cart-bar{
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:990;
@@ -283,12 +288,19 @@ a{color:var(--accent);text-decoration:none}
   .day-tabs::-webkit-scrollbar{display:none}
   .day-tab{flex-shrink:0}
 
-  /* Steps: compact */
+  /* Steps: compact — hide labels, keep numbers */
   .steps{gap:4px}
   .step{font-size:10px;letter-spacing:.06em;gap:4px}
   .step-num{width:22px;height:22px;font-size:10px}
   .step-sep{margin:0 4px;min-width:12px}
-  .step span:not(.step-num){display:none} /* hide label text on very small, keep numbers */
+  .step-label{display:none}
+
+  /* Carnet panel compact */
+  .carnet-panel{padding:12px 14px}
+  .carnet-logged-bar{padding:8px 12px;flex-wrap:nowrap;gap:8px}
+  .carnet-option-body{padding:10px 12px;gap:8px}
+  .carnet-option-count{font-size:24px}
+  .carnet-option-header{padding:6px 12px;font-size:9px}
 
   /* Course cards */
   .course-item{padding:12px 14px;gap:10px}
@@ -416,11 +428,11 @@ a{color:var(--accent);text-decoration:none}
       <div id="buy-block" style="display:none">
         <!-- Step nav -->
         <div class="steps" id="buy-steps" style="margin-bottom:24px">
-          <div class="step active" id="buy-step-1-ind"><div class="step-num">1</div> Choisir un carnet</div>
+          <div class="step active" id="buy-step-1-ind"><div class="step-num">1</div><span class="step-label"> Choisir un carnet</span></div>
           <div class="step-sep"></div>
-          <div class="step" id="buy-step-2-ind"><div class="step-num">2</div> Vos coordonnées</div>
+          <div class="step" id="buy-step-2-ind"><div class="step-num">2</div><span class="step-label"> Vos coordonnées</span></div>
           <div class="step-sep"></div>
-          <div class="step" id="buy-step-3-ind"><div class="step-num">3</div> Paiement</div>
+          <div class="step" id="buy-step-3-ind"><div class="step-num">3</div><span class="step-label"> Paiement</span></div>
         </div>
         <!-- Step 1: pick carnet -->
         <div id="buy-step-1">
@@ -480,11 +492,11 @@ a{color:var(--accent);text-decoration:none}
 
       <!-- STEPS -->
       <div class="steps" id="booking-steps">
-        <div class="step active" id="step-1-ind"><div class="step-num">1</div> Choisir un cours</div>
+        <div class="step active" id="step-1-ind"><div class="step-num">1</div><span class="step-label"> Choisir un cours</span></div>
         <div class="step-sep"></div>
-        <div class="step" id="step-2-ind"><div class="step-num">2</div> Vos coordonnées</div>
+        <div class="step" id="step-2-ind"><div class="step-num">2</div><span class="step-label"> Vos coordonnées</span></div>
         <div class="step-sep"></div>
-        <div class="step" id="step-3-ind"><div class="step-num">3</div> <span id="step-3-label">Paiement</span></div>
+        <div class="step" id="step-3-ind"><div class="step-num">3</div><span class="step-label"> <span id="step-3-label">Paiement</span></span></div>
       </div>
 
       <!-- STEP 1: CHOOSE COURSE -->
@@ -701,21 +713,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const h = infos.cancelHours || 24;
   document.getElementById('cancel-hours-txt').textContent = h + 'h avant';
 
-  // Pre-fill from URL params (e.g. coming from manage page to rebook)
   const params = new URLSearchParams(location.search);
   const preSlot   = params.get('slot');
   const preMode   = params.get('mode');
   const preCarnet = params.get('carnet');
   if (preMode === 'carnet') setMode('carnet');
   else if (preMode === 'buy') setMode('buy');
-  // Restore saved session (stay logged in)
+
+  // Restore saved session
   try {
     const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
     if (saved && saved.email && hasClientPassword(saved.email)) {
       const carnets = getCarnetsByEmail(saved.email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
       if (carnets.length) {
         loggedInClient = { firstName: saved.firstName || '', lastName: saved.lastName || '', email: saved.email, phone: saved.phone || '', carnets };
-        selectedCarnet = carnets[0];
+        // If a specific carnet was requested via URL, select it; else use first
+        if (preCarnet) {
+          selectedCarnet = carnets.find(c => c.code === decodeURIComponent(preCarnet)) || carnets[0];
+        } else {
+          selectedCarnet = carnets[0];
+        }
         setMode('carnet');
         document.getElementById('carnet-login-panel').style.display = 'none';
         document.getElementById('carnet-logged-panel').style.display = 'block';
@@ -726,7 +743,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e) {}
 
   buildDayTabs();
-  // On mobile, always use list view
   if (window.innerWidth <= 768) {
     setViewMode('list');
   } else {
@@ -734,9 +750,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (preSlot) {
     setTimeout(() => toggleCart(parseInt(preSlot)), 100);
-  }
-  if (preCarnet) {
-    setMode('carnet');
   }
   initStripe();
 });
@@ -884,6 +897,7 @@ function renderCarnetPicker() {
 function selectCarnet(code) {
   if (!loggedInClient) return;
   selectedCarnet = loggedInClient.carnets.find(c => c.code === code) || null;
+  cart = [];
   renderCarnetPicker();
   updateCartSidebar();
   renderCourseList();
@@ -1023,7 +1037,7 @@ function renderWeekView() {
         const full   = spots === 0;
         const priceStr = paymentMode === 'carnet' && selectedCarnet ? '1 séance' : price + '€';
         const typeLabels = {collectif:'Semi-Collectif',prive:'Privé',duo:'Duo',munz:'Munz Floor'};
-        html += `<div class="week-slot ${s.type}${inCart?' in-cart':''}${full?' full':''}" onclick="toggleCart(${s.id})">
+        html += `<div class="week-slot ${s.type}${inCart?' in-cart':''}${full?' full':''}" onclick="toggleWeekSlotExpanded(${s.id}, this)">
           <div class="week-slot-badge ${s.type}">${typeLabels[s.type]||s.type}</div>
           <div class="week-slot-time">${s.start}–${s.end}</div>
           <div class="week-slot-name">${s.title.replace('Cours ','')}</div>
@@ -1151,6 +1165,17 @@ function spotsHTML(spots) {
 function typeLabel(type) {
   const labels = {collectif:'Semi-collectif',prive:'Cours privé',duo:'Duo',munz:'Munz Floor'};
   return labels[type] || type;
+}
+
+function toggleWeekSlotExpanded(id, el) {
+  if (el.classList.contains('full')) return;
+  if (el.classList.contains('in-cart') || el.classList.contains('expanded')) {
+    el.classList.remove('expanded');
+    toggleCart(id);
+  } else {
+    document.querySelectorAll('.week-slot.expanded').forEach(s => s.classList.remove('expanded'));
+    el.classList.add('expanded');
+  }
 }
 
 function getCarnetSlotType(carnet) {
