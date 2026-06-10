@@ -170,6 +170,12 @@ a:hover { opacity: .75; }
 .slot-title { font-weight: 500; color: var(--dark); font-size: 13px; line-height: 1.35; margin-bottom: 3px; }
 .slot-teacher { color: #aaa; font-size: 11px; }
 .slot.munz { border-left-color: #D4845A; background: #FEF5EF; border-left-width: 3px; }
+.slot-munz-badge {
+  display: inline-block; font-size: 8px; letter-spacing: .18em; text-transform: uppercase;
+  color: #D4845A; background: rgba(212,132,90,.1); border: 1px solid rgba(212,132,90,.3);
+  padding: 2px 7px; margin: 3px 0; font-weight: 600; border-radius: 2px;
+}
+.slot-munz-badge-mini { font-size: 7px; padding: 1px 5px; }
 .no-class { padding: 22px 6px; text-align: center; color: #ccc; font-size: 11px; font-style: italic; }
 
 .schedule-legend { display: flex; gap: 28px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
@@ -309,6 +315,128 @@ a:hover { opacity: .75; }
 .adresse-label { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--warm); margin-bottom: 6px; }
 .adresse-text { font-size: 14px; color: var(--dark); }
 
+/* ---- Practices (home) ---- */
+.practices-section { padding: 96px 8%; background: var(--white); }
+.practices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.practice-card {
+  padding: 52px 44px; background: var(--cream-deep);
+  display: flex; flex-direction: column; gap: 0;
+}
+.practice-card-munz { background: #FEF5EF; }
+.practice-tag {
+  display: inline-block; color: #fff; font-size: 9px; letter-spacing: .22em;
+  text-transform: uppercase; padding: 5px 14px; font-weight: 600;
+  margin-bottom: 24px; width: fit-content; border-radius: 3px;
+}
+.practice-title {
+  font-family: var(--font-serif); font-size: 32px; font-weight: 300;
+  color: var(--dark); margin-bottom: 18px; letter-spacing: .02em; line-height: 1.15;
+}
+.practice-desc { font-size: 15px; line-height: 1.85; color: var(--muted); flex: 1; margin-bottom: 28px; }
+.practice-link {
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--warm); opacity: 1 !important; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.practice-link:hover { opacity: .7 !important; }
+
+/* Schedule Munz callout */
+.schedule-munz-callout {
+  display: flex; align-items: center; gap: 14px;
+  background: #FEF5EF; border: 1px solid #F0C0A0; border-left: 3px solid #D4845A;
+  padding: 14px 20px; margin-bottom: 24px; font-size: 13px; color: var(--mid);
+}
+.munz-callout-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #D4845A; flex-shrink: 0;
+}
+.schedule-munz-callout a { color: #D4845A; opacity: 1; }
+.schedule-munz-callout a:hover { opacity: .75; }
+
+/* ---- Munz Floor section ---- */
+.munz-section { }
+
+.munz-header {
+  display: grid; grid-template-columns: 1fr 280px; min-height: 520px;
+  background: linear-gradient(135deg, #3D1F0A 0%, #5C2E10 40%, #7A3E18 100%);
+}
+.munz-header-content {
+  padding: 80px 8%; display: flex; flex-direction: column; justify-content: center;
+}
+.munz-main-title {
+  font-family: var(--font-serif); font-size: clamp(52px, 7vw, 88px);
+  font-weight: 300; color: #fff; line-height: 1; letter-spacing: .01em;
+  margin-bottom: 14px;
+}
+.munz-main-title sup { font-size: 40%; vertical-align: super; }
+.munz-tagline {
+  font-size: clamp(16px, 2.5vw, 22px); color: #D4845A; font-weight: 300;
+  margin-bottom: 28px; font-family: var(--font-serif); font-style: italic;
+  letter-spacing: .01em;
+}
+.munz-intro-text { font-size: 15px; line-height: 1.85; color: rgba(255,255,255,.7); margin-bottom: 12px; max-width: 600px; }
+
+.munz-header-badge {
+  background: rgba(0,0,0,.25); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 40px 28px; text-align: center;
+  border-left: 1px solid rgba(255,255,255,.1);
+}
+.munz-creator-label { font-size: 9px; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.35); margin-bottom: 6px; }
+.munz-creator-name { font-family: var(--font-serif); font-size: 22px; font-weight: 300; color: #fff; margin-bottom: 6px; }
+.munz-creator-sub { font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.6; margin-bottom: 20px; }
+.munz-creator-line { width: 1px; height: 32px; background: rgba(255,255,255,.15); margin: 0 auto 20px; }
+
+.munz-body { background: var(--white); }
+
+.munz-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border-bottom: 1px solid var(--light-border);
+}
+.munz-col { padding: 72px 8%; }
+.munz-col:first-child { border-right: 1px solid var(--light-border); background: var(--cream); }
+.munz-col p { font-size: 15px; line-height: 1.85; color: var(--muted); }
+.munz-col-title {
+  font-family: var(--font-serif); font-size: 26px; font-weight: 300;
+  color: var(--dark); margin-bottom: 22px; letter-spacing: .02em;
+  padding-bottom: 14px; border-bottom: 2px solid #D4845A;
+}
+.munz-benefits { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.munz-benefits li {
+  font-size: 14px; color: var(--mid); line-height: 1.6;
+  padding-left: 22px; position: relative;
+}
+.munz-benefits li::before {
+  content: '→'; position: absolute; left: 0; color: #D4845A; font-size: 12px;
+}
+
+.munz-accessible {
+  background: linear-gradient(135deg, #5C2E10 0%, #7A3E18 100%);
+  padding: 80px 8%;
+}
+.munz-accessible-inner { max-width: 720px; margin: 0 auto; text-align: center; }
+.munz-accessible h2 {
+  font-family: var(--font-serif); font-size: clamp(28px, 4vw, 42px);
+  font-weight: 300; color: #fff; margin-bottom: 24px; letter-spacing: .02em;
+}
+.munz-accessible p { font-size: 15px; line-height: 1.9; color: rgba(255,255,255,.7); }
+.munz-accessible-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 36px; }
+
+.munz-location {
+  display: flex; align-items: center; gap: 24px;
+  padding: 32px 8%; background: var(--cream-deep);
+  border-top: 1px solid var(--light-border);
+}
+.munz-location-badge { font-size: 28px; flex-shrink: 0; }
+.munz-location-title { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #D4845A; margin-bottom: 4px; font-weight: 500; }
+.munz-location-addr { font-size: 16px; color: var(--dark); font-family: var(--font-serif); margin-bottom: 4px; }
+.munz-location-sub { font-size: 12px; color: var(--muted); }
+
+.munz-disclaimer {
+  font-size: 11px; color: #bbb; line-height: 1.7; font-style: italic;
+  padding: 20px 8%; border-top: 1px solid var(--light-border);
+  background: var(--white); text-align: center;
+}
+
 /* ---- Infos ---- */
 .infos-section { padding: 96px 8%; background: var(--cream-deep); }
 .infos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -427,6 +555,24 @@ a:hover { opacity: .75; }
   }
   .mobile-day-tabs::-webkit-scrollbar { display: none; }
   .schedule-legend { display: none; }
+
+  /* Practices section */
+  .practices-grid { grid-template-columns: 1fr; }
+  .practice-card { padding: 40px 6%; }
+
+  /* Munz header */
+  .munz-header { grid-template-columns: 1fr; min-height: auto; }
+  .munz-header-badge { display: none; }
+  .munz-header-content { padding: 60px 6%; }
+
+  /* Munz body */
+  .munz-cols { grid-template-columns: 1fr; }
+  .munz-col:first-child { border-right: none; border-bottom: 1px solid var(--light-border); }
+  .munz-col { padding: 48px 6%; }
+
+  .munz-accessible { padding: 56px 6%; }
+  .munz-accessible-cta { flex-direction: column; align-items: center; }
+  .munz-location { padding: 28px 6%; }
 }
 
 @media (max-width: 640px) {
@@ -472,4 +618,16 @@ a:hover { opacity: .75; }
   /* Footer */
   .site-footer { padding: 48px 5%; }
   .footer-bottom { flex-direction: column; gap: 8px; text-align: center; padding: 14px 5%; }
+
+  /* Practices section */
+  .practices-section { padding: 56px 5%; }
+  .practice-card { padding: 32px 20px; }
+  .practice-title { font-size: 24px; }
+
+  /* Munz section */
+  .munz-header-content { padding: 48px 5%; }
+  .munz-col { padding: 40px 5%; }
+  .munz-accessible { padding: 48px 5%; }
+  .munz-location { flex-direction: column; text-align: center; gap: 12px; padding: 24px 5%; }
+  .schedule-munz-callout { font-size: 12px; padding: 12px 5%; }
 }
