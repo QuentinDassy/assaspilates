@@ -20,6 +20,7 @@
     <li><a href="#" onclick="return showPage('team')" id="nav-team">L'équipe</a></li>
     <li><a href="#" onclick="return showPage('tarifs')" id="nav-tarifs">Tarifs</a></li>
     <li><a href="#" onclick="return showPage('studio')" id="nav-studio">Le studio</a></li>
+    <li><a href="#" onclick="return showPage('munz')" id="nav-munz" style="color:#D4845A">Munz Floor®</a></li>
     <li><a href="booking/manage.html" id="nav-manage">Mon espace</a></li>
   </ul>
   <button class="nav-book" onclick="window.location='booking/index.html'">Réserver</button>
@@ -41,6 +42,7 @@
     <a href="#" onclick="toggleMobileNav(false);return showPage('team')" id="mnav-team">L'équipe</a>
     <a href="#" onclick="toggleMobileNav(false);return showPage('tarifs')" id="mnav-tarifs">Tarifs</a>
     <a href="#" onclick="toggleMobileNav(false);return showPage('studio')" id="mnav-studio">Le studio</a>
+    <a href="#" onclick="toggleMobileNav(false);return showPage('munz')" id="mnav-munz" style="color:#D4845A">Munz Floor®</a>
     <a href="booking/manage.html">Mon espace</a>
   </nav>
   <a class="nav-mobile-cta" href="booking/index.html">Réserver un cours</a>
@@ -85,6 +87,27 @@
     </div>
   </div>
 
+  <div class="practices-section">
+    <div class="section-header">
+      <p class="section-eyebrow">Deux disciplines</p>
+      <h2 class="section-title">Pilates & Munz Floor</h2>
+    </div>
+    <div class="practices-grid">
+      <div class="practice-card">
+        <div class="practice-tag" style="background:var(--accent)">Pilates Mat & Machine</div>
+        <h3 class="practice-title">Cours de Pilates</h3>
+        <p class="practice-desc">Une méthode issue de la danse classique, centrée sur le renforcement profond, la posture et la précision du mouvement. En semi-collectif, duo ou cours privé, avec une attention individuelle permanente.</p>
+        <a href="#" onclick="return showPage('schedule')" class="practice-link">Voir les cours →</a>
+      </div>
+      <div class="practice-card practice-card-munz">
+        <div class="practice-tag" style="background:#D4845A">Munz Floor® — Nouveau</div>
+        <h3 class="practice-title">La méthode Munz Floor®</h3>
+        <p class="practice-desc">Des mouvements lents, fluides et spiralés au sol pour libérer les fascias, soulager les douleurs du dos et retrouver mobilité et légèreté. Accessible à tous, sans impact, quelle que soit votre condition physique.</p>
+        <a href="#" onclick="return showPage('munz')" class="practice-link" style="color:#D4845A">Découvrir la méthode →</a>
+      </div>
+    </div>
+  </div>
+
   <div class="home-schedule-preview">
     <div class="section-header">
       <p class="section-eyebrow">Aperçu de la semaine</p>
@@ -108,8 +131,15 @@
     </div>
     <div id="schedule-mobile-tabs" class="mobile-day-tabs"></div>
     <div id="schedule-grid" class="days-grid"></div>
+    <div class="schedule-munz-callout">
+      <span class="munz-callout-dot"></span>
+      <p>Les cours <strong>Munz Floor®</strong> se déroulent au studio partenaire (30, rue Monsieur-le-Prince — 75006 Paris). <a href="#" onclick="return showPage('munz')">En savoir plus sur la méthode →</a></p>
+    </div>
     <div class="schedule-legend">
-      <div class="legend-item"><span class="legend-dot munz"></span>Munz Floor — lieu Rue de Sèvres</div>
+      <div class="legend-item"><span class="legend-dot collectif"></span>Semi-Collectif Pilates</div>
+      <div class="legend-item"><span class="legend-dot duo"></span>Cours Duo Wall Unit</div>
+      <div class="legend-item"><span class="legend-dot prive"></span>Cours Privé</div>
+      <div class="legend-item"><span class="legend-dot munz"></span>Munz Floor® — Rue de Sèvres</div>
     </div>
     <div class="schedule-contact">
       <a href="booking/index.html" class="btn-inline">Réserver en ligne →</a>
@@ -175,6 +205,79 @@
   </div>
 </section>
 
+<!-- MUNZ FLOOR -->
+<section class="site-section" id="page-munz">
+  <div class="munz-section">
+
+    <div class="munz-header">
+      <div class="munz-header-content">
+        <p class="section-eyebrow" style="color:#D4845A">Méthode exclusive au studio</p>
+        <h1 class="munz-main-title">Munz Floor<sup>®</sup></h1>
+        <p class="munz-tagline">Une approche innovante pour soulager les douleurs du dos</p>
+        <p class="munz-intro-text">La Munz Floor est une méthode de mouvements au sol basée sur des mouvements lents, fluides et spiralés qui sollicitent l'ensemble du corps en douceur. Créée par <strong>Alexandre Munz</strong>, ancien danseur étoile du ballet de Berlin, cette pratique s'appuie sur le rôle des fascias, ce réseau de tissus conjonctifs qui enveloppe et relie toutes les structures du corps.</p>
+        <p class="munz-intro-text">La Munz Floor invite à explorer des mouvements de spirales réalisés lentement au sol. Ces mouvements favorisent la mobilité naturelle de la colonne vertébrale, améliorent la souplesse des tissus et contribuent à libérer les tensions accumulées.</p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:32px">
+          <a href="booking/index.html" class="nav-book" style="background:#D4845A">Réserver un cours</a>
+          <a href="#" onclick="return showPage('tarifs')" class="btn-inline" style="background:transparent;border:1px solid #D4845A;color:#D4845A;margin-top:0">Voir les tarifs →</a>
+        </div>
+      </div>
+      <div class="munz-header-badge">
+        <div class="munz-creator-label">Créé par</div>
+        <div class="munz-creator-name">Alexandre Munz</div>
+        <div class="munz-creator-sub">Ancien danseur étoile<br>Ballet de Berlin</div>
+        <div class="munz-creator-line"></div>
+        <div class="munz-creator-label">Enseigné à</div>
+        <div class="munz-creator-name" style="font-size:16px">Assas Pilates Ballet</div>
+        <div class="munz-creator-sub">Paris 6<sup>e</sup></div>
+      </div>
+    </div>
+
+    <div class="munz-body">
+      <div class="munz-cols">
+        <div class="munz-col">
+          <h2 class="munz-col-title">Pourquoi les fascias sont-ils importants ?</h2>
+          <p>Les fascias forment une véritable toile tridimensionnelle qui parcourt l'ensemble du corps. Lorsqu'ils perdent en élasticité ou se rigidifient sous l'effet du stress, de la sédentarité ou de certaines habitudes posturales, des douleurs et des limitations peuvent apparaître.</p>
+          <p style="margin-top:16px">En travaillant spécifiquement sur ce réseau de tissu conjonctif, la Munz Floor agit en profondeur là où les autres méthodes n'atteignent pas toujours.</p>
+        </div>
+        <div class="munz-col">
+          <h2 class="munz-col-title">Ce que la pratique apporte</h2>
+          <ul class="munz-benefits">
+            <li>Améliorer la mobilité articulaire et la souplesse</li>
+            <li>Diminuer les tensions musculaires et articulaires</li>
+            <li>Favoriser une meilleure hydratation des tissus fasciaux</li>
+            <li>Développer une sensation de légèreté et de fluidité dans le mouvement</li>
+            <li>Améliorer la conscience corporelle et la posture</li>
+            <li>Retrouver plus de confort dans les mouvements du quotidien</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="munz-accessible">
+        <div class="munz-accessible-inner">
+          <h2>Une activité accessible à tous</h2>
+          <p>La Munz Floor se pratique <strong>allongé au sol</strong>, sans impact et sans recherche de performance. Grâce à son rythme lent et progressif, elle est accessible à un large public — que vous soyez sportif, actif, sédentaire ou simplement à la recherche d'une solution douce pour prendre soin de votre dos.</p>
+          <p style="margin-top:16px">Chaque séance permet de retrouver plus de confort dans les mouvements du quotidien tout en procurant une profonde sensation de détente. <strong>Pour un dos plus libre et un corps plus mobile.</strong></p>
+          <div class="munz-accessible-cta">
+            <a href="booking/index.html" class="btn-inline" style="background:#D4845A;margin-top:0">Réserver un cours Munz Floor →</a>
+            <a href="#" onclick="return showPage('schedule')" class="btn-inline" style="background:transparent;border:1px solid rgba(255,255,255,.35);margin-top:0;color:#fff">Voir le planning →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="munz-location">
+        <div class="munz-location-badge">📍</div>
+        <div>
+          <div class="munz-location-title">Studio partenaire — Cours Munz Floor®</div>
+          <div class="munz-location-addr">30, rue Monsieur-le-Prince — Paris 75006</div>
+          <div class="munz-location-sub">À quelques minutes à pied du studio principal (rue Duguay-Trouin)</div>
+        </div>
+      </div>
+
+      <p class="munz-disclaimer">Cette pratique contribue au bien-être et à la mobilité, mais ne se substitue pas à un suivi médical ou à un traitement prescrit par un professionnel de santé.</p>
+    </div>
+  </div>
+</section>
+
 <!-- INFOS -->
 <section class="site-section" id="page-infos">
   <div class="infos-section">
@@ -220,6 +323,7 @@
     <a href="#" onclick="return showPage('team')">L'équipe</a>
     <a href="#" onclick="return showPage('tarifs')">Carnets</a>
     <a href="#" onclick="return showPage('studio')">Le studio</a>
+    <a href="#" onclick="return showPage('munz')" style="color:#D4845A;opacity:1">Munz Floor®</a>
     <a href="#" onclick="return showPage('infos')">Infos pratiques</a>
     <a href="booking/index.html">Réservation en ligne</a>
   </div>
