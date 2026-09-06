@@ -119,12 +119,17 @@ function renderTeam() {
     const photoInner = m.photo
       ? `<img src="${m.photo}" alt="${m.name}">`
       : `<span class="team-photo-initials">${initials}</span>`;
+    const isMunzCoach = tags.some(t => t.trim().toUpperCase().includes('MUNZ FLOOR'));
+    const munzBadge = isMunzCoach
+      ? `<img src="images/logo-munzfloor-badge.png" alt="Coach certifié Munz Floor" class="team-munz-badge">`
+      : '';
     return `<div class="team-card">
       <div class="team-photo">${photoInner}</div>
       <div class="team-role">${m.role}</div>
       <div class="team-name">${m.name}</div>
       <div class="team-bio">${m.bio}</div>
       <div class="team-tags">${tags.map(t => `<span class="team-tag">${t.trim()}</span>`).join('')}</div>
+      ${munzBadge}
     </div>`;
   }).join('');
 }
