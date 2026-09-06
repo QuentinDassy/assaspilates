@@ -364,6 +364,7 @@ a:hover { opacity: .75; }
 .munz-header-content {
   padding: 80px 8%; display: flex; flex-direction: column; justify-content: center;
 }
+.munz-hero-cert-badge { height: 76px; width: auto; align-self: flex-start; margin-bottom: 26px; border-radius: 8px; }
 .munz-main-title {
   font-family: var(--font-serif); font-size: clamp(52px, 7vw, 88px);
   font-weight: 300; color: #fff; line-height: 1; letter-spacing: .01em;
