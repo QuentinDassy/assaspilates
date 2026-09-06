@@ -169,7 +169,7 @@ a:hover { opacity: .75; }
 .slot-time { color: var(--warm); font-size: 11px; letter-spacing: .06em; margin-bottom: 3px; }
 .slot-title { font-weight: 500; color: var(--dark); font-size: 13px; line-height: 1.35; margin-bottom: 3px; }
 .slot-teacher { color: #aaa; font-size: 11px; }
-.slot.munz { border-left-color: #D4845A; background: #FEF5EF; border-left-width: 3px; }
+.slot.munz { border-left-color: #D68FA0; background: #FDF1F4; border-left-width: 3px; }
 .no-class { padding: 22px 6px; text-align: center; color: #ccc; font-size: 11px; font-style: italic; }
 
 .schedule-legend { display: flex; gap: 28px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
@@ -178,18 +178,18 @@ a:hover { opacity: .75; }
 .legend-dot.collectif { background: var(--accent); }
 .legend-dot.prive { background: #9B72BD; }
 .legend-dot.duo { background: #5B8FD4; }
-.legend-dot.munz { background: #D4845A; }
+.legend-dot.munz { background: #D68FA0; }
 .schedule-contact {
   text-align: center; margin-top: 40px;
   padding: 28px; background: var(--white); border: 1px solid var(--light-border);
 }
 
 /* ---- Tarif group colors ---- */
-.tarif-group-munz .tarif-group-label { color: #D4845A; border-bottom-color: #D4845A; }
+.tarif-group-munz .tarif-group-label { color: #D68FA0; border-bottom-color: #D68FA0; }
 .tarif-group-decouverte .tarif-group-label { color: #C9972A; border-bottom-color: #C9972A; }
-.tarif-card-munz { border-left: 3px solid #D4845A; background: linear-gradient(135deg, #fff 85%, #FEF5EF 100%); }
-.tarif-card-munz .tarif-label { color: #D4845A; }
-.tarif-card-munz .tarif-carnet-tag { background: #FEF0E8; color: #A0521A; border-color: #F0C0A0; }
+.tarif-card-munz { border-left: 3px solid #D68FA0; background: linear-gradient(135deg, #fff 85%, #FDF1F4 100%); }
+.tarif-card-munz .tarif-label { color: #D68FA0; }
+.tarif-card-munz .tarif-carnet-tag { background: #FBE4EA; color: #A94766; border-color: #F0B8C6; }
 .tarif-card-decouverte { border: 2px solid #C9972A !important; background: linear-gradient(135deg, #fff 80%, #FFFBE8 100%); }
 .tarif-card-decouverte .tarif-label { color: #C9972A; }
 .tarif-card-decouverte::before { content: '✦ Idéal pour débuter'; position: absolute; top: -12px; right: 24px; background: #C9972A; color: #fff; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; padding: 3px 12px; }
