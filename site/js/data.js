@@ -9,7 +9,7 @@ const DAYS_SHORT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
 const LOCATIONS = {
   assas: { name: 'Studio Assas', short: 'Assas', addr: '12, rue Duguay-Trouin — 75006 Paris', color: '#6BB5A8' },
-  lieu2: { name: 'Studio Munz Floor', short: 'Munz Floor', addr: '30, rue Monsieur Le Prince — 75006 Paris', color: '#D4845A' },
+  lieu2: { name: 'Studio Munz Floor', short: 'Munz Floor', addr: '30, rue Monsieur Le Prince — 75006 Paris', color: '#D68FA0' },
 };
 
 const DEFAULT_SLOTS = [

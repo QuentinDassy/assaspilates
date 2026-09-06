@@ -85,7 +85,7 @@ a:hover{opacity:.75}
 .carnet-card[data-type="collectif"]{border-left:3px solid #1AC4AE}
 .carnet-card[data-type="prive"]{border-left:3px solid #9B72BD}
 .carnet-card[data-type="duo"]{border-left:3px solid #5B8FD4}
-.carnet-card[data-type="munz"]{border-left:3px solid #D4845A}
+.carnet-card[data-type="munz"]{border-left:3px solid #D68FA0}
 
 /* Compact header row (always visible) */
 .carnet-compact-row{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none}
@@ -95,7 +95,7 @@ a:hover{opacity:.75}
 .carnet-type-badge.type-collectif{background:#E4F9F7;color:#0A6E63}
 .carnet-type-badge.type-prive{background:#F5F0FF;color:#6A3FA0}
 .carnet-type-badge.type-duo{background:#EEF4FF;color:#2A5FAA}
-.carnet-type-badge.type-munz{background:#FEF0E8;color:#A0521A}
+.carnet-type-badge.type-munz{background:#FBE4EA;color:#A94766}
 .carnet-compact-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .carnet-compact-sessions{font-family:var(--font-serif);font-size:30px;font-weight:300;color:var(--dark);line-height:1}
 .carnet-compact-sub{font-size:9px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;line-height:1.2;text-align:right;max-width:42px}
@@ -449,18 +449,19 @@ function renderCarnets(carnets) {
         </div>
         <div class="carnet-compact-right">
           <div style="text-align:right">
-            <div class="carnet-compact-sessions">${c.remainingSessions}</div>
-            <div class="carnet-compact-sub">séance${c.remainingSessions !== 1 ? 's' : ''}<br>restante${c.remainingSessions !== 1 ? 's' : ''}</div>
+            ${isExpired
+              ? '<div class="carnet-compact-sessions">—</div><div class="carnet-compact-sub">carnet<br>expiré</div>'
+              : `<div class="carnet-compact-sessions">${c.remainingSessions}</div><div class="carnet-compact-sub">séance${c.remainingSessions !== 1 ? 's' : ''}<br>restante${c.remainingSessions !== 1 ? 's' : ''}</div>`}
           </div>
           <span class="carnet-expand-btn">▾</span>
         </div>
       </div>
       <div class="carnet-expanded-body" style="display:none">
         ${c.expiresAt ? `<div style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Expire le ${c.expiresAt}</div>` : ''}
-        <div class="carnet-progress-wrap">
+        ${isExpired ? '' : `<div class="carnet-progress-wrap">
           <div class="carnet-progress-bar"><div class="carnet-progress-fill" style="width:${pct}%"></div></div>
           <div class="carnet-progress-label"><span>${c.remainingSessions} / ${c.totalSessions} séances restantes</span></div>
-        </div>
+        </div>`}
         <div class="carnet-actions">${actions}</div>
       </div>
     </div>`;

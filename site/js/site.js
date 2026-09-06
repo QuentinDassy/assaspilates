@@ -48,7 +48,7 @@ function renderSchedule(containerId, mini = false) {
       shown.forEach(s => {
         const loc = LOCATIONS[s.location || 'assas'] || LOCATIONS.assas;
         const locBadge = !mini && s.location === 'lieu2'
-          ? `<div class="slot-loc" style="font-size:10px;color:#D4845A;margin-top:2px">📍 ${loc.short}</div>`
+          ? `<div class="slot-loc" style="font-size:10px;color:#D68FA0;margin-top:2px">📍 ${loc.short}</div>`
           : '';
         html += `<div class="slot ${s.type}">
           <div class="slot-time">${s.start}${mini ? '' : ' – ' + s.end}</div>
