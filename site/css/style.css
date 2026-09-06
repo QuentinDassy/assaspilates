@@ -358,7 +358,7 @@ a:hover { opacity: .75; }
 
 .munz-header {
   display: grid; grid-template-columns: 1fr 280px; min-height: 520px;
-  background: linear-gradient(135deg, #3D1F0A 0%, #5C2E10 40%, #7A3E18 100%);
+  background: linear-gradient(135deg, #4A1F2E 0%, #6B2E42 40%, #8C3F55 100%);
 }
 .munz-header-content {
   padding: 80px 8%; display: flex; flex-direction: column; justify-content: center;
@@ -410,7 +410,7 @@ a:hover { opacity: .75; }
 }
 
 .munz-accessible {
-  background: linear-gradient(135deg, #5C2E10 0%, #7A3E18 100%);
+  background: linear-gradient(135deg, #6B2E42 0%, #8C3F55 100%);
   padding: 80px 8%;
 }
 .munz-accessible-inner { max-width: 720px; margin: 0 auto; text-align: center; }
