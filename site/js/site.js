@@ -50,9 +50,14 @@ function renderSchedule(containerId, mini = false) {
         const locBadge = !mini && s.location === 'lieu2'
           ? `<div class="slot-loc" style="font-size:10px;color:#D68FA0;margin-top:2px">📍 ${loc.short}</div>`
           : '';
+        const isMunz = s.type === 'munz';
+        const munzBadge = isMunz && !mini
+          ? `<div class="slot-munz-badge">MUNZ FLOOR®</div>`
+          : (isMunz && mini ? `<div class="slot-munz-badge slot-munz-badge-mini">MF®</div>` : '');
         html += `<div class="slot ${s.type}">
           <div class="slot-time">${s.start}${mini ? '' : ' – ' + s.end}</div>
           <div class="slot-title">${mini ? s.title.replace('Cours ', '').split('–')[0].trim() : s.title}</div>
+          ${munzBadge}
           ${!mini ? `<div class="slot-teacher">👤 ${s.teacher}</div>${locBadge}` : ''}
         </div>`;
       });
