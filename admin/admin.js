@@ -5,7 +5,29 @@
 let selectedDay    = 0;
 let calWeekOffset  = 0;
 
-// Helper: display name from carnet or booking (handles both naming conventions)
+// ---- Output-encoding helpers ----
+// Client-submitted fields (name/email/phone from the public booking form) are rendered
+// here via innerHTML. Without escaping, a booking made with e.g. firstName =
+// "<img src=x onerror=...>" runs arbitrary JS in whoever's browser views the admin panel.
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// For embedding a value inside onclick="fn('VALUE')" -- a JS string literal nested inside
+// an HTML attribute. Escapes backslash/quote for the JS layer, then HTML-encodes the
+// result so the value can never break out of either the JS string or the "..." attribute
+// (e.g. an email of  x');alert(1);//  would otherwise execute as script).
+function escapeJsAttr(value) {
+  const jsEscaped = String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, '\\n');
+  return escapeHtml(jsEscaped);
+}
+
+// Helper: display name from carnet or booking (handles both naming conventions).
+// Returns the RAW name -- callers that insert it into HTML must escapeHtml() it
+// themselves (see e.g. renderCarnetsAdmin); callers using it for .value/grouping
+// (filterClients, renderClientsAdmin) need the raw string, not HTML-encoded.
 function getClientName(obj) {
   if (obj.clientName) return obj.clientName;
   return [obj.clientFirstName, obj.clientLastName].filter(Boolean).join(' ').trim() || '—';
@@ -481,10 +503,10 @@ function renderBookingList() {
     return `<tr>
       <td style="font-size:11px;letter-spacing:.06em;color:#888">${b.id}</td>
       <td>
-        <div style="font-size:13px;cursor:pointer;color:var(--accent)" onclick="showStudentProfile('${b.clientEmail}')">${b.clientFirstName} ${b.clientLastName}</div>
-        <div style="font-size:11px;color:#aaa">${b.clientEmail}</div>
+        <div style="font-size:13px;cursor:pointer;color:var(--accent)" onclick="showStudentProfile('${escapeJsAttr(b.clientEmail)}')">${escapeHtml(b.clientFirstName)} ${escapeHtml(b.clientLastName)}</div>
+        <div style="font-size:11px;color:#aaa">${escapeHtml(b.clientEmail)}</div>
       </td>
-      <td style="font-size:12px;max-width:160px">${(b.slotTitle||'').replace('Cours ','')}</td>
+      <td style="font-size:12px;max-width:160px">${escapeHtml((b.slotTitle||'').replace('Cours ',''))}</td>
       <td style="font-size:12px;white-space:nowrap">${new Date(b.courseDate+'T12:00:00').toLocaleDateString('fr-FR')} ${b.slotStart}</td>
       <td style="font-size:11px;color:#888">${loc}</td>
       <td>
@@ -628,7 +650,7 @@ function editBooking(id) {
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label>Professeur</label>
-            <input type="text" id="eb-custom-teacher" value="${isCustom ? (b.slotTeacher || '') : ''}">
+            <input type="text" id="eb-custom-teacher" value="${escapeHtml(isCustom ? (b.slotTeacher || '') : '')}">
           </div>
         </div>
 
@@ -640,8 +662,8 @@ function editBooking(id) {
 
         <div style="background:#faf9f6;border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-size:13px">
           <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin-bottom:6px">Client — modifiable depuis la fiche client</div>
-          <div style="font-weight:500">${b.clientFirstName || ''} ${b.clientLastName || ''}</div>
-          <div style="color:#888;font-size:12px;margin-top:2px">${b.clientEmail || ''}${b.clientPhone ? ' · ' + b.clientPhone : ''}</div>
+          <div style="font-weight:500">${escapeHtml(b.clientFirstName || '')} ${escapeHtml(b.clientLastName || '')}</div>
+          <div style="color:#888;font-size:12px;margin-top:2px">${escapeHtml(b.clientEmail || '')}${b.clientPhone ? ' · ' + escapeHtml(b.clientPhone) : ''}</div>
         </div>
 
         <div id="eb-alert"></div>
@@ -690,6 +712,14 @@ function saveBookingEdit(id) {
   showAlert('bookings-alert', `✓ Réservation ${id} modifiée.`);
 }
 
+// Neutralizes CSV/formula injection (CWE-1236): a client name/message starting with
+// =, +, -, @ or a tab/CR would otherwise be executed as a formula when the exported
+// file is opened in Excel/Sheets (e.g. clientFirstName = '=HYPERLINK("http://evil","x")').
+function csvSafe(value) {
+  const s = String(value ?? '');
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
 function exportBookingsCSV() {
   const bookings = getBookings();
   if (!bookings.length) { alert('Aucune réservation à exporter.'); return; }
@@ -701,7 +731,7 @@ function exportBookingsCSV() {
     b.participants, b.paymentType, b.carnetCode || '',
     b.totalPaid || 0, b.status,
     new Date(b.createdAt).toLocaleString('fr-FR'),
-  ].map(v => `"${String(v).replace(/"/g,'""')}"`));
+  ].map(v => `"${csvSafe(v).replace(/"/g,'""')}"`));
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
@@ -740,12 +770,12 @@ function renderCarnetsAdmin() {
     const statusColor = (!c.active || expired || depleted) ? '#c0392b' : '#2E6B30';
     const statusLabel = !c.active ? 'Désactivé' : expired ? 'Expiré' : depleted ? 'Épuisé' : 'Actif';
     return `<tr>
-      <td style="font-family:monospace;font-size:12px;letter-spacing:.06em">${c.code}</td>
+      <td style="font-family:monospace;font-size:12px;letter-spacing:.06em">${escapeHtml(c.code)}</td>
       <td>
-        <div style="font-size:13px;cursor:pointer;color:var(--accent)" onclick="showStudentProfile('${c.clientEmail}')">${getClientName(c)}</div>
-        <div style="font-size:11px;color:#aaa">${c.clientEmail}</div>
+        <div style="font-size:13px;cursor:pointer;color:var(--accent)" onclick="showStudentProfile('${escapeJsAttr(c.clientEmail)}')">${escapeHtml(getClientName(c))}</div>
+        <div style="font-size:11px;color:#aaa">${escapeHtml(c.clientEmail)}</div>
       </td>
-      <td><strong>${c.remainingSessions}</strong> / ${c.totalSessions}<div style="font-size:10px;color:#aaa">${c.tarifName}</div></td>
+      <td><strong>${c.remainingSessions}</strong> / ${c.totalSessions}<div style="font-size:10px;color:#aaa">${escapeHtml(c.tarifName)}</div></td>
       <td style="font-size:12px">${c.expiresAt || '—'}</td>
       <td><span style="font-size:11px;font-weight:500;color:${statusColor}">${statusLabel}</span></td>
       <td class="actions">
@@ -908,7 +938,7 @@ function showStudentProfile(email) {
       <td style="font-size:11px;font-weight:500;color:${sc}">${sl}</td>
       <td class="actions" style="white-space:nowrap">
         ${b.status === 'confirmed' && !isPast
-          ? `<button class="btn btn-sm btn-danger" onclick="adminCancelBooking('${b.id}');showStudentProfile('${email}')">Annuler</button>`
+          ? `<button class="btn btn-sm btn-danger" onclick="adminCancelBooking('${b.id}');showStudentProfile('${escapeJsAttr(email)}')">Annuler</button>`
           : ''}
       </td>
     </tr>`;
@@ -919,8 +949,8 @@ function showStudentProfile(email) {
     const sc = (!c.active || expired || c.remainingSessions <= 0) ? '#c0392b' : '#2E6B30';
     const sl = !c.active ? 'Désactivé' : expired ? 'Expiré' : c.remainingSessions <= 0 ? 'Épuisé' : 'Actif';
     return `<tr>
-      <td style="font-family:monospace;font-size:12px">${c.code}</td>
-      <td>${c.tarifName || '—'}</td>
+      <td style="font-family:monospace;font-size:12px">${escapeHtml(c.code)}</td>
+      <td>${escapeHtml(c.tarifName || '—')}</td>
       <td><strong>${c.remainingSessions}</strong> / ${c.totalSessions}</td>
       <td style="font-size:12px">${c.expiresAt || '—'}</td>
       <td style="font-size:11px;font-weight:500;color:${sc}">${sl}</td>
@@ -939,8 +969,8 @@ function showStudentProfile(email) {
     <div style="background:#fff;max-width:820px;width:100%;padding:0;position:relative">
       <div style="background:#373737;color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300">${name.trim() || email}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${email} · ${phone}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300">${escapeHtml(name.trim() || email)}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${escapeHtml(email)} · ${escapeHtml(phone)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
           <button onclick="document.getElementById('client-edit-zone').style.display=document.getElementById('client-edit-zone').style.display==='none'?'block':'none'"
@@ -950,26 +980,26 @@ function showStudentProfile(email) {
       </div>
       <div id="client-edit-zone" style="display:none;padding:20px 24px;border-bottom:1px solid var(--border);background:#faf9f6">
         <div class="form-row">
-          <div class="form-group"><label>Prénom</label><input type="text" id="ce-firstname" value="${firstName}"></div>
-          <div class="form-group"><label>Nom</label><input type="text" id="ce-lastname" value="${lastName}"></div>
+          <div class="form-group"><label>Prénom</label><input type="text" id="ce-firstname" value="${escapeHtml(firstName)}"></div>
+          <div class="form-group"><label>Nom</label><input type="text" id="ce-lastname" value="${escapeHtml(lastName)}"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Téléphone</label><input type="tel" id="ce-phone" value="${phone !== '—' ? phone : ''}"></div>
+          <div class="form-group"><label>Téléphone</label><input type="tel" id="ce-phone" value="${escapeHtml(phone !== '—' ? phone : '')}"></div>
           <div class="form-group">
             <label>Email</label>
-            <input type="email" id="ce-email" value="${email}">
+            <input type="email" id="ce-email" value="${escapeHtml(email)}">
             <small>Changer l'email modifie l'identifiant de connexion</small>
           </div>
         </div>
         <div id="ce-alert"></div>
         <div class="form-actions" style="margin-top:4px">
-          <button class="btn btn-primary" onclick="saveClientEdit('${email}')">Enregistrer</button>
+          <button class="btn btn-primary" onclick="saveClientEdit('${escapeJsAttr(email)}')">Enregistrer</button>
           <button class="btn btn-outline" onclick="document.getElementById('client-edit-zone').style.display='none'">Annuler</button>
         </div>
       </div>
       <div style="padding:20px 24px;overflow-x:auto">
         ${upcoming.length ? `<div style="margin-bottom:12px">
-          <button class="btn btn-danger" onclick="adminCancelStudent('${email}')" style="font-size:11px">
+          <button class="btn btn-danger" onclick="adminCancelStudent('${escapeJsAttr(email)}')" style="font-size:11px">
             Annuler tous les cours à venir (${upcoming.length})
           </button>
         </div>` : ''}
@@ -1057,15 +1087,15 @@ function adminPrintInvoiceBooking(bookingId) {
       <div style="text-align:right"><div style="font-size:22px;font-family:'Cormorant Garamond',serif;font-weight:300">Facture ${num}</div><div style="font-size:12px;color:#888">Émise le ${date}</div></div>
     </div>
     <div style="background:#faf7f2;padding:14px 18px;margin-bottom:28px;border-left:3px solid #93bdb0;font-size:13px;line-height:1.8">
-      <strong>${b.clientFirstName} ${b.clientLastName}</strong><br>${b.clientEmail}${b.clientPhone?'<br>'+b.clientPhone:''}
+      <strong>${escapeHtml(b.clientFirstName)} ${escapeHtml(b.clientLastName)}</strong><br>${escapeHtml(b.clientEmail)}${b.clientPhone?'<br>'+escapeHtml(b.clientPhone):''}
     </div>
     <table><thead><tr><th>Cours</th><th>Date</th><th style="text-align:right">Montant</th></tr></thead>
     <tbody><tr>
-      <td>${(b.slotTitle||'').replace('Cours ','')}<br><span style="font-size:11px;color:#aaa">Prof. ${b.slotTeacher||'—'}</span></td>
+      <td>${escapeHtml((b.slotTitle||'').replace('Cours ',''))}<br><span style="font-size:11px;color:#aaa">Prof. ${escapeHtml(b.slotTeacher||'—')}</span></td>
       <td>${new Date(b.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} ${b.slotStart}–${b.slotEnd}</td>
       <td style="text-align:right">${b.totalPaid > 0 ? b.totalPaid+'€' : 'Carnet'}</td>
     </tr></tbody></table>
-    <div class="total"><span>${b.paymentType==='carnet'?'Carnet '+b.carnetCode:'Carte bancaire'}</span><span>${b.totalPaid > 0 ? b.totalPaid+'€ TTC' : '—'}</span></div>
+    <div class="total"><span>${b.paymentType==='carnet'?'Carnet '+escapeHtml(b.carnetCode):'Carte bancaire'}</span><span>${b.totalPaid > 0 ? b.totalPaid+'€ TTC' : '—'}</span></div>
     <div style="margin-top:32px;font-size:11px;color:#bbb;text-align:center;border-top:1px solid #eee;padding-top:12px">Assas Pilates Ballet — TVA non applicable, art. 293 B du CGI</div>
     <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#373737;color:#fff;border:none;cursor:pointer;display:block;margin-left:auto">Imprimer / PDF</button>
   <\/body><\/html>`);
@@ -1138,10 +1168,10 @@ function renderPlanningAdmin() {
       );
       const typeClass = enrolled.length ? `cal-event-${slot.type}` : 'cal-event-empty';
       const shortTitle = slot.title.replace(/^Cours\s+/,'').split('–')[0].trim();
-      const names = enrolled.map(b => `${b.clientFirstName} ${(b.clientLastName||'').charAt(0)}.${b.status==='pending'?' ⏳':''}`).join(', ');
+      const names = enrolled.map(b => `${escapeHtml(b.clientFirstName)} ${escapeHtml((b.clientLastName||'').charAt(0))}.${b.status==='pending'?' ⏳':''}`).join(', ');
       const tooltip = `${slot.title} — ${enrolled.map(b => b.clientFirstName+' '+b.clientLastName+(b.status==='pending'?' (en attente)':'')).join(', ')||'Aucune réservation'}`;
 
-      return `<div class="cal-event ${typeClass}" style="top:${top}px;height:${height}px" title="${tooltip}">
+      return `<div class="cal-event ${typeClass}" style="top:${top}px;height:${height}px" title="${escapeHtml(tooltip)}">
         <div class="cal-event-time">${slot.start}–${slot.end}</div>
         <div class="cal-event-title">${shortTitle}</div>
         ${enrolled.length ? `<div class="cal-event-students">${names}</div>` : ''}
@@ -1218,12 +1248,12 @@ function filterClients() {
         const past     = client.bookings.filter(b => b.courseDate < today && b.status === 'confirmed').length;
         const activeC  = client.carnets.find(c => c.active && c.remainingSessions > 0);
         const last     = [...client.bookings].sort((a,b) => b.courseDate.localeCompare(a.courseDate))[0];
-        return `<tr style="cursor:pointer" onclick="showStudentProfile('${client.email}')">
+        return `<tr style="cursor:pointer" onclick="showStudentProfile('${escapeJsAttr(client.email)}')">
           <td>
-            <div style="font-size:13px;font-weight:500;color:var(--accent)">${client.name}</div>
-            <div style="font-size:11px;color:#aaa">${client.email}</div>
+            <div style="font-size:13px;font-weight:500;color:var(--accent)">${escapeHtml(client.name)}</div>
+            <div style="font-size:11px;color:#aaa">${escapeHtml(client.email)}</div>
           </td>
-          <td style="font-size:12px;color:#888">${client.phone || '—'}</td>
+          <td style="font-size:12px;color:#888">${escapeHtml(client.phone || '—')}</td>
           <td style="text-align:center">
             <strong>${upcoming}</strong>${past ? `<span style="font-size:10px;color:#aaa"> +${past} passés</span>` : ''}
           </td>
@@ -1234,7 +1264,7 @@ function filterClients() {
           </td>
           <td style="font-size:12px;color:#888">${last ? new Date(last.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
           <td class="actions" onclick="event.stopPropagation()">
-            <button class="btn btn-sm btn-outline" onclick="showStudentProfile('${client.email}')">Détails</button>
+            <button class="btn btn-sm btn-outline" onclick="showStudentProfile('${escapeJsAttr(client.email)}')">Détails</button>
           </td>
         </tr>`;
       }).join('')

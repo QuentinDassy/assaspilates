@@ -339,6 +339,10 @@ a:hover{opacity:.75}
 let currentEmail   = '';
 let currentBooking = null;
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // ===== LOGIN =====
 function login(skipPasswordCheck) {
   const email    = document.getElementById('l-email').value.trim().toLowerCase();
@@ -683,13 +687,13 @@ function generateInvoice(bookingId) {
       </div>
     </div>
     <div class="client">
-      <strong>${b.clientFirstName} ${b.clientLastName}</strong><br>
-      ${b.clientEmail}${b.clientPhone ? '<br>' + b.clientPhone : ''}
+      <strong>${escapeHtml(b.clientFirstName)} ${escapeHtml(b.clientLastName)}</strong><br>
+      ${escapeHtml(b.clientEmail)}${b.clientPhone ? '<br>' + escapeHtml(b.clientPhone) : ''}
     </div>
     <table>
       <thead><tr><th>Cours</th><th>Date & horaire</th><th style="text-align:right">Montant</th></tr></thead>
       <tbody><tr>
-        <td>${b.slotTitle.replace('Cours ', '')}<br><span style="font-size:11px;color:#aaa">Prof. ${b.slotTeacher || '—'}</span></td>
+        <td>${escapeHtml(b.slotTitle.replace('Cours ', ''))}<br><span style="font-size:11px;color:#aaa">Prof. ${escapeHtml(b.slotTeacher || '—')}</span></td>
         <td style="color:#888">${d} · ${b.slotStart}–${b.slotEnd}</td>
         <td style="text-align:right;font-weight:500">${b.totalPaid > 0 ? b.totalPaid + '€' : '—'}</td>
       </tr></tbody>
@@ -765,17 +769,19 @@ function toggleCarnet(code) {
   }
 }
 
-// ===== AUTO-LOGIN VIA URL PARAM =====
+// ===== PRE-FILL EMAIL FROM URL PARAM (never auto-login) =====
+// SECURITY: this used to call login(true), which skips the password check
+// UNCONDITIONALLY -- meaning manage.html?email=<any-client-email> logged an
+// attacker in as that client (even one with a password set), and ?demo=1
+// bypassed auth entirely via seedDemoData(). A URL parameter is never proof
+// of identity. Real auth (Supabase, magic link/password) is the actual fix
+// and lands with the backend migration; until then this only pre-fills the
+// field so the existing password check (when a password is set) still runs.
 document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
-  let email = params.get('email');
-  if (params.get('demo') === '1') {
-    email = seedDemoData();
-  }
+  const email = params.get('email');
   if (email) {
     document.getElementById('l-email').value = email;
-    login(true);
-    return;
   }
   // Restore saved session (stay logged in)
   try {

@@ -318,6 +318,10 @@ a:hover{opacity:.75}
 
 <script src="../js/data.js"></script>
 <script>
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 let currentStep       = 1;
 let selectedTarif     = null;
 let stripe            = null;
@@ -557,9 +561,9 @@ function showSuccess(carnet, email) {
   document.getElementById('success-screen').style.display = 'block';
 
   document.getElementById('success-details').innerHTML = `
-    <p style="margin-bottom:12px"><strong>Bonjour ${carnet.clientFirstName} ${carnet.clientLastName},</strong></p>
+    <p style="margin-bottom:12px"><strong>Bonjour ${escapeHtml(carnet.clientFirstName)} ${escapeHtml(carnet.clientLastName)},</strong></p>
     <p>Votre carnet a bien été enregistré :</p>
-    <p style="margin-top:12px">📦 <strong>${carnet.tarifName}</strong> — ${carnet.totalSessions} séances</p>
+    <p style="margin-top:12px">📦 <strong>${escapeHtml(carnet.tarifName)}</strong> — ${carnet.totalSessions} séances</p>
     <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
     <p style="margin-top:12px;font-size:12px;color:#999">Accédez à votre espace personnel pour retrouver votre carnet à tout moment.</p>
   `;

@@ -1,0 +1,9 @@
+# Composer dependencies have no business being web-reachable (test fixtures, package
+# metadata, etc. inside vendor/ would otherwise be servable as static files).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
