@@ -76,12 +76,19 @@ if ($kind === 'booking') {
             apbJsonError(400, 'invalid_request', 'Each cart item needs a valid slotId and courseDate.');
         }
 
-        // Price comes from the DB, never the request body.
-        $slotRows = apbSupabaseSelect('slots', '?id=eq.' . $slotId . '&select=price_cents');
+        // Price and capacity come from the DB, never the request body. Only
+        // "duo" slots (capacity 2) allow more than 1 participant per
+        // booking -- clamp server-side rather than trusting the cart item,
+        // since this directly drives both the charge amount and how much
+        // capacity api_book_slot() consumes (supabase/migrations/0004_participants_capacity.sql).
+        $slotRows = apbSupabaseSelect('slots', '?id=eq.' . $slotId . '&select=price_cents,type');
         if (empty($slotRows)) {
             apbJsonError(422, 'SLOT_NOT_FOUND', $bookingErrorMessages['SLOT_NOT_FOUND']);
         }
-        $priceCents = (int) $slotRows[0]['price_cents'];
+        $maxParticipants = $slotRows[0]['type'] === 'duo' ? 2 : 1;
+        $participants = isset($item['participants']) ? (int) $item['participants'] : 1;
+        $participants = max(1, min($maxParticipants, $participants));
+        $priceCents = (int) $slotRows[0]['price_cents'] * $participants;
 
         try {
             $booking = apbSupabaseRpc('api_book_slot', [
@@ -93,7 +100,7 @@ if ($kind === 'booking') {
                 'p_total_paid_cents' => $priceCents,
                 'p_payment_status' => 'awaiting_payment',
                 'p_client_message' => isset($item['message']) ? (string) $item['message'] : null,
-                'p_participants' => isset($item['participants']) ? max(1, (int) $item['participants']) : 1,
+                'p_participants' => $participants,
             ]);
         } catch (RuntimeException $e) {
             $code = $e->getMessage();

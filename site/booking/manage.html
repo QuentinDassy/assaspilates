@@ -65,10 +65,14 @@ a:hover{opacity:.75}
 /* ===== DASHBOARD ===== */
 .dashboard-wrap{max-width:1140px;margin:0 auto;padding:52px 24px 96px;display:grid;grid-template-columns:340px 1fr;gap:40px;align-items:start}
 
-.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:0;flex-wrap:wrap;gap:16px;padding-bottom:40px;border-bottom:1px solid var(--border);grid-column:1/-1}
-.dash-greeting{font-family:var(--font-serif);font-size:clamp(32px,5vw,48px);font-weight:300;color:var(--dark);letter-spacing:.02em;line-height:1.1}
+.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:0;flex-wrap:wrap;gap:16px;padding-bottom:40px;border-bottom:1px solid var(--border);grid-column:1/-1;min-width:0}
+/* The greeting falls back to the email's local-part when a client has no
+   first_name saved (dash-name is set in JS) -- an email can be arbitrarily
+   long with no natural break point, so this needs to wrap rather than
+   force the whole dashboard wider than the viewport. */
+.dash-greeting{font-family:var(--font-serif);font-size:clamp(32px,5vw,48px);font-weight:300;color:var(--dark);letter-spacing:.02em;line-height:1.1;overflow-wrap:break-word;max-width:100%}
 .dash-greeting span{font-style:italic;color:var(--warm)}
-.dash-email-badge{font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:.04em}
+.dash-email-badge{font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:.04em;overflow-wrap:break-word;max-width:100%}
 
 .dash-section{margin-bottom:52px}
 .dash-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid var(--border)}
@@ -186,7 +190,12 @@ a:hover{opacity:.75}
 }
 @media(max-width:640px){
   .booking-item-compact{flex-wrap:wrap}
+  /* align-items:flex-start sizes the greeting/email wrapper to its own
+     max-content width -- give it width:100% so a long email (no natural
+     break point) actually has a fixed width to wrap against instead of
+     pushing the page wider. */
   .dash-header{flex-direction:column;align-items:flex-start}
+  .dash-header > div{width:100%}
   .dashboard-wrap{padding:32px 16px 56px}
   .carnet-compact-sessions{font-size:24px}
   .carnet-card{padding:16px 18px}

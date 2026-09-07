@@ -20,7 +20,13 @@ $body = apbJsonBody();
 $slotId = isset($body['slotId']) ? (int) $body['slotId'] : 0;
 $courseDate = (string) ($body['courseDate'] ?? '');
 $carnetId = (string) ($body['carnetId'] ?? '');
-$participants = isset($body['participants']) ? max(1, (int) $body['participants']) : 1;
+// Always exactly 1 -- a carnet session covers its own holder, not a
+// plus-one, and the RPC only ever deducts 1 session regardless of this
+// value, so trusting a client-supplied participants > 1 here would let
+// someone claim extra slot_occurrences capacity for free (supabase/migrations/0004_participants_capacity.sql
+// made capacity scale with this value, which is exactly what makes that
+// mismatch exploitable).
+$participants = 1;
 $message = isset($body['message']) ? (string) $body['message'] : null;
 
 if (!$slotId || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $courseDate) || !$carnetId) {
