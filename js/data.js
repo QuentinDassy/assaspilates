@@ -172,24 +172,8 @@ function saveInfos(d)    { setData('infos',    d); }
 function saveCarnets(d)  { setData('carnets',  d); }
 function saveBookings(d) { setData('bookings', d); }
 
-function getPasswords()   { return getData('passwords', {}); }
-function savePasswords(d) { setData('passwords', d); }
-function setClientPassword(email, password) {
-  if (!email || !password) return;
-  const pwds = getPasswords();
-  pwds[email.trim().toLowerCase()] = password;
-  savePasswords(pwds);
-}
-function checkClientPassword(email, password) {
-  if (!email || !password) return false;
-  const pwds = getPasswords();
-  const stored = pwds[email.trim().toLowerCase()];
-  return !!stored && stored === password;
-}
-function hasClientPassword(email) {
-  if (!email) return false;
-  return !!getPasswords()[email.trim().toLowerCase()];
-}
+// Plaintext-password-in-localStorage scheme removed -- real auth is
+// site/js/auth.js (Supabase Auth: supabaseSignIn/supabaseSignUp/supabaseSignOut).
 
 // ===== UTILITIES =====
 function generateCarnetCode() {
@@ -377,9 +361,6 @@ function seedDemoData() {
   bookings.forEach(b => bks.push(b));
   extraBookings.forEach(b => bks.push(b));
   saveBookings(bks);
-  setClientPassword(demoEmail, 'demo2025');
-  setClientPassword(email2, 'demo2025');
-  setClientPassword(email4, 'demo2025');
   }
 
   // ---- Client 5 : Lucas Bernard — carte bancaire, sans carnet ----
@@ -403,7 +384,6 @@ function seedDemoData() {
     const bks5 = getBookings();
     lucasBookings.forEach(b => bks5.push(b));
     saveBookings(bks5);
-    setClientPassword(email5, 'demo2025');
   }
 
   return demoEmail;

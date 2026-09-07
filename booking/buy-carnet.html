@@ -222,7 +222,7 @@ a:hover{opacity:.75}
         <div class="form-section-title">Vos coordonnées</div>
         <div id="step2-alert"></div>
         <div class="booking-form">
-          <!-- Email first — triggers recognition -->
+          <!-- Email first -->
           <div class="form-group">
             <label>Email *</label>
             <input type="email" id="f-email" placeholder="marie@exemple.com" autocomplete="email" onblur="checkExistingClient()">
@@ -230,9 +230,10 @@ a:hover{opacity:.75}
 
           <!-- Shown after email is entered -->
           <div id="client-info-section" style="display:none">
-            <div id="returning-banner" class="returning-banner" style="display:none">
-              ✓ Compte existant — vos informations ont été pré-remplies.
-            </div>
+            <p style="font-size:12px;margin-bottom:14px">
+              <span id="returning-toggle-new">Vous avez déjà un compte ? <a href="#" onclick="toggleReturningClient(true);return false;" style="color:var(--warm);opacity:1">Se connecter</a></span>
+              <span id="returning-toggle-existing" style="display:none">Nouveau client ? <a href="#" onclick="toggleReturningClient(false);return false;" style="color:var(--warm);opacity:1">Créer un compte</a></span>
+            </p>
             <div class="form-row">
               <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
               <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
@@ -317,6 +318,7 @@ a:hover{opacity:.75}
 </div>
 
 <script src="../js/supabaseClient.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/data.js"></script>
 <script>
 function escapeHtml(value) {
@@ -338,37 +340,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   await syncContentFromSupabase();
   renderCarnetChoices();
   try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
-  // Pre-fill from saved session
+  // Pre-fill email from an existing Supabase session, if any, and default to
+  // the "existing account" toggle since someone with a live session already has one.
   try {
-    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
-    if (saved && saved.email) {
+    const session = await refreshAuthSessionIfNeeded();
+    if (session && session.user) {
       const emailEl = document.getElementById('f-email');
       if (emailEl) {
-        emailEl.value = saved.email;
-        if (saved.firstName) {
-          const fn = document.getElementById('f-firstname');
-          const ln = document.getElementById('f-lastname');
-          const ph = document.getElementById('f-phone');
-          if (fn) fn.value = saved.firstName;
-          if (ln) ln.value = saved.lastName || '';
-          if (ph) ph.value = saved.phone || '';
-          document.getElementById('client-info-section').style.display = 'block';
-          isReturningClient = hasClientPassword(saved.email);
-          const pwSection  = document.getElementById('new-password-section');
-          const existPw    = document.getElementById('existing-password-section');
-          const retBanner  = document.getElementById('returning-banner');
-          if (isReturningClient) {
-            if (pwSection)  pwSection.style.display  = 'none';
-            if (existPw)    existPw.style.display    = 'block';
-            if (retBanner)  retBanner.style.display  = 'block';
-          } else {
-            if (pwSection)  pwSection.style.display  = 'block';
-            if (existPw)    existPw.style.display    = 'none';
-          }
-        }
+        emailEl.value = session.user.email;
+        document.getElementById('client-info-section').style.display = 'block';
+        toggleReturningClient(true);
       }
     }
-  } catch(e) {}
+  } catch (e) {}
 });
 
 function renderCarnetChoices() {
@@ -405,25 +389,22 @@ function renderCarnetChoices() {
 }
 
 // ===== CLIENT RECOGNITION =====
+// Supabase Auth has no safe, synchronous "does this email have an account?"
+// lookup (by design -- that would be an account-enumeration oracle). So this
+// no longer auto-detects; the person tells us via the toggle link instead,
+// and we actually verify it by attempting the real sign-in/sign-up at step 3.
 function checkExistingClient() {
   const email = document.getElementById('f-email').value.trim();
   if (!email || !email.includes('@')) return;
-
   document.getElementById('client-info-section').style.display = 'block';
-  isReturningClient = hasClientPassword(email);
+}
 
-  document.getElementById('returning-banner').style.display   = isReturningClient ? 'flex' : 'none';
-  document.getElementById('new-password-section').style.display      = isReturningClient ? 'none' : 'block';
-  document.getElementById('existing-password-section').style.display = isReturningClient ? 'block' : 'none';
-
-  if (isReturningClient) {
-    const carnets = getCarnetsByEmail(email);
-    if (carnets.length) {
-      document.getElementById('f-firstname').value = carnets[0].clientFirstName || '';
-      document.getElementById('f-lastname').value  = carnets[0].clientLastName  || '';
-      document.getElementById('f-phone').value     = carnets[0].clientPhone     || '';
-    }
-  }
+function toggleReturningClient(returning) {
+  isReturningClient = returning;
+  document.getElementById('new-password-section').style.display      = returning ? 'none' : 'block';
+  document.getElementById('existing-password-section').style.display = returning ? 'block' : 'none';
+  document.getElementById('returning-toggle-new').style.display      = returning ? 'none' : 'inline';
+  document.getElementById('returning-toggle-existing').style.display = returning ? 'inline' : 'none';
 }
 
 function selectCarnet(id) {
@@ -435,7 +416,7 @@ function selectCarnet(id) {
 }
 
 // ===== STEPS =====
-function goStep(step) {
+async function goStep(step) {
   if (step === 2 && !selectedTarif) return;
 
   if (step === 3) {
@@ -450,13 +431,18 @@ function goStep(step) {
     if (isReturningClient) {
       const pwd = document.getElementById('f-password-existing').value;
       if (!pwd) { setAlert('Veuillez entrer votre mot de passe.'); return; }
-      if (!checkClientPassword(email, pwd)) { setAlert('Mot de passe incorrect.'); return; }
+      try {
+        await supabaseSignIn(email, pwd);
+      } catch (e) { setAlert(escapeHtml(e.message)); return; }
     } else {
       const pwd  = document.getElementById('f-password').value;
       const pwd2 = document.getElementById('f-password2').value;
       if (!pwd || !pwd2) { setAlert('Veuillez remplir tous les champs obligatoires (*).'); return; }
       if (pwd.length < 6)  { setAlert('Le mot de passe doit contenir au moins 6 caractères.'); return; }
       if (pwd !== pwd2)    { setAlert('Les mots de passe ne correspondent pas.'); return; }
+      try {
+        await supabaseSignUp(email, pwd);
+      } catch (e) { setAlert(escapeHtml(e.message)); return; }
     }
 
     document.getElementById('step2-alert').innerHTML = '';
@@ -550,15 +536,12 @@ async function processPurchase() {
     return;
   }
 
-  if (!isReturningClient) {
-    const password = document.getElementById('f-password').value;
-    setClientPassword(email, password);
-  }
+  // Auth already happened in goStep(3) (supabaseSignIn/supabaseSignUp) before
+  // payment was even shown -- the real Supabase session is already stored.
   showSuccess(carnet, email);
 }
 
 function showSuccess(carnet, email) {
-  try { localStorage.setItem('apb_session', JSON.stringify({ email, firstName: carnet.clientFirstName, lastName: carnet.clientLastName, phone: carnet.clientPhone || '' })); } catch(e) {}
   document.getElementById('buy-screen').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
 

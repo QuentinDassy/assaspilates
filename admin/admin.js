@@ -1056,10 +1056,10 @@ function saveClientEdit(oldEmail) {
   });
   saveCarnets(carnets);
 
-  if (email !== oldLower) {
-    const pwds = getPasswords();
-    if (pwds[oldLower]) { pwds[email] = pwds[oldLower]; delete pwds[oldLower]; savePasswords(pwds); }
-  }
+  // Note: this only updates the local booking/carnet records (the admin's CRM
+  // view of the client). It does NOT change their actual Supabase Auth login
+  // email -- that needs a real API call as that user (or via the service-role
+  // key), not something safe to do from the anon-key admin panel today.
 
   document.getElementById('student-modal').remove();
   showStudentProfile(email);
@@ -1272,8 +1272,58 @@ function filterClients() {
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', async () => {
+// ===== AUTH GATE =====
+// Client-side check: hides the whole admin UI unless the browser holds a valid
+// Supabase session AND that user's id is in the `staff` table. This is real
+// authentication (not the old "no check at all"), but it is NOT the final
+// enforcement layer -- that's site/api/_lib/auth.php's apbRequireAdmin(),
+// checked server-side on every write once the PHP API is deployed. Until then,
+// a determined attacker who can run arbitrary JS in this page could still call
+// admin functions directly in devtools; what this gate closes is the far more
+// realistic threat of "anyone who finds/guesses this URL sees all client data."
+async function checkAdminAuthAndInit() {
+  const staff = await isCurrentUserStaff();
+  if (!staff) {
+    document.getElementById('admin-login-screen').style.display = 'flex';
+    document.getElementById('admin-layout').style.display = 'none';
+    return;
+  }
+  document.getElementById('admin-login-screen').style.display = 'none';
+  document.getElementById('admin-layout').style.display = '';
   await syncContentFromSupabase();
   seedDemoData(); // idempotent — seeds demo if empty, fills gaps on subsequent opens
   renderDashboard();
+}
+
+async function adminLogin() {
+  const email    = document.getElementById('al-email').value.trim();
+  const password = document.getElementById('al-password').value;
+  const alertEl  = document.getElementById('al-alert');
+  alertEl.innerHTML = '';
+  if (!email || !password) {
+    alertEl.innerHTML = '<div class="alert alert-error">Email et mot de passe requis.</div>';
+    return;
+  }
+  try {
+    await supabaseSignIn(email, password);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  const staff = await isCurrentUserStaff();
+  if (!staff) {
+    alertEl.innerHTML = '<div class="alert alert-error">Ce compte n\'a pas les droits administrateur.</div>';
+    await supabaseSignOut();
+    return;
+  }
+  checkAdminAuthAndInit();
+}
+
+async function adminLogout() {
+  await supabaseSignOut();
+  location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkAdminAuthAndInit();
 });
