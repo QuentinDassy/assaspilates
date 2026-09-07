@@ -13,7 +13,10 @@ require_once __DIR__ . '/_lib/auth.php';
 apbRequireAdmin();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
-    $bookings = apbSupabaseSelect('bookings', '?order=course_date.desc&limit=500');
+    // bookings has no client_email column (only client_id) -- embed the
+    // related clients row via PostgREST's relationship syntax so the admin
+    // UI has an email to show/search/link on without a second round-trip.
+    $bookings = apbSupabaseSelect('bookings', '?select=*,clients(email)&order=course_date.desc&limit=500');
     apbJsonSuccess(['bookings' => $bookings]);
 }
 

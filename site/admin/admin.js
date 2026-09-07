@@ -33,6 +33,61 @@ function getClientName(obj) {
   return [obj.clientFirstName, obj.clientLastName].filter(Boolean).join(' ').trim() || '—';
 }
 
+// ===== SUPABASE SYNC (Phase 3: real bookings/carnets, all clients) =====
+// Unlike syncMyBookingsFromApi() (data.js, merges per-email so a logged-in
+// client's real data doesn't clobber other demo entries), the admin view
+// legitimately replaces the whole local apb_bookings/apb_carnets arrays --
+// admin should see ALL real data, not a merge with stale demo data.
+function apbMapAdminCarnet(c) {
+  const cl = c.clients || {};
+  return {
+    id: c.id, code: c.code, tarifId: c.tarif_id, tarifName: c.tarif_name_snapshot, type: c.type,
+    totalSessions: c.total_sessions, remainingSessions: c.remaining_sessions, validityMonths: c.validity_months,
+    expiresAt: c.expires_at, active: c.active, status: c.status,
+    clientEmail: cl.email || '', clientFirstName: cl.first_name || '', clientLastName: cl.last_name || '', clientPhone: cl.phone || '',
+    totalPaid: (c.total_paid_cents || 0) / 100, purchasedAt: c.purchased_at, createdAt: c.purchased_at,
+  };
+}
+
+function apbMapAdminBooking(b) {
+  const cl = b.clients || {};
+  return {
+    id: b.id, clientFirstName: b.client_first_name_snapshot, clientLastName: b.client_last_name_snapshot,
+    clientEmail: cl.email || '', clientPhone: b.client_phone_snapshot || '', clientMessage: b.client_message || '',
+    slotId: b.slot_id, slotTitle: b.slot_title_snapshot,
+    slotStart: (b.slot_start_snapshot || '').slice(0, 5), slotEnd: (b.slot_end_snapshot || '').slice(0, 5),
+    teacher: b.slot_teacher_snapshot, slotTeacher: b.slot_teacher_snapshot, slotLocation: b.slot_location_snapshot,
+    courseDate: b.course_date, participants: b.participants, paymentType: b.payment_type,
+    carnetId: b.carnet_id, carnetCode: null, totalPaid: (b.total_paid_cents || 0) / 100,
+    status: b.status, createdAt: b.created_at, cancelledAt: b.cancelled_at,
+  };
+}
+
+// Returns true if the API was reachable and the sync ran (real data now in
+// localStorage); false means fall back to seedDemoData() (e.g. on the
+// Netlify copy of this site, which has no PHP backend at all).
+async function syncAdminDataFromApi() {
+  try {
+    const [bookingsResp, carnetsResp] = await Promise.all([
+      apbApiFetch('/api/admin-bookings.php'),
+      apbApiFetch('/api/admin-carnets.php'),
+    ]);
+    const mappedCarnets = carnetsResp.carnets.map(apbMapAdminCarnet);
+    const mappedBookings = bookingsResp.bookings.map(b => {
+      const mapped = apbMapAdminBooking(b);
+      const carnet = mappedCarnets.find(c => c.id === mapped.carnetId);
+      if (carnet) mapped.carnetCode = carnet.code;
+      return mapped;
+    });
+    saveCarnets(mappedCarnets);
+    saveBookings(mappedBookings);
+    return true;
+  } catch (e) {
+    console.warn('syncAdminDataFromApi failed (PHP API not reachable on this deploy?):', e);
+    return false;
+  }
+}
+
 // ===== NAVIGATION =====
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -531,14 +586,21 @@ function renderBookingList() {
   document.getElementById('bookings-tbody').innerHTML = bRows;
 }
 
-function adminCancelBooking(id) {
+async function adminCancelBooking(id) {
   const b = getBookings().find(x => x.id === id);
   if (!b) return;
   const isStripe   = b.paymentType === 'stripe';
   const carnetNote = b.paymentType === 'carnet' ? '\nLa séance sera restituée sur le carnet.' : '';
   const refundNote = isStripe ? `\n💳 Un remboursement de ${b.totalPaid || 0}€ devra être effectué au client.` : '';
   if (!confirm(`Annuler la réservation ${id} ?\nClient : ${b.clientFirstName} ${b.clientLastName}${carnetNote}${refundNote}`)) return;
-  cancelBooking(id);
+
+  try {
+    await apbApiFetch('/api/admin-bookings.php', { method: 'POST', body: JSON.stringify({ action: 'cancel', bookingId: id }) });
+    await syncAdminDataFromApi();
+  } catch (e) {
+    // Local-only demo booking (no matching row via the API) -- old local-only path.
+    cancelBooking(id);
+  }
   renderBookingList();
   const msg = isStripe
     ? `✓ Réservation annulée. Pensez à rembourser <strong>${b.totalPaid || 0}€</strong> au client.`
@@ -808,7 +870,7 @@ function updateCarnetFormFromTarif() {
   }
 }
 
-function saveCarnet() {
+async function saveCarnet() {
   const editCode = document.getElementById('carnet-edit-code').value;
   const tarifSel = document.getElementById('carnet-tarif-id');
   const tarifOpt = tarifSel.options[tarifSel.selectedIndex];
@@ -821,48 +883,76 @@ function saveCarnet() {
   if (!name || !email) { showAlert('carnets-alert', 'Nom et email obligatoires.', 'error'); return; }
   if (!total)          { showAlert('carnets-alert', 'Nombre de séances invalide.', 'error'); return; }
 
-  let carnets = getCarnets();
+  const nameParts = name.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName  = nameParts.slice(1).join(' ') || '';
 
   if (editCode) {
+    const existing = getCarnets().find(c => c.code === editCode);
+    if (existing && existing.id) {
+      try {
+        await apbApiFetch('/api/admin-carnets.php', { method: 'POST', body: JSON.stringify({
+          action: 'update', carnetId: existing.id, sessionCount: total, remainingSessions: remain,
+          expiresAt: expires || undefined, active: remain > 0, email, firstName, lastName,
+        }) });
+        await syncAdminDataFromApi();
+        showAlert('carnets-alert', `✓ Carnet ${editCode} mis à jour.`);
+        resetCarnetForm();
+        renderCarnetsAdmin();
+        return;
+      } catch (e) {
+        showAlert('carnets-alert', `Erreur : ${e.message}`, 'error');
+        return;
+      }
+    }
+    // Local-only demo carnet (no real API id) -- old local-only path.
+    let carnets = getCarnets();
     const idx = carnets.findIndex(c => c.code === editCode);
     if (idx !== -1) {
-      carnets[idx].clientName       = name;
-      carnets[idx].clientEmail      = email;
-      carnets[idx].totalSessions    = total;
-      carnets[idx].remainingSessions = remain;
-      carnets[idx].expiresAt        = expires || null;
-      carnets[idx].active           = remain > 0;
-      carnets[idx].clientName = name;
+      carnets[idx].clientName = name; carnets[idx].clientEmail = email;
+      carnets[idx].totalSessions = total; carnets[idx].remainingSessions = remain;
+      carnets[idx].expiresAt = expires || null; carnets[idx].active = remain > 0;
       saveCarnets(carnets);
       showAlert('carnets-alert', `✓ Carnet ${editCode} mis à jour.`);
       resetCarnetForm();
       renderCarnetsAdmin();
-      return;
     }
+    return;
   }
 
-  const code = generateCarnetCode();
-  const carnet = {
-    code,
-    tarifId:           tarifOpt.value || null,
-    tarifName:         tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
-    clientName:        name,
-    clientEmail:       email,
-    totalSessions:     total,
-    remainingSessions: remain,
-    expiresAt:         expires || null,
-    active:            true,
-    createdAt:         new Date().toISOString().split('T')[0],
-    bookingIds:        [],
-  };
-  carnets.push(carnet);
-  saveCarnets(carnets);
-
-  lastGeneratedCode = code;
-  document.getElementById('generated-code').textContent = code;
-  document.getElementById('generated-code-block').style.display = 'block';
-  showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
-  renderCarnetsAdmin();
+  const tarif = getTarifs().find(t => String(t.id) === String(tarifOpt.value));
+  try {
+    const created = await apbApiFetch('/api/admin-carnets.php', { method: 'POST', body: JSON.stringify({
+      action: 'create', email, firstName, lastName,
+      tarifId: tarifOpt.value ? parseInt(tarifOpt.value) : null,
+      tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
+      type: tarif ? tarif.type : 'collectif',
+      sessionCount: total, validityMonths: parseInt(tarifOpt.dataset.months) || 6,
+      totalPaidCents: 0,
+    }) });
+    await syncAdminDataFromApi();
+    lastGeneratedCode = created.code;
+    document.getElementById('generated-code').textContent = created.code;
+    document.getElementById('generated-code-block').style.display = 'block';
+    showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
+    renderCarnetsAdmin();
+  } catch (e) {
+    // API unreachable on this deploy (e.g. Netlify) -- old local-only path.
+    const code = generateCarnetCode();
+    const carnet = {
+      code, tarifId: tarifOpt.value || null, tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
+      clientName: name, clientEmail: email, totalSessions: total, remainingSessions: remain,
+      expiresAt: expires || null, active: true, createdAt: new Date().toISOString().split('T')[0], bookingIds: [],
+    };
+    const carnets = getCarnets();
+    carnets.push(carnet);
+    saveCarnets(carnets);
+    lastGeneratedCode = code;
+    document.getElementById('generated-code').textContent = code;
+    document.getElementById('generated-code-block').style.display = 'block';
+    showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
+    renderCarnetsAdmin();
+  }
 }
 
 function editCarnet(code) {
@@ -881,8 +971,22 @@ function editCarnet(code) {
   document.getElementById('carnet-form-title').scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-function deactivateCarnet(code) {
+async function deactivateCarnet(code) {
   if (!confirm(`Désactiver le carnet ${code} ?`)) return;
+  const existing = getCarnets().find(c => c.code === code);
+  if (existing && existing.id) {
+    try {
+      await apbApiFetch('/api/admin-carnets.php', { method: 'POST', body: JSON.stringify({ action: 'deactivate', carnetId: existing.id }) });
+      await syncAdminDataFromApi();
+      renderCarnetsAdmin();
+      showAlert('carnets-alert', `Carnet ${code} désactivé.`);
+      return;
+    } catch (e) {
+      showAlert('carnets-alert', `Erreur : ${e.message}`, 'error');
+      return;
+    }
+  }
+  // Local-only demo carnet.
   let carnets = getCarnets();
   const idx = carnets.findIndex(c => c.code === code);
   if (idx !== -1) { carnets[idx].active = false; saveCarnets(carnets); }
@@ -1291,7 +1395,10 @@ async function checkAdminAuthAndInit() {
   document.getElementById('admin-login-screen').style.display = 'none';
   document.getElementById('admin-layout').style.display = '';
   await syncContentFromSupabase();
-  seedDemoData(); // idempotent — seeds demo if empty, fills gaps on subsequent opens
+  const gotRealData = await syncAdminDataFromApi();
+  if (!gotRealData) {
+    seedDemoData(); // API unreachable on this deploy (e.g. Netlify) -- fall back to local demo data
+  }
   renderDashboard();
 }
 
