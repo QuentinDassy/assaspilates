@@ -12,7 +12,7 @@ require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
+use Firebase\JWT\JWK;
 
 function apbBearerToken(): ?string
 {
@@ -23,6 +23,46 @@ function apbBearerToken(): ?string
     return null;
 }
 
+/**
+ * Fetches Supabase's public JWKS (this project signs with an asymmetric
+ * ES256/ECC key, not a shared HS256 secret -- verifying against the public
+ * key means no secret is needed here at all, and rotation just works since
+ * the JWKS always lists the current key(s)). File-cached for an hour next
+ * to this script (inside the .htaccess-protected _lib/ dir) so we're not
+ * hitting Supabase's endpoint on every single API request.
+ */
+function apbFetchJwks(): array
+{
+    $cachePath = __DIR__ . '/jwks_cache.json';
+    if (file_exists($cachePath) && (time() - filemtime($cachePath)) < 3600) {
+        $cached = json_decode((string) file_get_contents($cachePath), true);
+        if (is_array($cached)) {
+            return $cached;
+        }
+    }
+
+    $cfg = apbConfig();
+    $ch = curl_init(rtrim($cfg['SUPABASE_URL'], '/') . '/auth/v1/.well-known/jwks.json');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10]);
+    $raw = curl_exec($ch);
+    curl_close($ch);
+
+    $jwks = $raw ? json_decode($raw, true) : null;
+    if (is_array($jwks)) {
+        @file_put_contents($cachePath, $raw);
+        return $jwks;
+    }
+    // Fetch failed -- fall back to a stale cache if we have one, rather than
+    // hard-failing every request during a transient network blip.
+    if (file_exists($cachePath)) {
+        $cached = json_decode((string) file_get_contents($cachePath), true);
+        if (is_array($cached)) {
+            return $cached;
+        }
+    }
+    return ['keys' => []];
+}
+
 /** Returns the decoded JWT payload (as array), or null if missing/invalid. */
 function apbVerifyJwt(): ?array
 {
@@ -30,9 +70,9 @@ function apbVerifyJwt(): ?array
     if (!$token) {
         return null;
     }
-    $cfg = apbConfig();
     try {
-        $decoded = JWT::decode($token, new Key($cfg['SUPABASE_JWT_SECRET'], 'HS256'));
+        $keySet = JWK::parseKeySet(apbFetchJwks());
+        $decoded = JWT::decode($token, $keySet);
         return (array) $decoded;
     } catch (Exception $e) {
         return null;
@@ -69,15 +109,42 @@ function apbRequireAdmin(): string
 }
 
 /**
- * Temporary Phase 0/1 gate for admin-*.php before real staff auth (Phase 2)
- * lands. Checks a shared secret sent as "X-Admin-Bootstrap-Token". Delete
- * every call site of this function once apbRequireAdmin() is wired up.
+ * Call at the top of any endpoint acting on behalf of a client (booking,
+ * cancelling, viewing their own data). Resolves the verified auth user id to
+ * their `clients` row (id, email, first_name, last_name, phone) -- every
+ * downstream query uses this client_id, never one taken from the request body.
  */
-function apbRequireBootstrapToken(): void
+function apbRequireClient(): array
 {
-    $cfg = apbConfig();
-    $sent = $_SERVER['HTTP_X_ADMIN_BOOTSTRAP_TOKEN'] ?? '';
-    if (!hash_equals((string) $cfg['ADMIN_BOOTSTRAP_TOKEN'], (string) $sent)) {
-        apbJsonError(403, 'forbidden', 'Invalid bootstrap token.');
+    $userId = apbRequireAuth();
+    $rows = apbSupabaseSelect('clients', '?auth_user_id=eq.' . urlencode($userId) . '&select=id,email,first_name,last_name,phone');
+    if (empty($rows)) {
+        // The signup trigger (0002_auth.sql) creates this row automatically;
+        // getting here means something is wrong server-side, not a client error.
+        apbJsonError(500, 'client_not_found', 'No client record linked to this account.');
+    }
+    return $rows[0];
+}
+
+function apbJsonSuccess($data, int $status = 200): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+
+/** Reads and JSON-decodes the request body; empty array if missing/invalid. */
+function apbJsonBody(): array
+{
+    $raw = file_get_contents('php://input');
+    $decoded = $raw ? json_decode($raw, true) : null;
+    return is_array($decoded) ? $decoded : [];
+}
+
+function apbRequireMethod(string $method): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
+        apbJsonError(405, 'method_not_allowed', "Expected {$method}.");
     }
 }
