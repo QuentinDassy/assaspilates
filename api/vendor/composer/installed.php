@@ -1,0 +1,41 @@
+<?php return array(
+    'root' => array(
+        'name' => 'assas-pilates-ballet/backend',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '9b8face99a9128b7d48dd57bb231cd5e471f1bd9',
+        'type' => 'project',
+        'install_path' => __DIR__ . '/../../../../',
+        'aliases' => array(),
+        'dev' => false,
+    ),
+    'versions' => array(
+        'assas-pilates-ballet/backend' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '9b8face99a9128b7d48dd57bb231cd5e471f1bd9',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../../../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'firebase/php-jwt' => array(
+            'pretty_version' => 'v7.1.0',
+            'version' => '7.1.0.0',
+            'reference' => 'b374a5d1a4f1f67fadc2165cdb284645945e2fc0',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../firebase/php-jwt',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'stripe/stripe-php' => array(
+            'pretty_version' => 'v15.10.0',
+            'version' => '15.10.0.0',
+            'reference' => '3df1a19a33477af9ead8984dbd84e8f637c36199',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../stripe/stripe-php',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+    ),
+);
