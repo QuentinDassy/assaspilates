@@ -1399,10 +1399,69 @@ async function processPayment() {
   const btn = document.getElementById('pay-btn');
   btn.disabled = true; btn.textContent = 'Traitement...';
   document.getElementById('card-error').textContent = '';
+  document.getElementById('step3-alert').innerHTML = '';
   showLoading(true);
 
+  const firstName = document.getElementById('f-firstname').value.trim();
+  const lastName  = document.getElementById('f-lastname').value.trim();
+  const email     = document.getElementById('f-email').value.trim();
+  const phone     = document.getElementById('f-phone').value.trim();
+  const message   = (document.getElementById('f-message') || {}).value || '';
+  const participants = parseInt((document.getElementById('qty-display') || {}).textContent) || 1;
+
+  const cartItems = cart.map(item => ({
+    slotId: item.slot.id,
+    courseDate: formatDateISO(item.nextDate),
+    participants,
+    message,
+  }));
+
+  let pi;
+  try {
+    pi = await apbApiFetch('/api/create-payment-intent.php', {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'booking', cartItems, guest: { email, firstName, lastName, phone } }),
+    });
+  } catch (e) {
+    showLoading(false);
+    if (e.status === undefined) {
+      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
+      // back to the local-only demo path rather than breaking the page.
+      return processPaymentLocalFallback();
+    }
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  const confirmResult = await stripe.confirmCardPayment(pi.clientSecret, {
+    payment_method: { card: cardElement, billing_details: { name: `${firstName} ${lastName}`.trim(), email } },
+  });
+  showLoading(false);
+
+  if (confirmResult.error) {
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('card-error').textContent = confirmResult.error.message;
+    return;
+  }
+
+  // Stripe confirmed the charge; site/api/stripe-webhook.php flips
+  // payment_status to 'paid' server-side shortly after (never trust the
+  // client's own "it succeeded" claim for that). The booking's confirmed/
+  // pending status (the collectif rule) was already decided by api_book_slot
+  // before payment, so it's safe to show right away.
+  const savedBookings = pi.bookings.map(b => apbMapApiBooking(b, email));
+  if (loggedInClient) { try { await syncMyBookingsFromApi(email); } catch (e) {} }
+  showSuccess(savedBookings);
+}
+
+// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
+// backend at all) -- everything stays purely local/per-browser, same as before.
+async function processPaymentLocalFallback() {
+  const btn = document.getElementById('pay-btn');
+  btn.disabled = true; btn.textContent = 'Traitement...';
+  showLoading(true);
   const total = cart.reduce((s, c) => s + c.price, 0);
-  // DEMO — simulation paiement
   await new Promise(r => setTimeout(r, 1800));
   showLoading(false);
 
@@ -1806,22 +1865,76 @@ async function buyProcessPurchase() {
   const btn = document.getElementById('buy-pay-btn');
   btn.disabled = true; btn.textContent = 'Traitement...';
   document.getElementById('buy-card-error').textContent = '';
+  document.getElementById('buy-step3-alert').innerHTML = '';
   showLoading(true);
-
-  await new Promise(r => setTimeout(r, 1800));
-  showLoading(false);
 
   const first = document.getElementById('bf-firstname').value.trim();
   const last  = document.getElementById('bf-lastname').value.trim();
   const email = document.getElementById('bf-email').value.trim();
   const phone = document.getElementById('bf-phone').value.trim();
 
+  // Auth already happened in buyGoStep(3) (supabaseSignUp), so apbApiFetch
+  // has a session to attach.
+  let pi;
+  try {
+    pi = await apbApiFetch('/api/create-payment-intent.php', {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'carnet', tarifId: buySelectedTarif.id }),
+    });
+  } catch (e) {
+    showLoading(false);
+    if (e.status === undefined) {
+      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
+      // back to the local-only demo path rather than breaking the page.
+      return buyProcessPurchaseLocalFallback(first, last, email, phone);
+    }
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('buy-step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  const confirmResult = await stripe.confirmCardPayment(pi.clientSecret, {
+    payment_method: { card: buyCardElement, billing_details: { name: `${first} ${last}`.trim(), email } },
+  });
+  showLoading(false);
+
+  if (confirmResult.error) {
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('buy-card-error').textContent = confirmResult.error.message;
+    return;
+  }
+
+  // Stripe confirmed the charge; site/api/stripe-webhook.php activates the
+  // carnet (remaining_sessions/active/status) server-side shortly after --
+  // never trust the client's own "it succeeded" claim for that part.
+  const carnet = pi.carnet;
+  document.getElementById('buy-step-3').style.display = 'none';
+  document.getElementById('buy-success').style.display = 'block';
+  document.getElementById('buy-success-details').innerHTML = `
+    <p style="margin-bottom:10px"><strong>Bonjour ${escapeHtml(first)} ${escapeHtml(last)},</strong></p>
+    <p>📦 <strong>${escapeHtml(carnet.tarif_name_snapshot)}</strong> — ${carnet.total_sessions} séances</p>
+    <p>📅 Valable jusqu'au <strong>${carnet.expires_at}</strong></p>
+    <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
+
+  // Pre-fill carnet login for immediate booking
+  document.getElementById('cl-email').value = email;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
+// backend at all) -- everything stays purely local/per-browser, same as before.
+async function buyProcessPurchaseLocalFallback(first, last, email, phone) {
+  const btn = document.getElementById('buy-pay-btn');
+  btn.disabled = true; btn.textContent = 'Traitement...';
+  showLoading(true);
+  await new Promise(r => setTimeout(r, 1800));
+  showLoading(false);
+
   const carnet = createCarnetFromPurchase(buySelectedTarif.id, first, last, email, phone);
   if (!carnet) {
     document.getElementById('buy-step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
     btn.disabled = false; btn.textContent = 'Confirmer et payer'; return;
   }
-  // Auth already happened in buyGoStep(3) (supabaseSignUp) before payment was shown.
 
   document.getElementById('buy-step-3').style.display = 'none';
   document.getElementById('buy-success').style.display = 'block';
@@ -1831,7 +1944,6 @@ async function buyProcessPurchase() {
     <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
     <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
 
-  // Pre-fill carnet login for immediate booking
   document.getElementById('cl-email').value = email;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
