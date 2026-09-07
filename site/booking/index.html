@@ -557,13 +557,14 @@ a{color:var(--accent);text-decoration:none}
             </div>
             <p style="font-size:12px;color:#aaa;margin-top:4px">Pas votre compte ? <a href="#" onclick="resetStep2Email();return false;" style="color:var(--warm)">Autre email</a></p>
           </div>
-          <!-- New/recognized user: name + phone -->
+          <!-- Guest checkout: name + phone, no account needed for a one-off unit booking -->
           <div id="s2-profile-block" style="display:none;margin-top:12px">
             <div class="form-row">
               <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
               <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
             </div>
             <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
+            <p style="font-size:12px;color:#aaa;margin-top:4px">Vous avez déjà un compte (carnet) ? <a href="#" onclick="showStep2LoginBlock();return false;" style="color:var(--warm)">Se connecter</a></p>
           </div>
           <!-- Qty + message: shown after email is resolved -->
           <div id="s2-extras" style="display:none;margin-top:12px">
@@ -690,6 +691,7 @@ a{color:var(--accent);text-decoration:none}
 </div>
 
 <script src="../js/supabaseClient.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/data.js"></script>
 <script>
 function escapeHtml(value) {
@@ -732,13 +734,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (preMode === 'carnet') setMode('carnet');
   else if (preMode === 'buy') setMode('buy');
 
-  // Restore saved session
+  // Restore saved session (real Supabase session, not a trusted-as-is localStorage blob)
   try {
-    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
-    if (saved && saved.email && hasClientPassword(saved.email)) {
-      const carnets = getCarnetsByEmail(saved.email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
+    const session = await refreshAuthSessionIfNeeded();
+    if (session && session.user) {
+      const email = session.user.email.toLowerCase();
+      const carnets = getCarnetsByEmail(email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
       if (carnets.length) {
-        loggedInClient = { firstName: saved.firstName || '', lastName: saved.lastName || '', email: saved.email, phone: saved.phone || '', carnets };
+        const first = carnets[0];
+        loggedInClient = { firstName: first.clientFirstName || '', lastName: first.clientLastName || '', email, phone: first.clientPhone || '', carnets };
         // If a specific carnet was requested via URL, select it; else use first
         if (preCarnet) {
           selectedCarnet = carnets.find(c => c.code === decodeURIComponent(preCarnet)) || carnets[0];
@@ -748,7 +752,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setMode('carnet');
         document.getElementById('carnet-login-panel').style.display = 'none';
         document.getElementById('carnet-logged-panel').style.display = 'block';
-        document.getElementById('cl-logged-name').textContent = `${loggedInClient.firstName} ${loggedInClient.lastName}`.trim() || saved.email;
+        document.getElementById('cl-logged-name').textContent = `${loggedInClient.firstName} ${loggedInClient.lastName}`.trim() || email;
         renderCarnetPicker();
       }
     }
@@ -815,7 +819,7 @@ function setMode(mode) {
 }
 
 // ===== CARNET LOGIN =====
-function loginForCarnet() {
+async function loginForCarnet() {
   const email = (document.getElementById('cl-email').value || '').trim().toLowerCase();
   const pwd   = document.getElementById('cl-password').value;
   const errEl = document.getElementById('carnet-login-err');
@@ -823,12 +827,10 @@ function loginForCarnet() {
     errEl.innerHTML = '<div class="alert alert-error">Veuillez renseigner email et mot de passe.</div>';
     return;
   }
-  if (!hasClientPassword(email)) {
-    errEl.innerHTML = '<div class="alert alert-error">Aucun compte trouvé pour cet email.</div>';
-    return;
-  }
-  if (!checkClientPassword(email, pwd)) {
-    errEl.innerHTML = '<div class="alert alert-error">Mot de passe incorrect.</div>';
+  try {
+    await supabaseSignIn(email, pwd);
+  } catch (e) {
+    errEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     document.getElementById('cl-password').value = '';
     return;
   }
@@ -848,8 +850,6 @@ function loginForCarnet() {
   };
   // Auto-select the first (usually only) active carnet
   selectedCarnet = carnets[0] || null;
-  // Persist session
-  try { localStorage.setItem('apb_session', JSON.stringify({ email, firstName: loggedInClient.firstName, lastName: loggedInClient.lastName, phone: loggedInClient.phone })); } catch(e) {}
   errEl.innerHTML = '';
   document.getElementById('carnet-login-panel').style.display = 'none';
   document.getElementById('carnet-logged-panel').style.display = 'block';
@@ -858,9 +858,9 @@ function loginForCarnet() {
   renderCourseList();
 }
 
-function logoutCarnet() {
+async function logoutCarnet() {
   loggedInClient = null; selectedCarnet = null;
-  try { localStorage.removeItem('apb_session'); } catch(e) {}
+  await supabaseSignOut();
   document.getElementById('carnet-login-panel').style.display = 'block';
   document.getElementById('carnet-logged-panel').style.display = 'none';
   document.getElementById('cl-password').value = '';
@@ -915,37 +915,27 @@ function selectCarnet(code) {
   renderCourseList();
 }
 
-// ===== STEP 2 PROGRESSIVE FLOW =====
+// ===== STEP 2: GUEST CHECKOUT (unit booking needs no account) =====
+// Supabase Auth can't safely/synchronously answer "does this email have an
+// account?" (that would be an account-enumeration oracle), so this no longer
+// auto-detects a returning client -- it defaults to guest checkout (just
+// name/phone, matching the "no account needed for a one-off booking"
+// decision) and offers a manual "Se connecter" link for people who do have
+// an account and want their booking linked to it.
 function onStep2EmailBlur() {
   const email = document.getElementById('f-email').value.trim().toLowerCase();
   if (!email || !email.includes('@')) return;
   document.getElementById('s2-password-block').style.display = 'none';
-  document.getElementById('s2-profile-block').style.display  = 'none';
-  document.getElementById('s2-extras').style.display         = 'none';
+  document.getElementById('s2-profile-block').style.display  = 'block';
+  document.getElementById('s2-extras').style.display         = 'block';
   document.getElementById('step2-alert').innerHTML = '';
+}
 
-  if (hasClientPassword(email)) {
-    document.getElementById('s2-password-block').style.display = 'block';
-    document.getElementById('s2-extras').style.display = 'block';
-    document.getElementById('step2-alert').innerHTML = '<div class="alert alert-info">Compte reconnu. Entrez votre mot de passe pour continuer.</div>';
-    setTimeout(() => { const p = document.getElementById('f-login-password'); if (p) p.focus(); }, 50);
-  } else {
-    document.getElementById('s2-profile-block').style.display = 'block';
-    document.getElementById('s2-extras').style.display = 'block';
-    const carnets  = getCarnetsByEmail(email);
-    const bookings = getBookingsByEmail(email);
-    const src = carnets[0] || bookings[0];
-    if (src) {
-      const fn = src.clientFirstName || src.firstName || '';
-      const ln = src.clientLastName  || src.lastName  || '';
-      const ph = src.clientPhone     || src.phone     || '';
-      const set = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
-      set('f-firstname', fn);
-      set('f-lastname',  ln);
-      set('f-phone',     ph);
-      if (fn) document.getElementById('step2-alert').innerHTML = `<div class="alert alert-info">Bienvenue ${fn} ! Vos informations ont été pré-remplies.</div>`;
-    }
-  }
+function showStep2LoginBlock() {
+  document.getElementById('s2-profile-block').style.display  = 'none';
+  document.getElementById('s2-password-block').style.display = 'block';
+  document.getElementById('step2-alert').innerHTML = '';
+  setTimeout(() => { const p = document.getElementById('f-login-password'); if (p) p.focus(); }, 50);
 }
 
 function resetStep2Email() {
@@ -958,7 +948,7 @@ function resetStep2Email() {
   document.getElementById('f-email').focus();
 }
 
-function step2Validate() {
+async function step2Validate() {
   const email   = document.getElementById('f-email').value.trim();
   const alertEl = document.getElementById('step2-alert');
   if (!email || !email.includes('@')) {
@@ -973,8 +963,10 @@ function step2Validate() {
   if (pwdBlock.style.display !== 'none') {
     const pwd = document.getElementById('f-login-password').value;
     if (!pwd) { alertEl.innerHTML = '<div class="alert alert-error">Veuillez entrer votre mot de passe.</div>'; return; }
-    if (!checkClientPassword(email, pwd)) {
-      alertEl.innerHTML = '<div class="alert alert-error">Mot de passe incorrect.</div>';
+    try {
+      await supabaseSignIn(email.toLowerCase(), pwd);
+    } catch (e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
       document.getElementById('f-login-password').value = ''; return;
     }
     const carnets  = getCarnetsByEmail(email);
@@ -986,7 +978,6 @@ function step2Validate() {
     document.getElementById('f-firstname').value = fn;
     document.getElementById('f-lastname').value  = ln;
     document.getElementById('f-phone').value     = ph;
-    try { localStorage.setItem('apb_session', JSON.stringify({ email, firstName: fn, lastName: ln, phone: ph })); } catch(e) {}
   } else {
     const first = document.getElementById('f-firstname').value.trim();
     const last  = document.getElementById('f-lastname').value.trim();
@@ -1256,26 +1247,9 @@ function startCheckout() {
     return;
   }
 
-  // Check saved session — skip step 2 if we know who they are
-  try {
-    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
-    if (saved && saved.email) {
-      const carnets  = getCarnetsByEmail(saved.email);
-      const bookings = getBookingsByEmail(saved.email);
-      const src = carnets[0] || bookings[0];
-      const fn = saved.firstName || (src && (src.clientFirstName || src.firstName)) || '';
-      const ln = saved.lastName  || (src && (src.clientLastName  || src.lastName))  || '';
-      if (fn && ln) {
-        const setV = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-        setV('f-firstname', fn);
-        setV('f-lastname',  ln);
-        setV('f-email',     saved.email);
-        setV('f-phone',     saved.phone || (src && (src.clientPhone || src.phone)) || '');
-        goStep(3);
-        return;
-      }
-    }
-  } catch(e) {}
+  // (Skip-step-2-if-recognized used to read the old unsigned apb_session blob;
+  // removed with the plaintext-password scheme. loggedInClient above already
+  // covers the "signed in" fast path for carnet mode.)
 
   goStep(2);
 }
@@ -1705,7 +1679,7 @@ function buySelectCarnet(id) {
   if (buySelectedTarif) setTimeout(() => buyGoStep(2), 200);
 }
 
-function buyGoStep(step) {
+async function buyGoStep(step) {
   if (step === 2 && !buySelectedTarif) return;
   if (step === 3) {
     const first = document.getElementById('bf-firstname').value.trim();
@@ -1725,6 +1699,12 @@ function buyGoStep(step) {
     }
     if (pwd !== pwd2) {
       alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return;
+    }
+    try {
+      await supabaseSignUp(email.toLowerCase(), pwd);
+    } catch (e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)} Un compte existe déjà ? Utilisez le panneau "Utiliser mon carnet" pour vous connecter.</div>`;
+      return;
     }
     alertEl.innerHTML = '';
     buyMountStripe();
@@ -1787,14 +1767,13 @@ async function buyProcessPurchase() {
   const last  = document.getElementById('bf-lastname').value.trim();
   const email = document.getElementById('bf-email').value.trim();
   const phone = document.getElementById('bf-phone').value.trim();
-  const password = document.getElementById('bf-password').value;
 
   const carnet = createCarnetFromPurchase(buySelectedTarif.id, first, last, email, phone);
   if (!carnet) {
     document.getElementById('buy-step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
     btn.disabled = false; btn.textContent = 'Confirmer et payer'; return;
   }
-  setClientPassword(email, password);
+  // Auth already happened in buyGoStep(3) (supabaseSignUp) before payment was shown.
 
   document.getElementById('buy-step-3').style.display = 'none';
   document.getElementById('buy-success').style.display = 'block';

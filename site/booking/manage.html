@@ -335,6 +335,7 @@ a:hover{opacity:.75}
 </div>
 
 <script src="../js/supabaseClient.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/data.js"></script>
 <script>
 let currentEmail   = '';
@@ -345,43 +346,46 @@ function escapeHtml(value) {
 }
 
 // ===== LOGIN =====
-function login(skipPasswordCheck) {
+// Real Supabase Auth -- identity comes from the verified session (session.user.email),
+// never from the raw form field, so bookings/carnets are looked up by an email the
+// person actually proved ownership of (via their password), not just typed in.
+async function login() {
   const email    = document.getElementById('l-email').value.trim().toLowerCase();
-  const pwdEl    = document.getElementById('l-password');
-  const password = pwdEl ? pwdEl.value : '';
+  const password = document.getElementById('l-password').value;
   const alertEl  = document.getElementById('login-alert');
-
-  if (!email || !email.includes('@')) {
-    alertEl.innerHTML = '<div class="alert alert-error">Veuillez entrer une adresse email valide.</div>';
-    return;
-  }
-
-  const bookings = getBookingsByEmail(email);
-  const carnets  = getCarnetsByEmail(email);
-
-  if (!bookings.length && !carnets.length) {
-    alertEl.innerHTML = '<div class="alert alert-error">Aucune réservation ni carnet trouvé pour cet email.<br><span style="font-size:12px">Si vous venez de réserver, vérifiez l\'email utilisé lors de la réservation.</span></div>';
-    return;
-  }
-
-  if (!skipPasswordCheck && hasClientPassword(email)) {
-    if (!checkClientPassword(email, password)) {
-      alertEl.innerHTML = '<div class="alert alert-error">Mot de passe incorrect.</div>';
-      if (pwdEl) { pwdEl.value = ''; pwdEl.focus(); }
-      return;
-    }
-  }
-
-  currentEmail = email;
   alertEl.innerHTML = '';
-  try { localStorage.setItem('apb_session', JSON.stringify({ email })); } catch(e) {}
+
+  if (!email || !email.includes('@') || !password) {
+    alertEl.innerHTML = '<div class="alert alert-error">Veuillez entrer votre email et votre mot de passe.</div>';
+    return;
+  }
+
+  let session;
+  try {
+    session = await supabaseSignIn(email, password);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    document.getElementById('l-password').value = '';
+    return;
+  }
+
+  const verifiedEmail = session.user.email.toLowerCase();
+  const bookings = getBookingsByEmail(verifiedEmail);
+  const carnets  = getCarnetsByEmail(verifiedEmail);
+  if (!bookings.length && !carnets.length) {
+    alertEl.innerHTML = '<div class="alert alert-error">Aucune réservation ni carnet trouvé pour ce compte.</div>';
+    await supabaseSignOut();
+    return;
+  }
+
+  currentEmail = verifiedEmail;
   showDashboard();
 }
 
-function logout() {
+async function logout() {
   currentEmail = '';
   currentBooking = null;
-  try { localStorage.removeItem('apb_session'); } catch(e) {}
+  await supabaseSignOut();
   document.getElementById('l-email').value = '';
   const pwdEl = document.getElementById('l-password');
   if (pwdEl) pwdEl.value = '';
@@ -723,16 +727,23 @@ function togglePw(id, btn) {
 }
 
 // ===== FORGOT PASSWORD =====
-function forgotPassword() {
+async function forgotPassword() {
   const email = (document.getElementById('l-email').value || '').trim();
-  const subject = 'Réinitialisation de mot de passe — Assas Pilates Ballet';
-  const body = email
-    ? `Bonjour,\n\nJe souhaite réinitialiser mon mot de passe pour l'adresse : ${email}\n\nMerci`
-    : `Bonjour,\n\nJe souhaite réinitialiser mon mot de passe.\n\nMon adresse email : \n\nMerci`;
-  const a = document.createElement('a');
-  a.href = `mailto:contact@assas-pilates-ballet.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  document.body.appendChild(a); a.click(); setTimeout(() => document.body.removeChild(a), 100);
-  document.getElementById('login-alert').innerHTML = '<div class="alert alert-info">Un email va s\'ouvrir pour contacter le studio. Votre mot de passe sera réinitialisé manuellement.</div>';
+  const alertEl = document.getElementById('login-alert');
+  if (!email || !email.includes('@')) {
+    alertEl.innerHTML = '<div class="alert alert-error">Entrez votre email ci-dessus, puis cliquez à nouveau sur "Mot de passe oublié".</div>';
+    return;
+  }
+  try {
+    await fetch(`${AUTH_URL}/recover`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  } catch (e) { /* fall through to the same generic message either way */ }
+  // Always show the same message whether or not the email has an account --
+  // otherwise this becomes an account-enumeration oracle.
+  alertEl.innerHTML = '<div class="alert alert-info">Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.</div>';
 }
 
 // ===== CARNET HELPERS =====
@@ -770,33 +781,29 @@ function toggleCarnet(code) {
   }
 }
 
-// ===== PRE-FILL EMAIL FROM URL PARAM (never auto-login) =====
-// SECURITY: this used to call login(true), which skips the password check
-// UNCONDITIONALLY -- meaning manage.html?email=<any-client-email> logged an
-// attacker in as that client (even one with a password set), and ?demo=1
-// bypassed auth entirely via seedDemoData(). A URL parameter is never proof
-// of identity. Real auth (Supabase, magic link/password) is the actual fix
-// and lands with the backend migration; until then this only pre-fills the
-// field so the existing password check (when a password is set) still runs.
+// ===== INIT =====
+// Old ?email=...&demo=1 auto-login (login(true), which skipped the password
+// check unconditionally) is gone -- the URL param only pre-fills the field.
+// Session restore now checks for a real, valid (auto-refreshed) Supabase
+// session instead of trusting an unsigned {email} blob in localStorage.
 document.addEventListener('DOMContentLoaded', async () => {
   await syncContentFromSupabase();
   const params = new URLSearchParams(location.search);
-  const email = params.get('email');
-  if (email) {
-    document.getElementById('l-email').value = email;
+  const prefillEmail = params.get('email');
+  if (prefillEmail) {
+    document.getElementById('l-email').value = prefillEmail;
   }
-  // Restore saved session (stay logged in)
-  try {
-    const saved = JSON.parse(localStorage.getItem('apb_session') || 'null');
-    if (saved && saved.email) {
-      const bookings = getBookingsByEmail(saved.email);
-      const carnets  = getCarnetsByEmail(saved.email);
-      if (bookings.length || carnets.length) {
-        currentEmail = saved.email;
-        showDashboard();
-      }
+
+  const session = await refreshAuthSessionIfNeeded();
+  if (session && session.user) {
+    const verifiedEmail = session.user.email.toLowerCase();
+    const bookings = getBookingsByEmail(verifiedEmail);
+    const carnets  = getCarnetsByEmail(verifiedEmail);
+    if (bookings.length || carnets.length) {
+      currentEmail = verifiedEmail;
+      showDashboard();
     }
-  } catch(e) {}
+  }
 });
 </script>
 </body>
