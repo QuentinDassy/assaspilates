@@ -537,6 +537,13 @@ function renderUpcoming(bookings, now) {
     const courseDate = new Date(b.courseDate + 'T12:00:00');
     const cancellable = isCancellable(b);
     const isPending  = b.status === 'pending';
+    // A Stripe booking's row is created as a capacity hold before the card
+    // is actually charged (site/api/create-payment-intent.php) -- if the
+    // person never finished entering/confirming their card, this booking
+    // is real in our DB but was never actually paid. Showing it as
+    // "Confirmé" like a genuinely paid booking is misleading (it'll also
+    // auto-cancel via the hourly cleanup cron once it goes stale).
+    const isAwaitingPayment = b.paymentType === 'stripe' && b.paymentStatus === 'awaiting_payment';
     const payLabel   = b.paymentType === 'carnet'
       ? 'Carnet de séances'
       : (b.totalPaid > 0 ? `Carte — ${b.totalPaid}€` : 'Carte bancaire');
@@ -556,7 +563,9 @@ function renderUpcoming(bookings, now) {
 
     const pendingNote = isPending
       ? `<p style="font-size:12px;color:#856404;margin-top:6px">⏳ En attente d'un second participant</p>`
-      : '';
+      : (isAwaitingPayment
+        ? `<p style="font-size:12px;color:#856404;margin-top:6px">⏳ Paiement non finalisé — cette réservation sera annulée automatiquement si le paiement n'est pas complété.</p>`
+        : '');
 
     return `<div class="booking-item" id="bk-${b.id}">
       <div class="booking-item-compact" onclick="toggleBooking('${b.id}')">
@@ -565,7 +574,7 @@ function renderUpcoming(bookings, now) {
           <div class="booking-item-meta">📅 ${shortDate} &nbsp;·&nbsp; 🕐 ${b.slotStart}–${b.slotEnd}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-          <span class="booking-item-status ${isPending ? 'status-pending' : 'status-confirmed'}">${isPending ? 'En attente' : 'Confirmé'}</span>
+          <span class="booking-item-status ${(isPending || isAwaitingPayment) ? 'status-pending' : 'status-confirmed'}">${isPending ? 'En attente' : (isAwaitingPayment ? 'Paiement en attente' : 'Confirmé')}</span>
           <span class="booking-expand-btn">▾</span>
         </div>
       </div>

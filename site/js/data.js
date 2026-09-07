@@ -174,7 +174,7 @@ function apbMapApiBooking(b, email) {
     teacher: b.slot_teacher_snapshot, slotTeacher: b.slot_teacher_snapshot, slotLocation: b.slot_location_snapshot,
     courseDate: b.course_date, participants: b.participants, paymentType: b.payment_type,
     carnetId: b.carnet_id, carnetCode: null, totalPaid: (b.total_paid_cents || 0) / 100,
-    status: b.status, createdAt: b.created_at, cancelledAt: b.cancelled_at,
+    status: b.status, paymentStatus: b.payment_status, createdAt: b.created_at, cancelledAt: b.cancelled_at,
   };
 }
 
