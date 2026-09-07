@@ -14,6 +14,13 @@ function apbStripeClient(): \Stripe\StripeClient
     static $client = null;
     if ($client === null) {
         $cfg = apbConfig();
+        // Local-dev-only override: the Stripe SDK ignores php.ini's curl.cainfo
+        // and hardcodes its own bundled CA path (lib/HttpClient/CurlClient.php),
+        // so a machine doing TLS interception (e.g. Avast) needs this pointed
+        // at a CA bundle that includes its root cert. Unset in production.
+        if (!empty($cfg['STRIPE_CA_BUNDLE_PATH'])) {
+            \Stripe\Stripe::setCABundlePath($cfg['STRIPE_CA_BUNDLE_PATH']);
+        }
         $client = new \Stripe\StripeClient($cfg['STRIPE_SECRET_KEY']);
     }
     return $client;

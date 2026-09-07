@@ -41,8 +41,17 @@ async function supabaseSignUp(email, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.msg || data.error_description || data.error || 'Erreur lors de la création du compte.');
-  if (data.access_token) storeAuthSession(data);
-  return data;
+  if (data.access_token) {
+    storeAuthSession(data);
+    return data;
+  }
+  // This project's /signup never returns a session directly (it always comes
+  // back with only a pending confirmation, regardless of the "Confirm email"
+  // setting) -- but a same-credentials sign-in right after works immediately.
+  // Without this, every brand-new signup would be left with no session and
+  // every following apbApiFetch call (e.g. the carnet purchase itself) would
+  // 401.
+  return supabaseSignIn(email, password);
 }
 
 async function supabaseSignIn(email, password) {

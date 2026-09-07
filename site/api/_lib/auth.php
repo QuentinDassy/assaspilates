@@ -84,6 +84,10 @@ function apbVerifyJwt(): ?array
         return null;
     }
     try {
+        // Small clock-skew tolerance: without it, a token verified within a
+        // couple seconds of being issued can intermittently fail iat/nbf
+        // checks if this server's clock trails Supabase's by even ~1-2s.
+        JWT::$leeway = 10;
         $keySet = JWK::parseKeySet(apbFetchJwks());
         $decoded = JWT::decode($token, $keySet);
         return (array) $decoded;
@@ -137,6 +141,29 @@ function apbRequireClient(): array
         apbJsonError(500, 'client_not_found', 'No client record linked to this account.');
     }
     return $rows[0];
+}
+
+/**
+ * Finds a `clients` row by email, or creates a guest one (no auth_user_id)
+ * if none exists yet -- the same pattern the auth.users signup trigger uses
+ * (0002_auth.sql), so if a guest later signs up with the same email, that
+ * trigger's ON CONFLICT links it to this same row instead of duplicating it.
+ * Shared by admin-carnets.php (granting a carnet to a non-signed-up email)
+ * and create-payment-intent.php (guest unit-course checkout).
+ */
+function apbFindOrCreateClientByEmail(string $email, string $firstName = '', string $lastName = '', string $phone = ''): array
+{
+    $email = strtolower(trim($email));
+    $existing = apbSupabaseSelect('clients', '?email=eq.' . urlencode($email) . '&select=id,email,first_name,last_name,phone');
+    if (!empty($existing)) {
+        return $existing[0];
+    }
+    return apbSupabaseInsert('clients', [
+        'email' => $email,
+        'first_name' => $firstName,
+        'last_name' => $lastName,
+        'phone' => $phone,
+    ]);
 }
 
 function apbJsonSuccess($data, int $status = 200): void

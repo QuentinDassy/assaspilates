@@ -522,17 +522,65 @@ async function processPurchase() {
   btn.disabled = true;
   btn.textContent = 'Traitement...';
   document.getElementById('card-error').textContent = '';
+  document.getElementById('step3-alert').innerHTML = '';
   showLoading(true);
-
-  // Production: await fetch('/wp-json/booking-manager/v1/buy-carnet', { ... })
-  // DEMO — simulation paiement
-  await new Promise(r => setTimeout(r, 1800));
-  showLoading(false);
 
   const first = document.getElementById('f-firstname').value.trim();
   const last  = document.getElementById('f-lastname').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
+
+  // Auth already happened in goStep(3) (supabaseSignIn/supabaseSignUp) before
+  // payment was even shown -- the real Supabase session is already stored,
+  // so apbApiFetch below has a bearer token to attach.
+  let pi;
+  try {
+    pi = await apbApiFetch('/api/create-payment-intent.php', {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'carnet', tarifId: selectedTarif.id }),
+    });
+  } catch (e) {
+    showLoading(false);
+    if (e.status === undefined) {
+      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
+      // back to the local-only demo path rather than breaking the page.
+      return processPurchaseLocalFallback(first, last, email, phone);
+    }
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  const confirmResult = await stripe.confirmCardPayment(pi.clientSecret, {
+    payment_method: { card: cardElement, billing_details: { name: `${first} ${last}`.trim(), email } },
+  });
+  showLoading(false);
+
+  if (confirmResult.error) {
+    btn.disabled = false; btn.textContent = 'Confirmer et payer';
+    document.getElementById('card-error').textContent = confirmResult.error.message;
+    return;
+  }
+
+  // Stripe confirmed the charge; site/api/stripe-webhook.php activates the
+  // carnet (remaining_sessions/active/status) server-side shortly after --
+  // never trust the client's own "it succeeded" claim for that part.
+  const c = pi.carnet;
+  showSuccess({
+    clientFirstName: first, clientLastName: last,
+    tarifName: c.tarif_name_snapshot, totalSessions: c.total_sessions,
+    expiresAt: c.expires_at, code: c.code,
+  }, email);
+}
+
+// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
+// backend at all) -- everything stays purely local/per-browser, same as before.
+async function processPurchaseLocalFallback(first, last, email, phone) {
+  const btn = document.getElementById('pay-btn');
+  btn.disabled = true; btn.textContent = 'Traitement...';
+  showLoading(true);
+  await new Promise(r => setTimeout(r, 1800));
+  showLoading(false);
 
   const carnet = createCarnetFromPurchase(selectedTarif.id, first, last, email, phone);
   if (!carnet) {
@@ -542,8 +590,6 @@ async function processPurchase() {
     return;
   }
 
-  // Auth already happened in goStep(3) (supabaseSignIn/supabaseSignUp) before
-  // payment was even shown -- the real Supabase session is already stored.
   showSuccess(carnet, email);
 }
 

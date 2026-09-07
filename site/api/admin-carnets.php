@@ -24,21 +24,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 apbRequireMethod('POST');
 $body = apbJsonBody();
 $action = (string) ($body['action'] ?? '');
-
-function apbFindOrCreateClientByEmail(string $email, string $firstName, string $lastName, string $phone): array
-{
-    $email = strtolower(trim($email));
-    $existing = apbSupabaseSelect('clients', '?email=eq.' . urlencode($email) . '&select=id,email');
-    if (!empty($existing)) {
-        return $existing[0];
-    }
-    return apbSupabaseInsert('clients', [
-        'email' => $email,
-        'first_name' => $firstName,
-        'last_name' => $lastName,
-        'phone' => $phone,
-    ]);
-}
+// apbFindOrCreateClientByEmail() lives in _lib/auth.php (shared with create-payment-intent.php's guest checkout path).
 
 if ($action === 'create') {
     $email = (string) ($body['email'] ?? '');

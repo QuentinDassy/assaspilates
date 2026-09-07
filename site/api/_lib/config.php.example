@@ -22,4 +22,11 @@ return [
     'STRIPE_SECRET_KEY' => 'sk_test_...',
     'STRIPE_PUBLISHABLE_KEY' => 'pk_test_...',
     'STRIPE_WEBHOOK_SECRET' => 'whsec_...',       // Developers -> Webhooks -> the endpoint's signing secret
+
+    // Leave unset on OVH. Only needed locally if something on your machine
+    // does TLS interception (e.g. an antivirus like Avast) -- the Stripe SDK
+    // ignores php.ini's curl.cainfo and needs this override instead
+    // (site/api/_lib/stripe_client.php). Point it at a CA bundle that
+    // includes your interceptor's root certificate.
+    // 'STRIPE_CA_BUNDLE_PATH' => 'C:/path/to/augmented-cacert.pem',
 ];
