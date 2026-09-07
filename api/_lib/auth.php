@@ -16,7 +16,20 @@ use Firebase\JWT\JWK;
 
 function apbBearerToken(): ?string
 {
-    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    // Apache+PHP as CGI/FastCGI (OVH shared hosting) doesn't reliably surface
+    // the Authorization header in $_SERVER even with the api/.htaccess
+    // rewrite -- check every source PHP might expose it through.
+    $header = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+    if (!$header && function_exists('getallheaders')) {
+        foreach (getallheaders() as $name => $value) {
+            if (strcasecmp($name, 'Authorization') === 0) {
+                $header = $value;
+                break;
+            }
+        }
+    }
     if (preg_match('/^Bearer\s+(.+)$/i', $header, $m)) {
         return $m[1];
     }

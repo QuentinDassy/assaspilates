@@ -1,0 +1,7 @@
+# Apache+PHP running as CGI/FastCGI (the norm on OVH shared hosting) strips
+# the Authorization header from $_SERVER by default -- without this, every
+# endpoint's apbBearerToken() (site/api/_lib/auth.php) sees an empty header
+# and every authenticated request fails with 401, even with a valid JWT.
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} ^(.+)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
