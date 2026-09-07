@@ -370,6 +370,7 @@ async function login() {
   }
 
   const verifiedEmail = session.user.email.toLowerCase();
+  await syncMyBookingsFromApi(verifiedEmail);
   const bookings = getBookingsByEmail(verifiedEmail);
   const carnets  = getCarnetsByEmail(verifiedEmail);
   if (!bookings.length && !carnets.length) {
@@ -636,10 +637,19 @@ function askCancel(bookingId) {
   showScreen('cancel-screen');
 }
 
-function confirmCancel() {
+async function confirmCancel() {
   if (!currentBooking) return;
   const wasCarnet = currentBooking.paymentType === 'carnet';
-  cancelBooking(currentBooking.id);
+  try {
+    // Real, API-backed booking -- cancel server-side (restores the carnet
+    // session there) then re-sync so the dashboard reflects the true state.
+    await apbApiFetch('/api/cancel-booking.php', { method: 'POST', body: JSON.stringify({ bookingId: currentBooking.id }) });
+    await syncMyBookingsFromApi(currentEmail);
+  } catch (e) {
+    // Not an API-backed booking (older local-only demo data) or the PHP API
+    // isn't reachable on this deploy (e.g. Netlify) -- fall back to local-only.
+    cancelBooking(currentBooking.id);
+  }
 
   document.getElementById('cancelled-text').innerHTML =
     `La réservation <strong>${currentBooking.id}</strong> a été annulée.` +
@@ -649,10 +659,14 @@ function confirmCancel() {
 }
 
 // ===== REBOOK =====
-function rebookCourse(slotId, bookingId, paymentType) {
+async function rebookCourse(slotId, bookingId, paymentType) {
   if (!confirm('Pour changer de créneau, votre réservation actuelle sera annulée. Continuer ?')) return;
-  const b = getBookings().find(x => x.id === bookingId);
-  if (b) cancelBooking(bookingId);
+  try {
+    await apbApiFetch('/api/cancel-booking.php', { method: 'POST', body: JSON.stringify({ bookingId }) });
+  } catch (e) {
+    const b = getBookings().find(x => x.id === bookingId);
+    if (b) cancelBooking(bookingId);
+  }
   window.location.href = `index.html?slot=${slotId}&mode=${paymentType === 'carnet' ? 'carnet' : 'unit'}`;
 }
 
@@ -797,6 +811,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const session = await refreshAuthSessionIfNeeded();
   if (session && session.user) {
     const verifiedEmail = session.user.email.toLowerCase();
+    await syncMyBookingsFromApi(verifiedEmail);
     const bookings = getBookingsByEmail(verifiedEmail);
     const carnets  = getCarnetsByEmail(verifiedEmail);
     if (bookings.length || carnets.length) {
