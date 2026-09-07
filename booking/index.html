@@ -23,7 +23,13 @@ a{color:var(--accent);text-decoration:none}
 .nav-manage{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dark);border:1px solid var(--border);padding:6px 14px}
 
 .booking-layout{max-width:1100px;margin:0 auto;padding:40px 20px;display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start}
-.booking-sidebar{position:sticky;top:24px}
+/* min-width:0 on both grid items: a fixed 360px track still lets its item's
+   content force it wider (grid items default to min-width:auto) -- the
+   contact email in the sidebar is one unbroken string past 360px, which
+   was quietly pushing the whole page past the viewport on any width
+   between the two breakpoints below (roughly 769-1024px). */
+.booking-main{min-width:0}
+.booking-sidebar{position:sticky;top:24px;min-width:0}
 
 .page-title{font-family:var(--font-serif);font-size:38px;font-weight:300;margin-bottom:6px}
 .page-sub{font-size:13px;color:#888;margin-bottom:24px;line-height:1.6}
@@ -277,7 +283,12 @@ a{color:var(--accent);text-decoration:none}
     padding-bottom:80px; /* space for mobile cart bar */
   }
   .booking-sidebar{position:static;order:3}
-  .booking-main{order:1}
+  /* min-width:0 overrides the grid item's default min-content floor --
+     without it, .day-tabs/.filters-bar's own overflow-x:auto never actually
+     scrolls: their unwrapped children (7 day tabs, several filter pills)
+     just inflate .booking-main (and the whole page) past the viewport
+     instead of clipping/scrolling internally. */
+  .booking-main{order:1;min-width:0}
 
   /* Filters: horizontal scroll, no wrap */
   .filters-bar{
@@ -360,7 +371,13 @@ a{color:var(--accent);text-decoration:none}
 @media(max-width:480px){
   .nav-logo-img{height:32px}
   .nav-back{display:none}
-  .mode-btn{padding:9px 6px;font-size:9px;letter-spacing:.06em}
+  /* white-space:nowrap (base rule) plus flex:1 (768px rule) forces each
+     button's full uppercase label onto one line, which is wider than a
+     320px screen can fit across all three -- let it wrap to 2 lines
+     instead of pushing the page wider than the viewport. min-width:0
+     overrides the flex item's default content-based floor, same fix as
+     .booking-main/.booking-sidebar above. */
+  .mode-btn{padding:9px 4px;font-size:9px;letter-spacing:.06em;white-space:normal;min-width:0;line-height:1.3}
   .steps{margin-bottom:18px}
   .booking-layout{padding:24px 12px 80px}
   .carnet-choice-card{padding:14px}
@@ -566,16 +583,11 @@ a{color:var(--accent);text-decoration:none}
             <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
             <p style="font-size:12px;color:#aaa;margin-top:4px">Vous avez déjà un compte (carnet) ? <a href="#" onclick="showStep2LoginBlock();return false;" style="color:var(--warm)">Se connecter</a></p>
           </div>
-          <!-- Qty + message: shown after email is resolved -->
+          <!-- Message: shown after email is resolved. Participant count now
+               lives per-item in the cart (see updateCartSidebar) since a
+               single cart-wide count made no sense once a cart could mix a
+               1-person "privé" slot with a 2-person "duo" slot. -->
           <div id="s2-extras" style="display:none;margin-top:12px">
-            <div class="form-group">
-              <label>Nombre de participants *</label>
-              <div class="qty-control">
-                <button class="qty-btn" onclick="changeQty(-1)">−</button>
-                <div class="qty-val" id="qty-display">1</div>
-                <button class="qty-btn" onclick="changeQty(1)">+</button>
-              </div>
-            </div>
             <div class="form-group"><label>Message (optionnel)</label><input type="text" id="f-message" placeholder="Niveau, blessures, questions..."></div>
           </div>
         </div>
@@ -1218,7 +1230,11 @@ function toggleCart(id) {
     cart.splice(inCart, 1);
   } else {
     const price = paymentMode === 'carnet' ? 0 : getPriceForSlot(slot);
-    cart.push({ slot, nextDate: getNextOccurrence(slot.day), price });
+    // participants is per-item (not a single cart-wide count) since a cart
+    // can mix a 1-person "privé" slot with a 2-person "duo" slot. Only
+    // "duo" slots offer a choice (see the stepper in updateCartSidebar) --
+    // everything else always books/pays for exactly 1 person per item.
+    cart.push({ slot, nextDate: getNextOccurrence(slot.day), price, participants: 1 });
   }
   renderCourseList();
   updateCartSidebar();
@@ -1298,12 +1314,17 @@ function goStep(step) {
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
-function changeQty(delta) {
-  const max = 8;
-  const qtyEl = document.getElementById('qty-display');
-  let qty = parseInt(qtyEl.textContent) || 1;
-  qty = Math.max(1, Math.min(max, qty + delta));
-  qtyEl.textContent = qty;
+// Only "duo" slots (capacity 2) offer a participant choice -- lets one
+// person book a duo session for themselves + a plus-one in a single item,
+// correctly paying double and consuming both capacity units (see
+// site/scheduled + supabase/migrations/0004_participants_capacity.sql,
+// which fixed the booking RPC to actually scale capacity/price with this
+// instead of always treating every booking as exactly 1 unit).
+function changeCartParticipants(slotId, delta) {
+  const item = cart.find(c => c.slot.id === slotId);
+  if (!item || item.slot.type !== 'duo') return;
+  item.participants = Math.max(1, Math.min(2, (item.participants || 1) + delta));
+  updateCartSidebar();
 }
 
 // ===== CART SIDEBAR =====
@@ -1327,7 +1348,7 @@ function updateCartSidebar() {
     return;
   }
 
-  const total = cart.reduce((s, c) => s + c.price, 0);
+  const total = cart.reduce((s, c) => s + c.price * (c.participants || 1), 0);
   const totalLabel = paymentMode === 'carnet' ? cart.length + ' séance(s)' : total + '€';
 
   listEl.innerHTML = cart.map(c => `
@@ -1336,10 +1357,17 @@ function updateCartSidebar() {
         <div class="cart-item-name">${c.slot.title.replace('Cours ','')}</div>
         <div class="cart-item-meta">${formatDateFR(c.nextDate)} · ${c.slot.start}–${c.slot.end}</div>
         <div class="cart-item-meta">👤 ${c.slot.teacher}</div>
+        ${c.slot.type === 'duo' && paymentMode !== 'carnet' ? `
+        <div class="cart-item-meta" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          Participants
+          <button class="qty-btn" style="width:20px;height:20px;font-size:12px" onclick="changeCartParticipants(${c.slot.id},-1)">−</button>
+          <span>${c.participants || 1}</span>
+          <button class="qty-btn" style="width:20px;height:20px;font-size:12px" onclick="changeCartParticipants(${c.slot.id},1)">+</button>
+        </div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         <button class="cart-item-rm" onclick="removeFromCart(${c.slot.id})" title="Retirer">×</button>
-        <div class="cart-item-price">${paymentMode === 'carnet' ? '1 séance' : c.price + '€'}</div>
+        <div class="cart-item-price">${paymentMode === 'carnet' ? '1 séance' : (c.price * (c.participants || 1)) + '€'}</div>
       </div>
     </div>
   `).join('');
@@ -1407,12 +1435,11 @@ async function processPayment() {
   const email     = document.getElementById('f-email').value.trim();
   const phone     = document.getElementById('f-phone').value.trim();
   const message   = (document.getElementById('f-message') || {}).value || '';
-  const participants = parseInt((document.getElementById('qty-display') || {}).textContent) || 1;
 
   const cartItems = cart.map(item => ({
     slotId: item.slot.id,
     courseDate: formatDateISO(item.nextDate),
-    participants,
+    participants: item.participants || 1,
     message,
   }));
 
@@ -1461,11 +1488,10 @@ async function processPaymentLocalFallback() {
   const btn = document.getElementById('pay-btn');
   btn.disabled = true; btn.textContent = 'Traitement...';
   showLoading(true);
-  const total = cart.reduce((s, c) => s + c.price, 0);
   await new Promise(r => setTimeout(r, 1800));
   showLoading(false);
 
-  const savedBookings = cart.map(item => saveNewBooking(item, 'stripe', null, total / cart.length));
+  const savedBookings = cart.map(item => saveNewBooking(item, 'stripe', null, item.price * (item.participants || 1)));
   showSuccess(savedBookings);
 }
 
@@ -1474,7 +1500,9 @@ async function processCarnetBooking() {
   showLoading(true);
 
   const message = (document.getElementById('f-message') || {}).value || '';
-  const participants = parseInt((document.getElementById('qty-display') || {}).textContent) || 1;
+  // Carnet mode always books exactly 1 person per item -- a carnet covers
+  // its own holder, not a plus-one (unlike the Stripe "duo" cart item,
+  // which can pay for 2 people in one booking; see updateCartSidebar).
   const savedBookings = [];
 
   for (const item of cart) {
@@ -1483,7 +1511,7 @@ async function processCarnetBooking() {
         method: 'POST',
         body: JSON.stringify({
           slotId: item.slot.id, courseDate: formatDateISO(item.nextDate),
-          carnetId: selectedCarnet.id, participants, message,
+          carnetId: selectedCarnet.id, participants: 1, message,
         }),
       });
       savedBookings.push(apbMapApiBooking(result, loggedInClient.email));
@@ -1546,7 +1574,7 @@ function getClientInfo() {
 }
 
 function saveNewBooking(cartItem, paymentType, carnetCode, totalPaid) {
-  const participants = parseInt(document.getElementById('qty-display').textContent) || 1;
+  const participants = cartItem.participants || 1;
   const slot = cartItem.slot;
   const booking = {
     id:             generateBookingId(),
