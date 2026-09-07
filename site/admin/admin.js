@@ -1272,7 +1272,8 @@ function filterClients() {
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncContentFromSupabase();
   seedDemoData(); // idempotent — seeds demo if empty, fills gaps on subsequent opens
   renderDashboard();
 });

@@ -689,6 +689,7 @@ a{color:var(--accent);text-decoration:none}
   </button>
 </div>
 
+<script src="../js/supabaseClient.js"></script>
 <script src="../js/data.js"></script>
 <script>
 function escapeHtml(value) {
@@ -718,7 +719,8 @@ const STRIPE_PUBLIC_KEY = (() => {
 })();
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncContentFromSupabase();
   const infos = getInfos();
   const h = infos.cancelHours || 24;
   document.getElementById('cancel-hours-txt').textContent = h + 'h avant';
@@ -1155,6 +1157,7 @@ function renderCourseList() {
 }
 
 function getPriceForSlot(slot) {
+  if (typeof slot.priceCents === 'number') return slot.priceCents / 100;
   const type = slot.type;
   if (type === 'prive')     return 80;
   if (type === 'duo')       return 50;
@@ -1164,9 +1167,13 @@ function getPriceForSlot(slot) {
 }
 
 function getAvailableSpots(slot) {
+  // Real per-slot capacity from Supabase (admin-editable), falling back to the
+  // old guesses if a slot predates the sync (shouldn't happen once Phase 1 is live).
+  // Does not yet subtract existing bookings -- that needs the Phase 3
+  // slot_occurrences system for a real, race-safe count.
+  if (typeof slot.capacity === 'number') return slot.capacity;
   if (slot.type === 'prive') return 1;
   if (slot.type === 'duo')   return 2;
-  // Production: fetch from server
   return 8;
 }
 
