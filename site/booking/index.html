@@ -178,10 +178,15 @@ a{color:var(--accent);text-decoration:none}
 .week-slot-name{font-family:var(--font-serif);font-size:14px;font-weight:400;color:var(--dark);line-height:1.25;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .week-slot-teacher{font-size:10px;color:#bbb;margin-top:2px}
 .week-slot-price{font-size:11px;font-weight:500;color:var(--dark);margin-top:4px}
+.week-slot-add-row{display:none;align-items:center;gap:6px;margin-top:8px}
+.week-slot-add-btn{width:22px;height:22px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;pointer-events:none;background:#fff}
+.week-slot-add-label{font-size:10px;letter-spacing:.06em;color:var(--accent);font-weight:500}
+.week-slot.in-cart .week-slot-add-btn{background:var(--accent);color:#fff}
 /* Compact mode: hide details, reveal on click (.expanded) or when in cart */
 .week-slot-name,.week-slot-teacher,.week-slot-price{display:none}
 .week-slot.expanded .week-slot-name,.week-slot.expanded .week-slot-teacher,.week-slot.expanded .week-slot-price,
 .week-slot.in-cart .week-slot-name,.week-slot.in-cart .week-slot-teacher,.week-slot.in-cart .week-slot-price{display:block}
+.week-slot.expanded .week-slot-add-row,.week-slot.in-cart .week-slot-add-row{display:flex}
 /* Buy type sections */
 .buy-type-section{margin-bottom:24px}
 .buy-type-banner{padding:11px 24px;color:#fff;font-size:9px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;margin-bottom:10px}
@@ -220,7 +225,8 @@ a{color:var(--accent);text-decoration:none}
 .carnet-option-count{font-family:var(--font-serif);font-size:34px;color:var(--dark);line-height:1;white-space:nowrap;text-align:right;font-weight:300}
 .carnet-option-count-sub{font-size:10px;color:#aaa;text-align:right}
 /* COURSE ADD */
-.course-add-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb;transition:all .15s;flex-shrink:0;margin-bottom:4px;background:#fff;pointer-events:none}
+.course-add-btn{width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--accent);transition:all .15s;flex-shrink:0;margin-bottom:4px;background:#fff;pointer-events:none}
+.course-item:hover .course-add-btn{background:var(--accent);color:#fff}
 .course-item.in-cart .course-add-btn{background:var(--accent);border-color:var(--accent);color:#fff;font-size:13px;font-weight:600}
 .course-item.full .course-add-btn{opacity:.3}
 /* BUY CARNET (inline) */
@@ -685,6 +691,10 @@ a{color:var(--accent);text-decoration:none}
 
 <script src="../js/data.js"></script>
 <script>
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // ===== STATE =====
 let currentStep    = 1;
 let paymentMode    = 'unit';       // 'unit' | 'carnet' | 'buy'
@@ -1043,6 +1053,10 @@ function renderWeekView() {
           <div class="week-slot-name">${s.title.replace('Cours ','')}</div>
           <div class="week-slot-teacher">${s.teacher}</div>
           <div class="week-slot-price">${full ? 'Complet' : priceStr}</div>
+          ${full ? '' : `<div class="week-slot-add-row">
+            <div class="week-slot-add-btn">${inCart ? '✓' : '+'}</div>
+            <div class="week-slot-add-label">${inCart ? 'Ajouté — cliquer pour retirer' : 'Cliquer pour ajouter'}</div>
+          </div>`}
         </div>`;
       });
     }
@@ -1546,7 +1560,7 @@ function showSuccess(bookings) {
     : 'Votre réservation est enregistrée. Conservez votre référence pour annuler ou modifier.';
 
   document.getElementById('success-details').innerHTML = `
-    <p><strong>Bonjour ${b0.clientFirstName} ${b0.clientLastName},</strong></p>
+    <p><strong>Bonjour ${escapeHtml(b0.clientFirstName)} ${escapeHtml(b0.clientLastName)},</strong></p>
     <p>${bookings.length > 1 ? bookings.length + (isPending ? ' inscriptions en attente :' : ' réservations confirmées :') : (isPending ? 'Votre inscription en attente :' : 'Votre réservation est confirmée :')}</p>
     ${rows}
     <p style="margin-top:14px;font-weight:500;color:${total > 0 ? 'var(--accent)' : 'var(--green)'}">
@@ -1778,8 +1792,8 @@ async function buyProcessPurchase() {
   document.getElementById('buy-step-3').style.display = 'none';
   document.getElementById('buy-success').style.display = 'block';
   document.getElementById('buy-success-details').innerHTML = `
-    <p style="margin-bottom:10px"><strong>Bonjour ${carnet.clientFirstName} ${carnet.clientLastName},</strong></p>
-    <p>📦 <strong>${carnet.tarifName}</strong> — ${carnet.totalSessions} séances</p>
+    <p style="margin-bottom:10px"><strong>Bonjour ${escapeHtml(carnet.clientFirstName)} ${escapeHtml(carnet.clientLastName)},</strong></p>
+    <p>📦 <strong>${escapeHtml(carnet.tarifName)}</strong> — ${carnet.totalSessions} séances</p>
     <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
     <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
 

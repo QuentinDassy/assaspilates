@@ -1,0 +1,15 @@
+# Local Netlify folder
+.netlify
+
+# Local Claude Code environment/permission settings (machine-specific, not project config)
+.claude/
+
+# PHP backend secrets and dependencies (never committed -- see site/api/_lib/config.php.example)
+/site/api/_lib/config.php
+/site/api/vendor/*
+!/site/api/vendor/.htaccess
+/vendor/
+
+# Supabase CLI local state
+/supabase/.temp/
+/supabase/.branches/

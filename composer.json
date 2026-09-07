@@ -1,0 +1,14 @@
+{
+    "name": "assas-pilates-ballet/backend",
+    "description": "PHP API backend (site/api) for the booking/carnet system, deployed to OVH shared hosting over FTP.",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "stripe/stripe-php": "^15.0",
+        "firebase/php-jwt": "^6.10"
+    },
+    "config": {
+        "vendor-dir": "site/api/vendor",
+        "optimize-autoloader": true
+    }
+}

@@ -1,0 +1,27 @@
+<?php
+/**
+ * Copy this file to config.php and fill in real values, OR let the deploy
+ * workflow generate config.php from GitHub Actions secrets at deploy time.
+ *
+ * config.php is NEVER committed to git (see .gitignore) — it holds secrets
+ * that must never reach a browser or a git history. It sits inside the web
+ * root but, like WordPress's wp-config.php on this same hosting, Apache
+ * executes it as PHP rather than serving its source.
+ */
+
+return [
+    // Supabase project settings — Project Settings -> API in the Supabase dashboard
+    'SUPABASE_URL' => 'https://xxxxxxxxxxxx.supabase.co',
+    'SUPABASE_ANON_KEY' => 'eyJ...',              // safe to expose to the browser
+    'SUPABASE_SERVICE_ROLE_KEY' => 'eyJ...',      // NEVER expose to the browser -- server-only
+    'SUPABASE_JWT_SECRET' => '...',               // Project Settings -> API -> JWT Settings, used to verify client JWTs
+
+    // Stripe -- Developers -> API keys (use test keys until Phase 5 go-live)
+    'STRIPE_SECRET_KEY' => 'sk_test_...',
+    'STRIPE_PUBLISHABLE_KEY' => 'pk_test_...',
+    'STRIPE_WEBHOOK_SECRET' => 'whsec_...',       // Developers -> Webhooks -> the endpoint's signing secret
+
+    // Temporary shared secret gating admin-*.php writes until Phase 2 lands real staff auth.
+    // Generate a long random string; delete this once Phase 2 is done.
+    'ADMIN_BOOTSTRAP_TOKEN' => 'change-me',
+];

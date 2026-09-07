@@ -1,0 +1,10 @@
+# Defense in depth: config.php already leaks nothing if requested directly (it just
+# `return`s an array with no output), but block direct access to this whole directory
+# outright so no future edit here can accidentally expose something.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
