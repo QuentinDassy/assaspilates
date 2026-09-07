@@ -739,6 +739,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const session = await refreshAuthSessionIfNeeded();
     if (session && session.user) {
       const email = session.user.email.toLowerCase();
+      await syncMyBookingsFromApi(email);
       const carnets = getCarnetsByEmail(email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
       if (carnets.length) {
         const first = carnets[0];
@@ -834,6 +835,7 @@ async function loginForCarnet() {
     document.getElementById('cl-password').value = '';
     return;
   }
+  await syncMyBookingsFromApi(email);
   const carnets = getCarnetsByEmail(email).filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= new Date()));
   if (!carnets.length) {
     errEl.innerHTML = '<div class="alert alert-error">Aucun carnet actif trouvé pour ce compte. <a href="buy-carnet.html">Acheter un carnet →</a></div>';
@@ -1411,6 +1413,48 @@ async function processPayment() {
 async function processCarnetBooking() {
   if (!selectedCarnet) return;
   showLoading(true);
+
+  const message = (document.getElementById('f-message') || {}).value || '';
+  const participants = parseInt((document.getElementById('qty-display') || {}).textContent) || 1;
+  const savedBookings = [];
+
+  for (const item of cart) {
+    try {
+      const result = await apbApiFetch('/api/book-with-carnet.php', {
+        method: 'POST',
+        body: JSON.stringify({
+          slotId: item.slot.id, courseDate: formatDateISO(item.nextDate),
+          carnetId: selectedCarnet.id, participants, message,
+        }),
+      });
+      savedBookings.push(apbMapApiBooking(result, loggedInClient.email));
+    } catch (e) {
+      if (savedBookings.length === 0) {
+        // Nothing booked yet via the API -- most likely it's unreachable on
+        // this deploy (e.g. the Netlify copy, which has no PHP) rather than a
+        // real per-slot failure. Fall back to the local-only demo path.
+        showLoading(false);
+        return processCarnetBookingLocalFallback();
+      }
+      // Some items in this cart already booked for real via the API --
+      // don't silently duplicate them locally. Surface the error and stop.
+      showLoading(false);
+      alert(`Certaines réservations n'ont pas pu être effectuées : ${e.message}`);
+      await syncMyBookingsFromApi(loggedInClient.email);
+      showSuccess(savedBookings);
+      return;
+    }
+  }
+
+  await syncMyBookingsFromApi(loggedInClient.email);
+  showLoading(false);
+  showSuccess(savedBookings);
+}
+
+// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
+// backend at all) -- everything stays purely local/per-browser, same as before.
+async function processCarnetBookingLocalFallback() {
+  showLoading(true);
   await new Promise(r => setTimeout(r, 600));
   showLoading(false);
 
@@ -1706,6 +1750,10 @@ async function buyGoStep(step) {
       alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)} Un compte existe déjà ? Utilisez le panneau "Utiliser mon carnet" pour vous connecter.</div>`;
       return;
     }
+    // The clients row created by the signup trigger only has `email` -- fill
+    // in the rest so booking snapshots don't show blank names.
+    const phone = (document.getElementById('bf-phone') || {}).value || '';
+    try { await apbApiFetch('/api/update-profile.php', { method: 'POST', body: JSON.stringify({ firstName: first, lastName: last, phone }) }); } catch (e) {}
     alertEl.innerHTML = '';
     buyMountStripe();
   }

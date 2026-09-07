@@ -445,6 +445,12 @@ async function goStep(step) {
       } catch (e) { setAlert(escapeHtml(e.message)); return; }
     }
 
+    // The clients row created by the signup trigger only has `email` --
+    // fill in the rest so booking snapshots don't show blank names. Harmless
+    // to also call this for the sign-in (returning client) path.
+    const phone = (document.getElementById('f-phone') || {}).value || '';
+    try { await apbApiFetch('/api/update-profile.php', { method: 'POST', body: JSON.stringify({ firstName: first, lastName: last, phone }) }); } catch (e) {}
+
     document.getElementById('step2-alert').innerHTML = '';
     mountStripeCard();
   }

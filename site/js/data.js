@@ -158,6 +158,59 @@ async function syncContentFromSupabase() {
   }
 }
 
+// ===== SUPABASE SYNC (Phase 3: this client's own bookings/carnets) =====
+// Maps the PHP API's snake_case rows (site/api/my-bookings.php) to the same
+// shape saveBookings()/saveCarnets() already store, then merges them into
+// the existing apb_bookings/apb_carnets localStorage keys (removing any
+// stale local entries for this email first) -- every existing render
+// function (renderDashboard, renderCarnets, etc. in manage.html and
+// site.js) keeps working unchanged, same pattern as syncContentFromSupabase().
+function apbMapApiBooking(b, email) {
+  return {
+    id: b.id, clientFirstName: b.client_first_name_snapshot, clientLastName: b.client_last_name_snapshot,
+    clientEmail: email, clientPhone: b.client_phone_snapshot || '', clientMessage: b.client_message || '',
+    slotId: b.slot_id, slotTitle: b.slot_title_snapshot,
+    slotStart: (b.slot_start_snapshot || '').slice(0, 5), slotEnd: (b.slot_end_snapshot || '').slice(0, 5),
+    teacher: b.slot_teacher_snapshot, slotTeacher: b.slot_teacher_snapshot, slotLocation: b.slot_location_snapshot,
+    courseDate: b.course_date, participants: b.participants, paymentType: b.payment_type,
+    carnetId: b.carnet_id, carnetCode: null, totalPaid: (b.total_paid_cents || 0) / 100,
+    status: b.status, createdAt: b.created_at, cancelledAt: b.cancelled_at,
+  };
+}
+
+function apbMapApiCarnet(c, email) {
+  return {
+    id: c.id, code: c.code, tarifId: c.tarif_id, tarifName: c.tarif_name_snapshot, type: c.type,
+    totalSessions: c.total_sessions, remainingSessions: c.remaining_sessions, validityMonths: c.validity_months,
+    expiresAt: c.expires_at, active: c.active, clientEmail: email,
+    totalPaid: (c.total_paid_cents || 0) / 100, purchasedAt: c.purchased_at, status: c.status,
+  };
+}
+
+// Returns true if the API was reachable (OVH deploy) and the sync ran;
+// false means the caller is on a deploy without the PHP API (e.g. Netlify)
+// or the request failed -- callers should keep working off whatever local
+// data already exists rather than treating this as fatal.
+async function syncMyBookingsFromApi(email) {
+  try {
+    const data = await apbApiFetch('/api/my-bookings.php');
+    const lower = email.trim().toLowerCase();
+    const mappedCarnets = data.carnets.map(c => apbMapApiCarnet(c, lower));
+    const mappedBookings = data.bookings.map(b => {
+      const mapped = apbMapApiBooking(b, lower);
+      const carnet = mappedCarnets.find(c => c.id === mapped.carnetId);
+      if (carnet) mapped.carnetCode = carnet.code;
+      return mapped;
+    });
+    saveBookings(getBookings().filter(b => (b.clientEmail || '').toLowerCase() !== lower).concat(mappedBookings));
+    saveCarnets(getCarnets().filter(c => (c.clientEmail || '').toLowerCase() !== lower).concat(mappedCarnets));
+    return true;
+  } catch (e) {
+    console.warn('syncMyBookingsFromApi failed (PHP API not reachable on this deploy?):', e);
+    return false;
+  }
+}
+
 function getSlots()    { return getData('slots',    DEFAULT_SLOTS);    }
 function getTeam()     { return getData('team',     DEFAULT_TEAM);     }
 function getTarifs()   { return getData('tarifs',   DEFAULT_TARIFS);   }

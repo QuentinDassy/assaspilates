@@ -91,6 +91,33 @@ async function refreshAuthSessionIfNeeded() {
   }
 }
 
+/**
+ * Calls the PHP API (site/api/*.php) with the current session's bearer token
+ * attached automatically. Same-origin relative path ("/api/...") -- only
+ * works where the PHP API is actually deployed and reachable (OVH), not on
+ * the Netlify copy of this site, which is why every call site wraps this in
+ * a try/catch and degrades gracefully rather than breaking the page.
+ */
+async function apbApiFetch(path, options = {}) {
+  const session = await refreshAuthSessionIfNeeded();
+  const headers = Object.assign({}, options.headers || {});
+  if (session && session.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+  }
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(path, Object.assign({}, options, { headers }));
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error((data && data.message) || `Request failed (${res.status})`);
+    err.code = data && data.error;
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
 // True only if there's a valid session AND that user's id is in the `staff` table.
 // This is a client-side convenience check for showing/hiding the admin UI --
 // the REAL enforcement is server-side (site/api/_lib/auth.php's apbRequireAdmin(),
