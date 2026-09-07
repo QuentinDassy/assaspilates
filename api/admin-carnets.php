@@ -15,7 +15,9 @@ require_once __DIR__ . '/_lib/auth.php';
 apbRequireAdmin();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
-    $carnets = apbSupabaseSelect('carnets', '?order=purchased_at.desc&limit=500');
+    // carnets has no client name/email/phone columns (only client_id) --
+    // embed the related clients row so the admin UI doesn't need a 2nd call per row.
+    $carnets = apbSupabaseSelect('carnets', '?select=*,clients(email,first_name,last_name,phone)&order=purchased_at.desc&limit=500');
     apbJsonSuccess(['carnets' => $carnets]);
 }
 
@@ -74,6 +76,35 @@ if ($action === 'create') {
     ]);
 
     apbJsonSuccess($carnet, 201);
+}
+
+if ($action === 'update') {
+    $carnetId = (string) ($body['carnetId'] ?? '');
+    if (!$carnetId) {
+        apbJsonError(400, 'invalid_request', 'carnetId is required.');
+    }
+    $patch = [];
+    if (isset($body['sessionCount'])) $patch['total_sessions'] = (int) $body['sessionCount'];
+    if (isset($body['remainingSessions'])) $patch['remaining_sessions'] = (int) $body['remainingSessions'];
+    if (isset($body['expiresAt']) && $body['expiresAt'] !== '') $patch['expires_at'] = (string) $body['expiresAt'];
+    if (isset($body['active'])) $patch['active'] = (bool) $body['active'];
+
+    // Editing the client's email re-points the carnet at a (possibly new) client row.
+    if (!empty($body['email'])) {
+        $client = apbFindOrCreateClientByEmail(
+            (string) $body['email'],
+            (string) ($body['firstName'] ?? ''),
+            (string) ($body['lastName'] ?? ''),
+            (string) ($body['phone'] ?? '')
+        );
+        $patch['client_id'] = $client['id'];
+    }
+
+    if (empty($patch)) {
+        apbJsonError(400, 'invalid_request', 'Nothing to update.');
+    }
+    $updated = apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnetId), $patch);
+    apbJsonSuccess($updated[0] ?? null);
 }
 
 if ($action === 'deactivate') {
