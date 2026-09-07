@@ -334,6 +334,7 @@ a:hover{opacity:.75}
   </div>
 </div>
 
+<script src="../js/supabaseClient.js"></script>
 <script src="../js/data.js"></script>
 <script>
 let currentEmail   = '';
@@ -777,7 +778,8 @@ function toggleCarnet(code) {
 // of identity. Real auth (Supabase, magic link/password) is the actual fix
 // and lands with the backend migration; until then this only pre-fills the
 // field so the existing password check (when a password is set) still runs.
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncContentFromSupabase();
   const params = new URLSearchParams(location.search);
   const email = params.get('email');
   if (email) {

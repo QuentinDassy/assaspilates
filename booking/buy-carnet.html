@@ -316,6 +316,7 @@ a:hover{opacity:.75}
   </div>
 </div>
 
+<script src="../js/supabaseClient.js"></script>
 <script src="../js/data.js"></script>
 <script>
 function escapeHtml(value) {
@@ -333,7 +334,8 @@ const STRIPE_PUBLIC_KEY = (() => {
 })();
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncContentFromSupabase();
   renderCarnetChoices();
   try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
   // Pre-fill from saved session

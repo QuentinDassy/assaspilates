@@ -109,6 +109,55 @@ function setData(key, value) {
   try { localStorage.setItem('apb_' + key, JSON.stringify(value)); } catch(e) {}
 }
 
+// ===== SUPABASE SYNC (Phase 1: reads only) =====
+// Fetches the shared content tables and writes them into the same localStorage
+// keys getData()/getSlots() etc. already read from -- every existing call site
+// (40+ across site.js/admin.js/booking pages) keeps working synchronously and
+// unchanged. This is called once per page load (see each page's DOMContentLoaded)
+// before any render function runs. Admin *writes* still go to localStorage only
+// until the PHP API (site/api/admin-*.php) is actually deployed and reachable --
+// see the backend plan for the write-side of Phase 1.
+async function syncContentFromSupabase() {
+  try {
+    const [slotsRows, teamRows, tarifsRows, infosRows] = await Promise.all([
+      supabaseSelect('slots', '?active=eq.true&order=day_of_week.asc,start_time.asc'),
+      supabaseSelect('team_members', '?order=sort_order.asc'),
+      supabaseSelect('tarifs', '?active=eq.true&order=id.asc'),
+      supabaseSelect('site_settings', '?id=eq.1'),
+    ]);
+
+    saveSlots(slotsRows.map(r => ({
+      id: r.id, day: r.day_of_week, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5),
+      title: r.title, type: r.type, teacher: r.teacher_name, location: r.location_key,
+      capacity: r.capacity, priceCents: r.price_cents,
+    })));
+
+    saveTeam(teamRows.map(r => ({
+      id: r.id, name: r.name, email: r.email || '', role: r.role || '',
+      bio: r.bio_html || '', tags: (r.tags || []).join(','), order: r.sort_order, photo: r.photo_path || '',
+    })));
+
+    saveTarifs(tarifsRows.map(r => ({
+      id: r.id, name: r.name, label: r.label, sessions: r.sessions_display || '',
+      price: String(r.price_cents / 100), note: r.note || '', featured: r.featured,
+      isCarnet: r.is_carnet, sessionCount: r.session_count, validityMonths: r.validity_months, type: r.type,
+    })));
+
+    if (infosRows[0]) {
+      const s = infosRows[0];
+      saveInfos({
+        addr1: s.addr1 || '', addr2: s.addr2 || '', tel: s.phone || '', email: s.email || '',
+        instagram: s.instagram || '', cancelHours: s.cancel_hours, retardMin: s.late_minutes,
+        ponctMsg: s.punctuality_message || '',
+      });
+    }
+  } catch (e) {
+    // Offline / Supabase unreachable: keep whatever is already in localStorage
+    // (the DEFAULT_* seed on first visit, or last successfully synced data).
+    console.warn('syncContentFromSupabase failed, using cached/local data:', e);
+  }
+}
+
 function getSlots()    { return getData('slots',    DEFAULT_SLOTS);    }
 function getTeam()     { return getData('team',     DEFAULT_TEAM);     }
 function getTarifs()   { return getData('tarifs',   DEFAULT_TARIFS);   }
