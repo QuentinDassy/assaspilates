@@ -1,0 +1,29 @@
+name: Sync ovh-deploy branch
+
+# Keeps the `ovh-deploy` branch (a subtree split of site/, so index.html
+# lands at the repo root instead of nested under site/) in sync with main.
+# OVH's native Git deploy feature pulls this branch on webhook, so every
+# push to main here ends up live on the OVH-hosted test subdomain a few
+# seconds later with no manual step.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Split site/ into ovh-deploy and force-push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git subtree split --prefix=site -b ovh-deploy-tmp
+          git push origin ovh-deploy-tmp:ovh-deploy --force
+          git branch -D ovh-deploy-tmp
