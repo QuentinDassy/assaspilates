@@ -194,13 +194,19 @@ function renderMiniSchedule(containerId) {
 }
 
 // ===== SCHEDULE =====
-let slotNextId;
-
 function renderScheduleAdmin() {
-  const slots = getSlots();
-  slotNextId = Math.max(0, ...slots.map(s => s.id)) + 1;
   renderDayPills();
+  renderTeacherSelect();
   renderSlotsTable();
+}
+
+function renderTeacherSelect() {
+  const sel = document.getElementById('slot-teacher');
+  if (!sel) return;
+  const current = sel.value;
+  const team = [...getTeam()].sort((a, b) => (a.order || 0) - (b.order || 0));
+  sel.innerHTML = team.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  if (current) sel.value = current;
 }
 
 function renderDayPills() {
@@ -239,28 +245,34 @@ function renderSlotsTable() {
   }).join('');
 }
 
-function saveSlot() {
-  const id  = document.getElementById('slot-id').value;
-  const slot = {
-    id:       id ? parseInt(id) : slotNextId++,
+async function saveSlot() {
+  const id = document.getElementById('slot-id').value;
+  const teacherId = parseInt(document.getElementById('slot-teacher').value) || null;
+  const teacherName = (getTeam().find(t => t.id === teacherId) || {}).name || '';
+  const payload = {
+    action:   id ? 'update' : 'create',
     day:      selectedDay,
     start:    document.getElementById('slot-start').value,
     end:      document.getElementById('slot-end').value,
     title:    document.getElementById('slot-title').value.trim(),
     type:     document.getElementById('slot-type').value,
     location: document.getElementById('slot-location').value,
-    teacher:  document.getElementById('slot-teacher').value.trim(),
+    teacherId, teacherName,
   };
-  if (!slot.title) { showAlert('schedule-alert', 'Veuillez renseigner le titre du cours.', 'error'); return; }
+  if (!payload.title) { showAlert('schedule-alert', 'Veuillez renseigner le titre du cours.', 'error'); return; }
+  if (!teacherId)     { showAlert('schedule-alert', 'Veuillez sélectionner un·e professeur·e.', 'error'); return; }
+  if (id) payload.id = parseInt(id);
 
-  let slots = getSlots();
-  if (id) slots = slots.map(s => s.id === slot.id ? slot : s);
-  else slots.push(slot);
-  saveSlots(slots);
-  resetSlotForm();
-  renderSlotsTable();
-  renderMiniSchedule('dash-schedule');
-  showAlert('schedule-alert', '✓ Créneau enregistré. Visible instantanément sur le site.');
+  try {
+    await apbApiFetch('/api/admin-slots.php', { method: 'POST', body: JSON.stringify(payload) });
+    await syncContentFromSupabase();
+    resetSlotForm();
+    renderSlotsTable();
+    renderMiniSchedule('dash-schedule');
+    showAlert('schedule-alert', '✓ Créneau enregistré. Visible instantanément sur le site.');
+  } catch (e) {
+    showAlert('schedule-alert', `Erreur : ${e.message}`, 'error');
+  }
 }
 
 function editSlot(id) {
@@ -273,17 +285,23 @@ function editSlot(id) {
   document.getElementById('slot-title').value   = slot.title;
   document.getElementById('slot-type').value    = slot.type;
   document.getElementById('slot-location').value = slot.location || 'assas';
-  document.getElementById('slot-teacher').value = slot.teacher;
+  renderTeacherSelect();
+  if (slot.teacherId) document.getElementById('slot-teacher').value = slot.teacherId;
   document.getElementById('slot-form-title').textContent = 'Modifier le créneau';
   renderDayPills();
   document.getElementById('slot-start').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function deleteSlot(id) {
+async function deleteSlot(id) {
   if (!confirm('Supprimer ce créneau ?')) return;
-  saveSlots(getSlots().filter(s => s.id !== id));
-  renderSlotsTable();
-  showAlert('schedule-alert', 'Créneau supprimé.');
+  try {
+    await apbApiFetch('/api/admin-slots.php', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+    await syncContentFromSupabase();
+    renderSlotsTable();
+    showAlert('schedule-alert', 'Créneau supprimé.');
+  } catch (e) {
+    showAlert('schedule-alert', `Erreur : ${e.message}`, 'error');
+  }
 }
 
 function resetSlotForm() {
@@ -293,36 +311,33 @@ function resetSlotForm() {
   document.getElementById('slot-title').value   = '';
   document.getElementById('slot-type').value    = 'collectif';
   document.getElementById('slot-location').value = 'assas';
-  document.getElementById('slot-teacher').value = '';
+  renderTeacherSelect();
   document.getElementById('slot-form-title').textContent = 'Nouveau créneau';
   selectedDay = 0;
   renderDayPills();
 }
 
 // ===== TEAM =====
-let teamNextId;
-
 function renderTeamAdmin() {
   const team = getTeam();
-  teamNextId = Math.max(0, ...team.map(t => t.id)) + 1;
   const sorted = [...team].sort((a, b) => (a.order || 0) - (b.order || 0));
   document.getElementById('team-tbody').innerHTML = sorted.map(m => `
     <tr>
-      <td><strong>${m.name}</strong></td>
-      <td style="font-size:12px;color:#888">${m.role}</td>
+      <td><strong>${escapeHtml(m.name)}</strong></td>
+      <td style="font-size:12px;color:#888">${escapeHtml(m.role)}</td>
       <td>${m.order + 1}</td>
       <td class="actions">
         <button class="btn btn-sm btn-outline" onclick="editMember(${m.id})">Modifier</button>
+        <button class="btn btn-sm btn-outline" onclick="openAbsencesModal(${m.id})">Vacances</button>
         <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.id})">✕</button>
       </td>
     </tr>
   `).join('');
 }
 
-function saveMember() {
+async function saveMember() {
   const id = document.getElementById('member-id').value;
   const m = {
-    id:    id ? parseInt(id) : teamNextId++,
     name:  document.getElementById('member-name').value.trim(),
     email: document.getElementById('member-email').value.trim(),
     role:  document.getElementById('member-role').value.trim(),
@@ -331,13 +346,18 @@ function saveMember() {
     order: parseInt(document.getElementById('member-order').value) || 0,
   };
   if (!m.name) { showAlert('team-alert', 'Le nom est obligatoire.', 'error'); return; }
-  let team = getTeam();
-  if (id) team = team.map(t => t.id === m.id ? m : t);
-  else team.push(m);
-  saveTeam(team);
-  resetMemberForm();
-  renderTeamAdmin();
-  showAlert('team-alert', '✓ Membre enregistré. Visible instantanément sur le site.');
+  try {
+    await apbApiFetch('/api/admin-team.php', {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ action: id ? 'update' : 'create' }, m, id ? { id: parseInt(id) } : {})),
+    });
+    await syncContentFromSupabase();
+    resetMemberForm();
+    renderTeamAdmin();
+    showAlert('team-alert', '✓ Membre enregistré. Visible instantanément sur le site.');
+  } catch (e) {
+    showAlert('team-alert', `Erreur : ${e.message}`, 'error');
+  }
 }
 
 function editMember(id) {
@@ -353,11 +373,16 @@ function editMember(id) {
   document.getElementById('team-form-title').textContent = 'Modifier ' + m.name;
 }
 
-function deleteMember(id) {
+async function deleteMember(id) {
   if (!confirm('Supprimer ce membre ?')) return;
-  saveTeam(getTeam().filter(t => t.id !== id));
-  renderTeamAdmin();
-  showAlert('team-alert', 'Membre supprimé.');
+  try {
+    await apbApiFetch('/api/admin-team.php', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+    await syncContentFromSupabase();
+    renderTeamAdmin();
+    showAlert('team-alert', 'Membre supprimé.');
+  } catch (e) {
+    showAlert('team-alert', `Erreur : ${e.message}`, 'error');
+  }
 }
 
 function resetMemberForm() {
@@ -366,6 +391,96 @@ function resetMemberForm() {
   });
   document.getElementById('member-order').value = '0';
   document.getElementById('team-form-title').textContent = 'Nouveau membre';
+}
+
+// ===== TEACHER ABSENCES ("Vacances") =====
+// Pendant une période d'absence, aucune réservation n'est possible avec ce
+// professeur -- appliqué côté serveur dans api_book_slot() (voir
+// supabase/migrations/0005_teacher_absences_and_capacity.sql). Les lectures
+// publiques passent directement par Supabase (comme team_members/slots) ;
+// seule l'écriture passe par site/api/admin-teacher-absences.php.
+function openAbsencesModal(teacherId) {
+  const member = getTeam().find(t => t.id === teacherId);
+  if (!member) return;
+  renderAbsencesModal(teacherId);
+}
+
+function renderAbsencesModal(teacherId) {
+  const member = getTeam().find(t => t.id === teacherId);
+  if (!member) return;
+  let modal = document.getElementById('absences-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'absences-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  }
+
+  const absences = getTeacherAbsences().filter(a => a.teacherId === teacherId)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+  const today = new Date().toISOString().split('T')[0];
+
+  modal.innerHTML = `
+    <div style="background:#fff;max-width:480px;width:100%;position:relative;max-height:90vh;overflow-y:auto">
+      <div style="background:#373737;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300">Vacances — ${escapeHtml(member.name)}</div>
+        <button onclick="document.getElementById('absences-modal').remove()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:24px">
+        <p style="font-size:12px;color:#888;margin-bottom:16px">Aucune réservation ne sera possible avec ce professeur pendant les périodes ci-dessous.</p>
+        <div id="absences-alert"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Du</label><input type="date" id="absence-start" value="${today}"></div>
+          <div class="form-group"><label>Au</label><input type="date" id="absence-end" value="${today}"></div>
+        </div>
+        <div class="form-group"><label>Motif (optionnel)</label><input type="text" id="absence-reason" placeholder="Congés, formation..."></div>
+        <div class="form-actions" style="margin-bottom:20px">
+          <button class="btn btn-primary" onclick="addAbsence(${teacherId})">Ajouter</button>
+        </div>
+        <table class="table">
+          <thead><tr><th>Du</th><th>Au</th><th>Motif</th><th></th></tr></thead>
+          <tbody>
+            ${absences.length ? absences.map(a => `
+              <tr>
+                <td style="font-size:12px">${a.startDate}</td>
+                <td style="font-size:12px">${a.endDate}</td>
+                <td style="font-size:12px">${escapeHtml(a.reason || '—')}</td>
+                <td class="actions"><button class="btn btn-sm btn-danger" onclick="deleteAbsence('${a.id}',${teacherId})">✕</button></td>
+              </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:16px;font-style:italic">Aucune période enregistrée.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+async function addAbsence(teacherId) {
+  const startDate = document.getElementById('absence-start').value;
+  const endDate   = document.getElementById('absence-end').value;
+  const reason    = document.getElementById('absence-reason').value.trim();
+  const alertEl = document.getElementById('absences-alert');
+  if (!startDate || !endDate) { alertEl.innerHTML = '<div class="alert alert-error">Dates de début et de fin requises.</div>'; return; }
+  if (endDate < startDate)    { alertEl.innerHTML = '<div class="alert alert-error">La date de fin doit être après la date de début.</div>'; return; }
+  try {
+    await apbApiFetch('/api/admin-teacher-absences.php', {
+      method: 'POST', body: JSON.stringify({ action: 'create', teamMemberId: teacherId, startDate, endDate, reason }),
+    });
+    await syncContentFromSupabase();
+    renderAbsencesModal(teacherId);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function deleteAbsence(id, teacherId) {
+  try {
+    await apbApiFetch('/api/admin-teacher-absences.php', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+    await syncContentFromSupabase();
+    renderAbsencesModal(teacherId);
+  } catch (e) {
+    document.getElementById('absences-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+  }
 }
 
 // ===== TARIFS =====
@@ -488,27 +603,21 @@ function saveInfosForm() {
   showAlert('infos-alert', '✓ Informations enregistrées. Visibles sur le site.');
 }
 
-// ===== STRIPE CONFIG =====
-function renderBookingConfig() {
-  const config = JSON.parse(localStorage.getItem('apb_stripe') || '{}');
-  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-  set('stripe-mode',   config.mode);
-  set('stripe-pk',     config.pk);
-  set('stripe-sk',     config.sk);
-  set('stripe-ws',     config.ws);
-  set('stripe-cancel', config.cancel || 24);
-}
+// ===== STRIPE CONFIG (read-only display -- the real values live server-side
+// in site/api/_lib/config.php; site/api/public-config.php serves only the
+// publishable half) =====
+async function renderBookingConfig() {
+  const webhookEl = document.getElementById('webhook-url');
+  if (webhookEl) webhookEl.value = location.origin + '/api/stripe-webhook.php';
 
-function saveStripeConfig() {
-  const config = {
-    mode:   document.getElementById('stripe-mode').value,
-    pk:     document.getElementById('stripe-pk').value,
-    sk:     document.getElementById('stripe-sk').value,
-    ws:     document.getElementById('stripe-ws').value,
-    cancel: document.getElementById('stripe-cancel').value,
-  };
-  localStorage.setItem('apb_stripe', JSON.stringify(config));
-  showAlert('schedule-alert', '✓ Configuration Stripe enregistrée.');
+  const pkEl = document.getElementById('stripe-pk-display');
+  if (!pkEl) return;
+  try {
+    const cfg = await apbApiFetch('/api/public-config.php');
+    pkEl.value = cfg.stripePublishableKey || '(non configurée)';
+  } catch (e) {
+    pkEl.value = 'Indisponible (API injoignable sur ce déploiement)';
+  }
 }
 
 function copyWebhook() {

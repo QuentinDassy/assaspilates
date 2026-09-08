@@ -179,7 +179,7 @@
             </div>
             <div class="form-group">
               <label>Professeur·e</label>
-              <input type="text" id="slot-teacher" placeholder="Leïla Dilhac">
+              <select id="slot-teacher"></select>
             </div>
             <div class="form-actions">
               <button class="btn btn-primary" onclick="saveSlot()">Enregistrer</button>
@@ -340,48 +340,26 @@
     <div class="page" id="page-booking-config">
       <div class="page-header">
         <h2>Configuration Stripe</h2>
-        <p>Paramètres du module de réservation en ligne</p>
+        <p>Paramètres du module de paiement en ligne</p>
       </div>
       <div class="card" style="max-width:600px">
         <div class="card-header"><h3>Clés API Stripe</h3></div>
         <div class="card-body">
           <div class="info-banner">
-            ℹ️ Ces clés sont utilisées par le plugin WordPress <code>booking-manager</code>. Elles doivent être configurées dans <strong>WordPress → Réservations → Paramètres</strong>.
+            ℹ️ Les clés Stripe (publique, secrète, webhook) sont désormais configurées directement sur le serveur, dans <code>site/api/_lib/config.php</code> — plus besoin (et plus possible) de les saisir ici. Cela évite le bug précédent où la clé publique était enregistrée uniquement dans le navigateur de l'ordinateur utilisé, et disparaissait sur un autre poste.
           </div>
           <div class="form-group" style="margin-top:20px">
-            <label>Mode</label>
-            <select id="stripe-mode">
-              <option value="test">Test (développement)</option>
-              <option value="live">Production</option>
-            </select>
+            <label>Clé publique actuellement servie au site</label>
+            <input type="text" id="stripe-pk-display" readonly value="Chargement...">
           </div>
-          <div class="form-group"><label>Clé publique (pk_test_... ou pk_live_...)</label><input type="text" id="stripe-pk" placeholder="pk_test_..."></div>
-          <div class="form-group"><label>Clé secrète (sk_test_... ou sk_live_...)</label><input type="password" id="stripe-sk" placeholder="sk_test_..."></div>
-          <div class="form-group">
-            <label>Webhook URL (à copier dans Stripe Dashboard)</label>
+          <p style="font-size:12px;color:#888">Pour changer de clé (ex. passer en mode Production), modifiez <code>STRIPE_PUBLISHABLE_KEY</code>, <code>STRIPE_SECRET_KEY</code> et <code>STRIPE_WEBHOOK_SECRET</code> dans <code>config.php</code> sur le serveur, puis rechargez cette page.</p>
+          <div class="form-group" style="margin-top:16px">
+            <label>Webhook URL (à renseigner dans Stripe Dashboard → Développeurs → Webhooks)</label>
             <div class="copy-field">
-              <input type="text" readonly value="https://votre-site.com/wp-json/booking-manager/v1/webhook" id="webhook-url">
+              <input type="text" readonly value="" id="webhook-url">
               <button class="btn btn-sm btn-outline" onclick="copyWebhook()">Copier</button>
             </div>
           </div>
-          <div class="form-group"><label>Webhook Secret (whsec_...)</label><input type="password" id="stripe-ws" placeholder="whsec_..."></div>
-          <div class="form-group"><label>Délai annulation (heures avant le cours)</label><input type="number" id="stripe-cancel" value="24" min="0"></div>
-          <div class="form-actions">
-            <button class="btn btn-primary" onclick="saveStripeConfig()">Enregistrer</button>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="max-width:600px;margin-top:16px">
-        <div class="card-header"><h3>Plugin WordPress</h3></div>
-        <div class="card-body">
-          <p style="font-size:13px;color:#666;line-height:1.7">Le module de réservation est géré par le plugin <strong>booking-manager</strong> (dans le dossier <code>/plugin</code> de ce projet). Pour l'installer :</p>
-          <ol style="font-size:13px;color:#555;line-height:2.2;margin:12px 0 0 20px">
-            <li>Zippez le dossier <code>plugin/</code></li>
-            <li>WordPress → Extensions → Ajouter → Téléverser</li>
-            <li>Activez le plugin</li>
-            <li>Allez dans <strong>Réservations → Paramètres</strong> et entrez vos clés Stripe</li>
-            <li>Ajoutez <code>[booking_courses]</code> sur la page de réservation</li>
-          </ol>
         </div>
       </div>
     </div>
