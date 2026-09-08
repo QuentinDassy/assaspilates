@@ -44,6 +44,13 @@ if ($action === 'create') {
 
     $client = apbFindOrCreateClientByEmail($email, $firstName, $lastName, $phone);
 
+    // Defaults to a fresh carnet (remaining = total), but the admin can grant
+    // one with sessions already used up (e.g. recreating a paper carnet a
+    // client already partly used) -- clamped so it can never exceed the total
+    // or go negative.
+    $remainingSessions = isset($body['remainingSessions']) ? (int) $body['remainingSessions'] : $sessionCount;
+    $remainingSessions = max(0, min($sessionCount, $remainingSessions));
+
     $code = 'APB-' . strtoupper(bin2hex(random_bytes(2))) . '-' . strtoupper(bin2hex(random_bytes(2)));
     $expiresAt = (new DateTime())->modify("+{$validityMonths} months")->format('Y-m-d');
 
@@ -54,7 +61,7 @@ if ($action === 'create') {
         'tarif_name_snapshot' => $tarifName,
         'type' => $type,
         'total_sessions' => $sessionCount,
-        'remaining_sessions' => $sessionCount,
+        'remaining_sessions' => $remainingSessions,
         'validity_months' => $validityMonths,
         'expires_at' => $expiresAt,
         'total_paid_cents' => $totalPaidCents,
