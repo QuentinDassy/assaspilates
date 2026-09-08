@@ -431,8 +431,8 @@ function renderAbsencesModal(teacherId) {
         <p style="font-size:12px;color:#888;margin-bottom:16px">Aucune réservation ne sera possible avec ce professeur pendant les périodes ci-dessous.</p>
         <div id="absences-alert"></div>
         <div class="form-row">
-          <div class="form-group"><label>Du</label><input type="date" id="absence-start" value="${today}"></div>
-          <div class="form-group"><label>Au</label><input type="date" id="absence-end" value="${today}"></div>
+          <div class="form-group"><label>Du</label><input type="date" id="absence-start" value="${today}" min="${today}" onchange="onAbsenceStartChange()"></div>
+          <div class="form-group"><label>Au</label><input type="date" id="absence-end" value="${today}" min="${today}"></div>
         </div>
         <div class="form-group"><label>Motif (optionnel)</label><input type="text" id="absence-reason" placeholder="Congés, formation..."></div>
         <div class="form-actions" style="margin-bottom:20px">
@@ -443,8 +443,8 @@ function renderAbsencesModal(teacherId) {
           <tbody>
             ${absences.length ? absences.map(a => `
               <tr>
-                <td style="font-size:12px">${a.startDate}</td>
-                <td style="font-size:12px">${a.endDate}</td>
+                <td style="font-size:12px">${frDate(a.startDate)}</td>
+                <td style="font-size:12px">${frDate(a.endDate)}</td>
                 <td style="font-size:12px">${escapeHtml(a.reason || '—')}</td>
                 <td class="actions"><button class="btn btn-sm btn-danger" onclick="deleteAbsence('${a.id}',${teacherId})">✕</button></td>
               </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:16px;font-style:italic">Aucune période enregistrée.</td></tr>'}
@@ -453,6 +453,23 @@ function renderAbsencesModal(teacherId) {
       </div>
     </div>`;
   modal.style.display = 'flex';
+}
+
+// yyyy-mm-dd -> jj/mm/aaaa for display (the <input type=date> fields already
+// render in the browser's own locale format natively -- this is only for the
+// table listing below, which was showing the raw ISO string).
+function frDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR');
+}
+
+// Keeps "Au" from ever being set before "Du" -- both the min attribute (so the
+// date picker itself can't offer an earlier day) and, if "Au" was already set
+// to something now-invalid, bumping it forward to match.
+function onAbsenceStartChange() {
+  const startEl = document.getElementById('absence-start');
+  const endEl = document.getElementById('absence-end');
+  endEl.min = startEl.value;
+  if (endEl.value < startEl.value) endEl.value = startEl.value;
 }
 
 async function addAbsence(teacherId) {
@@ -1036,7 +1053,7 @@ async function saveCarnet() {
       tarifId: tarifOpt.value ? parseInt(tarifOpt.value) : null,
       tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
       type: tarif ? tarif.type : 'collectif',
-      sessionCount: total, validityMonths: parseInt(tarifOpt.dataset.months) || 6,
+      sessionCount: total, remainingSessions: remain, validityMonths: parseInt(tarifOpt.dataset.months) || 6,
       totalPaidCents: 0,
     }) });
     await syncAdminDataFromApi();
