@@ -94,6 +94,7 @@ const DEFAULT_INFOS = {
 
 const DEFAULT_CARNETS  = [];
 const DEFAULT_BOOKINGS = [];
+const DEFAULT_TEACHER_ABSENCES = [];
 
 // ===== STORAGE =====
 function getData(key, defaults) {
@@ -119,17 +120,22 @@ function setData(key, value) {
 // see the backend plan for the write-side of Phase 1.
 async function syncContentFromSupabase() {
   try {
-    const [slotsRows, teamRows, tarifsRows, infosRows] = await Promise.all([
+    const [slotsRows, teamRows, tarifsRows, infosRows, absencesRows] = await Promise.all([
       supabaseSelect('slots', '?active=eq.true&order=day_of_week.asc,start_time.asc'),
       supabaseSelect('team_members', '?order=sort_order.asc'),
       supabaseSelect('tarifs', '?active=eq.true&order=id.asc'),
       supabaseSelect('site_settings', '?id=eq.1'),
+      supabaseSelect('teacher_absences', '?order=start_date.asc'),
     ]);
 
     saveSlots(slotsRows.map(r => ({
       id: r.id, day: r.day_of_week, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5),
-      title: r.title, type: r.type, teacher: r.teacher_name, location: r.location_key,
+      title: r.title, type: r.type, teacher: r.teacher_name, teacherId: r.teacher_id, location: r.location_key,
       capacity: r.capacity, priceCents: r.price_cents,
+    })));
+
+    saveTeacherAbsences(absencesRows.map(r => ({
+      id: r.id, teacherId: r.team_member_id, startDate: r.start_date, endDate: r.end_date, reason: r.reason || '',
     })));
 
     saveTeam(teamRows.map(r => ({
@@ -217,6 +223,7 @@ function getTarifs()   { return getData('tarifs',   DEFAULT_TARIFS);   }
 function getInfos()    { return getData('infos',    DEFAULT_INFOS);    }
 function getCarnets()  { return getData('carnets',  DEFAULT_CARNETS);  }
 function getBookings() { return getData('bookings', DEFAULT_BOOKINGS); }
+function getTeacherAbsences() { return getData('teacher_absences', DEFAULT_TEACHER_ABSENCES); }
 
 function saveSlots(d)    { setData('slots',    d); }
 function saveTeam(d)     { setData('team',     d); }
@@ -224,6 +231,27 @@ function saveTarifs(d)   { setData('tarifs',   d); }
 function saveInfos(d)    { setData('infos',    d); }
 function saveCarnets(d)  { setData('carnets',  d); }
 function saveBookings(d) { setData('bookings', d); }
+function saveTeacherAbsences(d) { setData('teacher_absences', d); }
+
+// True if this teacher has a "vacances" period covering dateISO (YYYY-MM-DD).
+function isTeacherAbsentOn(teacherId, dateISO) {
+  if (!teacherId) return false;
+  return getTeacherAbsences().some(a => a.teacherId === teacherId && dateISO >= a.startDate && dateISO <= a.endDate);
+}
+
+// Like getNextOccurrence(), but skips forward week by week past any
+// "vacances" period the slot's teacher has on that date -- the booking pages
+// only ever offer this single next date per weekly slot (no multi-week date
+// picker), so a slot doesn't just silently look unavailable for the whole
+// length of a teacher's absence. Capped at 26 weeks out as a sane backstop.
+function getNextAvailableOccurrence(slot) {
+  let date = getNextOccurrence(slot.day);
+  for (let i = 0; i < 26 && isTeacherAbsentOn(slot.teacherId, formatDateISO(date)); i++) {
+    date = new Date(date);
+    date.setDate(date.getDate() + 7);
+  }
+  return date;
+}
 
 // Plaintext-password-in-localStorage scheme removed -- real auth is
 // site/js/auth.js (Supabase Auth: supabaseSignIn/supabaseSignUp/supabaseSignOut).

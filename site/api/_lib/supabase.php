@@ -76,6 +76,15 @@ function apbSupabaseUpdate(string $table, string $query, array $patch): array
     return $res['body'] ?? [];
 }
 
+/** DELETE via PostgREST, $query carries the filter e.g. '?id=eq.123' */
+function apbSupabaseDelete(string $table, string $query): void
+{
+    $res = apbSupabaseRequest('DELETE', "/rest/v1/{$table}{$query}");
+    if ($res['status'] >= 400) {
+        throw new RuntimeException("Supabase delete on {$table} failed with status {$res['status']}: " . json_encode($res['body']));
+    }
+}
+
 /** Calls a Postgres function exposed via PostgREST RPC, e.g. api_book_slot */
 function apbSupabaseRpc(string $functionName, array $params): array
 {

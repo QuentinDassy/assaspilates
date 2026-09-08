@@ -728,10 +728,6 @@ let buyCurrentStep   = 1;
 let buyCardElement   = null;
 let viewMode = 'week'; // 'list' | 'week'
 
-const STRIPE_PUBLIC_KEY = (() => {
-  try { return JSON.parse(localStorage.getItem('apb_stripe') || '{}').pk || 'pk_test_VOTRE_CLE_ICI'; } catch(e) { return 'pk_test_VOTRE_CLE_ICI'; }
-})();
-
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
   await syncContentFromSupabase();
@@ -780,11 +776,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (preSlot) {
     setTimeout(() => toggleCart(parseInt(preSlot)), 100);
   }
-  initStripe();
+  await initStripe();
 });
 
-function initStripe() {
-  try { stripe = Stripe(STRIPE_PUBLIC_KEY); } catch(e) {}
+// Fetches the Stripe publishable key from the server (site/api/public-config.php)
+// rather than admin-panel localStorage -- that key used to be per-browser only,
+// so it silently reverted to a non-working placeholder on any other computer.
+async function initStripe() {
+  try {
+    const cfg = await apbApiFetch('/api/public-config.php');
+    stripe = Stripe(cfg.stripePublishableKey);
+  } catch (e) {
+    console.warn('public-config.php unreachable, Stripe payments will not work on this deploy:', e);
+  }
 }
 
 // ===== MODE =====
@@ -1132,7 +1136,7 @@ function renderCourseList() {
     grouped[day].forEach(s => {
       const spots   = getAvailableSpots(s);
       const price   = getPriceForSlot(s);
-      const nextDate= getNextOccurrence(s.day);
+      const nextDate= getNextAvailableOccurrence(s);
       const loc     = s.location || 'assas';
       const locInfo = LOCATIONS[loc] || LOCATIONS.assas;
 
@@ -1234,7 +1238,7 @@ function toggleCart(id) {
     // can mix a 1-person "privé" slot with a 2-person "duo" slot. Only
     // "duo" slots offer a choice (see the stepper in updateCartSidebar) --
     // everything else always books/pays for exactly 1 person per item.
-    cart.push({ slot, nextDate: getNextOccurrence(slot.day), price, participants: 1 });
+    cart.push({ slot, nextDate: getNextAvailableOccurrence(slot), price, participants: 1 });
   }
   renderCourseList();
   updateCartSidebar();
@@ -1469,6 +1473,10 @@ async function processPayment() {
   if (confirmResult.error) {
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('card-error').textContent = confirmResult.error.message;
+    // Release the awaiting_payment hold right away rather than leaving it
+    // for the hourly cron (site/scheduled/release-payment-holds.php) -- best
+    // effort, the webhook/cron still cover a client that never gets here.
+    apbApiFetch('/api/cancel-pending-payment.php', { method: 'POST', body: JSON.stringify({ paymentIntentId: pi.paymentIntentId }) }).catch(() => {});
     return;
   }
 
@@ -1930,6 +1938,7 @@ async function buyProcessPurchase() {
   if (confirmResult.error) {
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('buy-card-error').textContent = confirmResult.error.message;
+    apbApiFetch('/api/cancel-pending-payment.php', { method: 'POST', body: JSON.stringify({ paymentIntentId: pi.paymentIntentId }) }).catch(() => {});
     return;
   }
 

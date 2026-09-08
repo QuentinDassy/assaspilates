@@ -239,25 +239,35 @@ a:hover{opacity:.75}
       <p class="page-sub">Consultez vos cours, gérez vos réservations et suivez votre carnet.</p>
 
       <div class="login-card">
-        <h2>Accéder à mon espace</h2>
-        <p>Entrez votre email et le mot de passe créé lors de l'achat de votre carnet.</p>
+        <h2 id="login-card-title">Accéder à mon espace</h2>
+        <p id="login-card-sub">Entrez votre email et le mot de passe créé lors de l'achat de votre carnet.</p>
         <div id="login-alert"></div>
         <div class="form-group">
           <label>Adresse email *</label>
           <input type="email" id="l-email" placeholder="marie@exemple.com" autocomplete="email"
-                 onkeydown="if(event.key==='Enter')login()">
+                 onkeydown="if(event.key==='Enter')submitLoginForm()">
         </div>
         <div class="form-group">
           <label>Mot de passe *</label>
           <div class="pw-wrap">
             <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password"
-                   onkeydown="if(event.key==='Enter')login()">
+                   onkeydown="if(event.key==='Enter')submitLoginForm()">
             <button type="button" class="pw-toggle" onclick="togglePw('l-password',this)" tabindex="-1">👁</button>
           </div>
         </div>
-        <button class="btn-primary" onclick="login()">Accéder à mon espace</button>
+        <div class="form-group" id="l-password2-group" style="display:none">
+          <label>Confirmer le mot de passe *</label>
+          <div class="pw-wrap">
+            <input type="password" id="l-password2" placeholder="••••••••" autocomplete="new-password"
+                   onkeydown="if(event.key==='Enter')submitLoginForm()">
+            <button type="button" class="pw-toggle" onclick="togglePw('l-password2',this)" tabindex="-1">👁</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="login-submit-btn" onclick="submitLoginForm()">Accéder à mon espace</button>
         <p style="margin-top:12px;text-align:center;font-size:12px">
-          <a href="#" onclick="forgotPassword();return false;" style="color:var(--warm);opacity:1">Mot de passe oublié ?</a>
+          <span id="login-toggle-signup"><a href="#" onclick="toggleSignupMode(true);return false;" style="color:var(--warm);opacity:1">Un carnet vous a été créé par le studio ? Activez votre compte</a></span>
+          <span id="login-toggle-signin" style="display:none"><a href="#" onclick="toggleSignupMode(false);return false;" style="color:var(--warm);opacity:1">Vous avez déjà un compte ? Se connecter</a></span>
+          <br><a href="#" onclick="forgotPassword();return false;" style="color:var(--warm);opacity:1">Mot de passe oublié ?</a>
         </p>
       </div>
 
@@ -354,10 +364,37 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ===== LOGIN =====
+// ===== LOGIN / ACTIVATION =====
 // Real Supabase Auth -- identity comes from the verified session (session.user.email),
 // never from the raw form field, so bookings/carnets are looked up by an email the
 // person actually proved ownership of (via their password), not just typed in.
+//
+// "Activer mon compte" (isSignupMode) covers the case where the studio
+// created a carnet for a client's email via the admin panel before that
+// client ever had an account here: they set a password for that same email,
+// supabaseSignUp() creates the Supabase Auth user, and the DB trigger
+// handle_new_auth_user() (supabase/migrations/0002_auth.sql) links it to the
+// existing `clients` row by email -- so their carnet just appears below,
+// nothing else to do.
+let isSignupMode = false;
+
+function toggleSignupMode(signup) {
+  isSignupMode = signup;
+  document.getElementById('login-card-title').textContent = signup ? 'Activer mon compte' : 'Accéder à mon espace';
+  document.getElementById('login-card-sub').textContent = signup
+    ? "Créez un mot de passe pour l'email utilisé par le studio -- votre carnet vous sera automatiquement lié."
+    : "Entrez votre email et le mot de passe créé lors de l'achat de votre carnet.";
+  document.getElementById('l-password2-group').style.display = signup ? 'block' : 'none';
+  document.getElementById('login-submit-btn').textContent = signup ? 'Activer mon compte' : 'Accéder à mon espace';
+  document.getElementById('login-toggle-signup').style.display = signup ? 'none' : 'inline';
+  document.getElementById('login-toggle-signin').style.display = signup ? 'inline' : 'none';
+  document.getElementById('login-alert').innerHTML = '';
+}
+
+function submitLoginForm() {
+  return isSignupMode ? signup() : login();
+}
+
 async function login() {
   const email    = document.getElementById('l-email').value.trim().toLowerCase();
   const password = document.getElementById('l-password').value;
@@ -378,6 +415,41 @@ async function login() {
     return;
   }
 
+  await finishLoginAndShowDashboard(session, alertEl);
+}
+
+async function signup() {
+  const email    = document.getElementById('l-email').value.trim().toLowerCase();
+  const password = document.getElementById('l-password').value;
+  const password2 = document.getElementById('l-password2').value;
+  const alertEl  = document.getElementById('login-alert');
+  alertEl.innerHTML = '';
+
+  if (!email || !email.includes('@') || !password || !password2) {
+    alertEl.innerHTML = '<div class="alert alert-error">Veuillez remplir tous les champs.</div>';
+    return;
+  }
+  if (password.length < 6) {
+    alertEl.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>';
+    return;
+  }
+  if (password !== password2) {
+    alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>';
+    return;
+  }
+
+  let session;
+  try {
+    session = await supabaseSignUp(email, password);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  await finishLoginAndShowDashboard(session, alertEl);
+}
+
+async function finishLoginAndShowDashboard(session, alertEl) {
   const verifiedEmail = session.user.email.toLowerCase();
   await syncMyBookingsFromApi(verifiedEmail);
   const bookings = getBookingsByEmail(verifiedEmail);
@@ -399,7 +471,10 @@ async function logout() {
   document.getElementById('l-email').value = '';
   const pwdEl = document.getElementById('l-password');
   if (pwdEl) pwdEl.value = '';
+  const pwd2El = document.getElementById('l-password2');
+  if (pwd2El) pwd2El.value = '';
   document.getElementById('login-alert').innerHTML = '';
+  toggleSignupMode(false);
   showScreen('login-screen');
 }
 
