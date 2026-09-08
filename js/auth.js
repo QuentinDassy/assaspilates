@@ -127,21 +127,36 @@ async function apbApiFetch(path, options = {}) {
   return data;
 }
 
+// Cached alongside isCurrentUserStaff()'s own check -- getStaffFlags() below
+// reads this rather than making its own request, since both are only ever
+// needed together right after login (checkAdminAuthAndInit()).
+let cachedStaffRow = null;
+
 // True only if there's a valid session AND that user's id is in the `staff` table.
 // This is a client-side convenience check for showing/hiding the admin UI --
 // the REAL enforcement is server-side (site/api/_lib/auth.php's apbRequireAdmin(),
 // checked on every write once the PHP API is deployed and reachable).
 async function isCurrentUserStaff() {
   const session = await refreshAuthSessionIfNeeded();
-  if (!session || !session.user) return false;
+  if (!session || !session.user) { cachedStaffRow = null; return false; }
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/staff?select=role&user_id=eq.${session.user.id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/staff?select=role,can_view_stripe_config&user_id=eq.${session.user.id}`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` },
     });
-    if (!res.ok) return false;
+    if (!res.ok) { cachedStaffRow = null; return false; }
     const rows = await res.json();
+    cachedStaffRow = rows[0] || null;
     return rows.length > 0;
   } catch (e) {
+    cachedStaffRow = null;
     return false;
   }
+}
+
+// Per-section visibility flags for the currently signed-in staff member (set
+// by the isCurrentUserStaff() call above). Defaults to fully visible if
+// nothing's cached yet (e.g. called before login finishes) rather than
+// hiding pages on a false negative.
+function getStaffFlags() {
+  return cachedStaffRow || { role: 'admin', can_view_stripe_config: true };
 }

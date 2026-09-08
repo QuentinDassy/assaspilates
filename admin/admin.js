@@ -90,6 +90,12 @@ async function syncAdminDataFromApi() {
 
 // ===== NAVIGATION =====
 function showPage(pageId) {
+  // Blocks direct navigation (e.g. an old bookmark) to a page this staff
+  // member's account has been restricted from -- the nav link itself is
+  // already hidden in checkAdminAuthAndInit(), this is the second layer.
+  if (pageId === 'booking-config' && getStaffFlags().can_view_stripe_config === false) {
+    pageId = 'dashboard';
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-' + pageId);
@@ -1520,6 +1526,8 @@ async function checkAdminAuthAndInit() {
   }
   document.getElementById('admin-login-screen').style.display = 'none';
   document.getElementById('admin-layout').style.display = '';
+  const stripeNav = document.getElementById('nav-booking-config');
+  if (stripeNav) stripeNav.style.display = getStaffFlags().can_view_stripe_config === false ? 'none' : '';
   await syncContentFromSupabase();
   const gotRealData = await syncAdminDataFromApi();
   if (!gotRealData) {
