@@ -29,6 +29,9 @@ jobs:
           FTP_USERNAME: ${{ secrets.OVH_FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.OVH_FTP_PASSWORD }}
         run: |
+          FTP_SERVER=$(printf '%s' "$FTP_SERVER" | tr -d '\r\n')
+          FTP_USERNAME=$(printf '%s' "$FTP_USERNAME" | tr -d '\r\n')
+          FTP_PASSWORD=$(printf '%s' "$FTP_PASSWORD" | tr -d '\r\n')
           lftp -e "
             debug 5;
             set sftp:auto-confirm yes;
