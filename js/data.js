@@ -315,8 +315,14 @@ function formatDateFR(date) {
   return date.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 
+// Local calendar date, NOT toISOString() -- every caller means "the day this
+// course/carnet falls on in Paris". A Date at local midnight is the previous
+// day in UTC (CEST = UTC+2), so toISOString() shifted courseDate a day early.
 function formatDateISO(date) {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 // Renvoie true si le cours est annulable (> cancelHours avant l'heure du cours)
