@@ -102,9 +102,17 @@ function setMobileScheduleDay(tabsId, gridId, di) {
   gridEl.querySelectorAll('.day-col').forEach(col => {
     col.classList.toggle('mobile-active', parseInt(col.dataset.day) === di);
   });
-  // Scroll active tab into view
+  // Centre the active tab inside its own strip -- and only there.
+  // scrollIntoView() walks every scrollable ancestor, the page included, so
+  // preselecting today's tab as the page rendered dragged a phone visitor
+  // straight down to the schedule before they had touched anything.
   const activeTab = tabsEl.querySelector('.mobile-day-tab.active');
-  if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  if (activeTab) {
+    const strip = tabsEl.getBoundingClientRect();
+    const tab   = activeTab.getBoundingClientRect();
+    const left  = tabsEl.scrollLeft + (tab.left - strip.left) - (strip.width - tab.width) / 2;
+    tabsEl.scrollTo({ left, behavior: 'smooth' });
+  }
 }
 
 // ===== RENDER TEAM =====
