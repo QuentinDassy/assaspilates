@@ -311,6 +311,17 @@ function isPastDate(date) {
   return date < today;
 }
 
+// Bookings close BOOKING_CUTOFF_MINUTES before the class starts. This is the
+// display-side half of the rule -- api_book_slot() (supabase/migrations/
+// 0007_booking_cutoff.sql) rejects a late booking for real, whatever a stale
+// page still offers.
+const BOOKING_CUTOFF_MINUTES = 60;
+
+function isSlotBookableAt(dateISO, startHHMM) {
+  const start = new Date(`${dateISO}T${startHHMM}:00`);
+  return start.getTime() - Date.now() > BOOKING_CUTOFF_MINUTES * 60000;
+}
+
 function formatDateFR(date) {
   return date.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }

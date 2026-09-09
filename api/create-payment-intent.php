@@ -58,6 +58,7 @@ $bookingErrorMessages = [
     'SLOT_CANCELLED' => 'Ce créneau a été annulé.',
     'SLOT_FULL' => 'Ce cours est complet.',
     'TEACHER_ABSENT' => "Le professeur n'est pas disponible à cette date (absence/vacances).",
+    'BOOKING_TOO_LATE' => "Les réservations ferment 1h avant le début du cours.",
 ];
 
 if ($kind === 'booking') {
