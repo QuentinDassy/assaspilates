@@ -47,8 +47,10 @@ if ($pi['kind'] === 'booking') {
         apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id), ['payment_status' => 'failed']);
     }
 } elseif ($pi['kind'] === 'carnet') {
-    $carnetId = $pi['metadata']['carnet_id'] ?? '';
-    if ($carnetId) {
+    // carnet_ids since 0008_decouverte_formula.sql (a composite formula issues
+    // one carnet per component); carnet_id covers intents still in flight.
+    $ids = $pi['metadata']['carnet_ids'] ?? ($pi['metadata']['carnet_id'] ?? '');
+    foreach (array_filter(array_map('trim', explode(',', (string) $ids))) as $carnetId) {
         apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnetId), ['active' => false, 'status' => 'deactivated']);
     }
 }

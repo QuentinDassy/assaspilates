@@ -161,46 +161,66 @@ if ($kind === 'carnet') {
     }
     $tarif = $tarifRows[0];
 
-    $code = 'APB-' . strtoupper(bin2hex(random_bytes(2))) . '-' . strtoupper(bin2hex(random_bytes(2)));
     $expiresAt = (new DateTime())->modify('+' . (int) $tarif['validity_months'] . ' months')->format('Y-m-d');
+    $totalCents = (int) $tarif['price_cents'];
 
-    // remaining_sessions starts at 0 -- unusable until the webhook confirms payment.
-    $carnet = apbSupabaseInsert('carnets', [
-        'code' => $code,
-        'client_id' => $client['id'],
-        'tarif_id' => $tarif['id'],
-        'tarif_name_snapshot' => $tarif['name'],
-        'type' => $tarif['type'],
-        'total_sessions' => $tarif['session_count'],
-        'remaining_sessions' => 0,
-        'validity_months' => $tarif['validity_months'],
-        'expires_at' => $expiresAt,
-        'total_paid_cents' => $tarif['price_cents'],
-        'status' => 'pending_payment',
-        'active' => false,
-    ]);
+    // A composite formula (tarifs.components, see 0008_decouverte_formula.sql)
+    // spans several course types, which one carnet cannot express -- carnets
+    // carry a single type and api_book_slot() only spends one on a slot of
+    // that same type. So issue one carnet per component. A plain carnet is
+    // just the one-component case, and takes exactly the same path.
+    $components = $tarif['components'] ?? null;
+    if (!is_array($components) || empty($components)) {
+        $components = [['type' => $tarif['type'], 'sessions' => (int) $tarif['session_count']]];
+    }
+
+    // Split the charge across the carnets so the parts still sum to what was
+    // actually taken, with the rounding remainder on the last one.
+    $share = intdiv($totalCents, count($components));
+    $carnets = [];
+    foreach ($components as $i => $component) {
+        $isLast = $i === count($components) - 1;
+        $carnets[] = apbSupabaseInsert('carnets', [
+            'code' => 'APB-' . strtoupper(bin2hex(random_bytes(2))) . '-' . strtoupper(bin2hex(random_bytes(2))),
+            'client_id' => $client['id'],
+            'tarif_id' => $tarif['id'],
+            'tarif_name_snapshot' => $tarif['name'],
+            'type' => (string) $component['type'],
+            'total_sessions' => (int) $component['sessions'],
+            // remaining_sessions starts at 0 -- unusable until the webhook confirms payment.
+            'remaining_sessions' => 0,
+            'validity_months' => $tarif['validity_months'],
+            'expires_at' => $expiresAt,
+            'total_paid_cents' => $isLast ? $totalCents - $share * $i : $share,
+            'status' => 'pending_payment',
+            'active' => false,
+        ]);
+    }
+    $carnetIds = implode(',', array_column($carnets, 'id'));
 
     $pi = apbStripeClient()->paymentIntents->create([
-        'amount' => (int) $tarif['price_cents'],
+        'amount' => $totalCents,
         'currency' => 'eur',
         'payment_method_types' => ['card'],
-        'metadata' => ['kind' => 'carnet', 'carnet_id' => $carnet['id']],
+        'metadata' => ['kind' => 'carnet', 'carnet_ids' => $carnetIds],
     ]);
 
     // payment_intents row must exist before the carnet can reference it (FK).
     apbSupabaseInsert('payment_intents', [
-        'id' => $pi->id, 'kind' => 'carnet', 'amount_cents' => (int) $tarif['price_cents'],
+        'id' => $pi->id, 'kind' => 'carnet', 'amount_cents' => $totalCents,
         'status' => $pi->status, 'client_id' => $client['id'],
-        'metadata' => ['carnet_id' => $carnet['id']],
+        'metadata' => ['carnet_ids' => $carnetIds],
     ]);
-    apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnet['id']), ['payment_intent_id' => $pi->id]);
+    foreach ($carnets as $carnet) {
+        apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnet['id']), ['payment_intent_id' => $pi->id]);
+    }
 
     // Full snapshot (not just id/code) so the frontend can render the
     // confirmation screen straight from this response.
     apbJsonSuccess([
         'clientSecret' => $pi->client_secret, 'paymentIntentId' => $pi->id,
-        'carnetId' => $carnet['id'], 'carnetCode' => $code,
-        'carnet' => $carnet, 'client' => $client,
+        'carnetId' => $carnets[0]['id'], 'carnetCode' => $carnets[0]['code'],
+        'carnet' => $carnets[0], 'carnets' => $carnets, 'client' => $client,
     ]);
 }
 

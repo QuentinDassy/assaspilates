@@ -418,6 +418,7 @@ function renderCarnetChoices() {
   const grid = document.getElementById('carnets-choice-grid');
 
   const groups = [
+    { key: 'decouverte', label: 'Formule découverte' },
     { key: 'collectif', label: 'Semi-Collectif Mat' },
     { key: 'duo',       label: 'Cours Duo Wall Unit' },
     { key: 'prive',     label: 'Cours Privé Mat + Machine' },
@@ -655,11 +656,15 @@ async function processPurchase() {
   // Stripe confirmed the charge; site/api/stripe-webhook.php activates the
   // carnet (remaining_sessions/active/status) server-side shortly after --
   // never trust the client's own "it succeeded" claim for that part.
-  const c = pi.carnet;
+  // A composite formula comes back as several carnets, one per course type
+  // (0008_decouverte_formula.sql) -- each with its own code to book with.
+  const all = pi.carnets && pi.carnets.length ? pi.carnets : [pi.carnet];
+  const c = all[0];
   showSuccess({
     clientFirstName: first, clientLastName: last,
     tarifName: c.tarif_name_snapshot, totalSessions: c.total_sessions,
     expiresAt: c.expires_at, code: c.code,
+    parts: all.map(x => ({ type: x.type, sessions: x.total_sessions, code: x.code })),
   }, email);
 }
 
@@ -687,12 +692,22 @@ function showSuccess(carnet, email) {
   document.getElementById('buy-screen').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
 
+  const TYPE_LABELS = { collectif: 'Semi-collectif', prive: 'Cours privé', duo: 'Duo', munz: 'Munz Floor' };
+  const parts = carnet.parts || [];
+  // A formula spanning two course types is issued as one carnet per type, so
+  // list them: each carries its own code and books its own kind of course.
+  const detail = parts.length > 1
+    ? `<p>Elle vous donne droit à :</p>` + parts.map(p =>
+        `<p style="margin-top:8px">🎟️ <strong>${p.sessions} séance${p.sessions > 1 ? 's' : ''} ${escapeHtml(TYPE_LABELS[p.type] || p.type)}</strong> — code <strong>${escapeHtml(p.code)}</strong></p>`
+      ).join('')
+    : `<p style="margin-top:12px">📦 <strong>${escapeHtml(carnet.tarifName)}</strong> — ${carnet.totalSessions} séances</p>`;
+
   document.getElementById('success-details').innerHTML = `
     <p style="margin-bottom:12px"><strong>Bonjour ${escapeHtml(carnet.clientFirstName)} ${escapeHtml(carnet.clientLastName)},</strong></p>
-    <p>Votre carnet a bien été enregistré :</p>
-    <p style="margin-top:12px">📦 <strong>${escapeHtml(carnet.tarifName)}</strong> — ${carnet.totalSessions} séances</p>
-    <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
-    <p style="margin-top:12px;font-size:12px;color:#999">Accédez à votre espace personnel pour retrouver votre carnet à tout moment.</p>
+    <p>${parts.length > 1 ? `Votre <strong>${escapeHtml(carnet.tarifName)}</strong> a bien été enregistrée :` : 'Votre carnet a bien été enregistré :'}</p>
+    ${detail}
+    <p style="margin-top:12px">📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
+    <p style="margin-top:12px;font-size:12px;color:#999">Accédez à votre espace personnel pour retrouver ${parts.length > 1 ? 'vos carnets' : 'votre carnet'} à tout moment.</p>
   `;
 
   const espaceUrl = 'manage.html?email=' + encodeURIComponent(email);

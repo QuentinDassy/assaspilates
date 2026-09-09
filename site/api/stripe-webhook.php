@@ -40,6 +40,18 @@ try {
     exit;
 }
 
+/**
+ * A composite formula is sold as several carnets under one charge
+ * (0008_decouverte_formula.sql), so the id list is what metadata carries now.
+ * `carnet_id` is still read for PaymentIntents created before that change and
+ * still in flight when it deployed.
+ */
+function apbCarnetIdsFromMetadata(array $pi): array
+{
+    $ids = $pi['metadata']['carnet_ids'] ?? ($pi['metadata']['carnet_id'] ?? '');
+    return array_filter(array_map('trim', explode(',', (string) $ids)));
+}
+
 function apbHandlePaymentSucceeded(array $pi): void
 {
     $kind = $pi['metadata']['kind'] ?? '';
@@ -49,8 +61,7 @@ function apbHandlePaymentSucceeded(array $pi): void
             apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id), ['payment_status' => 'paid']);
         }
     } elseif ($kind === 'carnet') {
-        $carnetId = $pi['metadata']['carnet_id'] ?? '';
-        if ($carnetId) {
+        foreach (apbCarnetIdsFromMetadata($pi) as $carnetId) {
             $rows = apbSupabaseSelect('carnets', '?id=eq.' . urlencode($carnetId) . '&select=total_sessions');
             $totalSessions = $rows[0]['total_sessions'] ?? 0;
             apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnetId), [
@@ -75,8 +86,7 @@ function apbHandlePaymentFailedOrCanceled(array $pi): void
             apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id), ['payment_status' => 'failed']);
         }
     } elseif ($kind === 'carnet') {
-        $carnetId = $pi['metadata']['carnet_id'] ?? '';
-        if ($carnetId) {
+        foreach (apbCarnetIdsFromMetadata($pi) as $carnetId) {
             apbSupabaseUpdate('carnets', '?id=eq.' . urlencode($carnetId), ['active' => false, 'status' => 'deactivated']);
         }
     }
