@@ -37,7 +37,6 @@ jobs:
           # -- that's what corrupted the username in earlier attempts.
           USERPASS="$FTP_USERNAME,$FTP_PASSWORD"
           lftp -e "
-            debug 5;
             set sftp:auto-confirm yes;
             set net:timeout 15;
             set net:max-retries 3;
@@ -46,6 +45,6 @@ jobs:
             mirror --reverse --verbose \
               --exclude-glob config.php \
               --exclude-glob jwks_cache.json \
-              ./site/ /prod/;
+              ./site/ prod/;
             bye
           "
