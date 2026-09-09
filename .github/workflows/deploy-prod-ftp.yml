@@ -23,6 +23,18 @@ jobs:
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
+      - name: Debug secret contents (no plaintext password)
+        env:
+          FTP_SERVER: ${{ secrets.OVH_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.OVH_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.OVH_FTP_PASSWORD }}
+        run: |
+          echo "FTP_SERVER length=${#FTP_SERVER}"
+          printf '%s' "$FTP_SERVER" | od -An -c
+          echo "FTP_USERNAME length=${#FTP_USERNAME}"
+          printf '%s' "$FTP_USERNAME" | od -An -c
+          echo "FTP_PASSWORD length=${#FTP_PASSWORD}"
+
       - name: Mirror site/ to prod/ over SFTP
         env:
           FTP_SERVER: ${{ secrets.OVH_FTP_SERVER }}
