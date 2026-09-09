@@ -160,6 +160,10 @@
               <div class="form-group"><label>Fin</label><input type="time" id="slot-end" value="09:55"></div>
             </div>
             <div class="form-group">
+              <label>Reprendre un cours existant</label>
+              <select id="slot-template" onchange="applySlotTemplate(this.value)"></select>
+            </div>
+            <div class="form-group">
               <label>Intitulé du cours</label>
               <input type="text" id="slot-title" placeholder="Ex: Cours Semi Collectif Mat – DÉBUTANT">
             </div>

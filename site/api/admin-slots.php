@@ -53,6 +53,24 @@ if ($action === 'create' || $action === 'update') {
         apbJsonError(400, 'invalid_request', 'A teacher is required.');
     }
 
+    // The admin form has no price field, so this used to fall through to 0 and
+    // silently publish a bookable free course. Price comes from the type's
+    // unit tarif -- what 0001_init.sql seeded these from in the first place,
+    // and what every existing slot of a given type already charges. Refuse
+    // rather than invent a number if that tarif is missing.
+    if (isset($body['priceCents']) && $body['priceCents'] !== '') {
+        $priceCents = (int) $body['priceCents'];
+    } else {
+        $tarifRows = apbSupabaseSelect(
+            'tarifs',
+            '?type=eq.' . urlencode($type) . '&is_carnet=is.false&active=is.true&select=price_cents&order=id.asc'
+        );
+        if (empty($tarifRows)) {
+            apbJsonError(422, 'missing_tarif', "Aucun tarif à l'unité actif pour ce type de cours. Créez-le dans Tarifs avant d'ajouter le créneau.");
+        }
+        $priceCents = (int) $tarifRows[0]['price_cents'];
+    }
+
     $patch = [
         'day_of_week' => isset($body['day']) ? (int) $body['day'] : 0,
         'start_time' => (string) ($body['start'] ?? ''),
@@ -63,7 +81,7 @@ if ($action === 'create' || $action === 'update') {
         'teacher_name' => $teacherName,
         'location_key' => (string) ($body['location'] ?? 'assas'),
         'capacity' => $capacityByType[$type],
-        'price_cents' => isset($body['priceCents']) ? (int) $body['priceCents'] : 0,
+        'price_cents' => $priceCents,
         'active' => true,
     ];
 

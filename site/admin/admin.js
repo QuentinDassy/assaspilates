@@ -219,6 +219,7 @@ function renderMiniSchedule(containerId) {
 function renderScheduleAdmin() {
   renderDayPills();
   renderTeacherSelect();
+  renderSlotTemplates();
   renderSlotsTable();
 }
 
@@ -265,6 +266,39 @@ function renderSlotsTable() {
       </td>
     </tr>`;
   }).join('');
+}
+
+/**
+ * The distinct courses already on the schedule, so a new slot can reuse one
+ * instead of being retyped. Picking one carries its type across, which is
+ * what sets the price server-side (admin-slots.php reads the type's unit
+ * tarif) -- a course typed from scratch used to land at 0€.
+ */
+function renderSlotTemplates() {
+  const sel = document.getElementById('slot-template');
+  if (!sel) return;
+  const seen = new Map();
+  getSlots().forEach(s => {
+    const key = `${s.title}|${s.type}`;
+    if (!seen.has(key)) seen.set(key, s);
+  });
+  const tarifs = getTarifs();
+  const unitPrice = type => {
+    const t = tarifs.find(x => x.type === type && !x.isCarnet);
+    return t ? `${t.price}€` : '—';
+  };
+  const options = [...seen.values()]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map(s => `<option value="${escapeHtml(s.title)}|${escapeHtml(s.type)}">${escapeHtml(s.title)} — ${unitPrice(s.type)}</option>`)
+    .join('');
+  sel.innerHTML = '<option value="">— Nouveau cours (saisir l\'intitulé) —</option>' + options;
+}
+
+function applySlotTemplate(value) {
+  if (!value) return;
+  const sep = value.lastIndexOf('|');
+  document.getElementById('slot-title').value = value.slice(0, sep);
+  document.getElementById('slot-type').value  = value.slice(sep + 1);
 }
 
 async function saveSlot() {
@@ -330,6 +364,8 @@ function resetSlotForm() {
   document.getElementById('slot-id').value      = '';
   document.getElementById('slot-start').value   = '09:00';
   document.getElementById('slot-end').value     = '09:55';
+  const tpl = document.getElementById('slot-template');
+  if (tpl) tpl.value = '';
   document.getElementById('slot-title').value   = '';
   document.getElementById('slot-type').value    = 'collectif';
   document.getElementById('slot-location').value = 'assas';
