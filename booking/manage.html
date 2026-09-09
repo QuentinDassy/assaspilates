@@ -574,7 +574,9 @@ function renderCarnets(carnets) {
     ? inactive.map(carnetHtml).join('')
     : '<div class="empty-section">Aucun carnet expiré ou épuisé.</div>';
 
-  if (!active.length && inactive.length) showCarnetTab('inactive');
+  // Stay on "Actifs" even when it's empty: that tab carries the "Acheter un
+  // carnet" call to action, while landing on the expired list opens the
+  // account on a wall of dead carnets.
 }
 
 // ===== UPCOMING BOOKINGS =====

@@ -19,4 +19,6 @@ $bookings = apbSupabaseSelect('bookings',
 $carnets = apbSupabaseSelect('carnets',
     '?client_id=eq.' . urlencode($client['id']) . '&order=purchased_at.desc');
 
-apbJsonSuccess(['bookings' => $bookings, 'carnets' => $carnets]);
+// `client` so a signed-in visitor isn't asked for their name again when
+// buying (site/booking/index.html and buy-carnet.html prefill from it).
+apbJsonSuccess(['bookings' => $bookings, 'carnets' => $carnets, 'client' => $client]);
