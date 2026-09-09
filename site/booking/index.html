@@ -204,6 +204,9 @@ a{color:var(--accent);text-decoration:none}
 .buy-type-banner{padding:11px 24px;color:#fff;font-size:9px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;margin-bottom:10px}
 .week-day-date{font-size:10px;font-weight:300;opacity:.65;margin-top:2px;letter-spacing:0}
 .week-no-slot{padding:16px 6px;text-align:center;color:#ddd;font-size:11px;font-style:italic}
+.week-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px}
+.week-nav-btn{border:1px solid var(--border);background:#fff;padding:6px 12px;cursor:pointer;font-size:13px;font-family:var(--font-sans);color:var(--dark);white-space:nowrap}
+.week-nav-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--warm);min-width:180px;text-align:center}
 .week-nav-btn:disabled{opacity:.35;cursor:not-allowed}
 .week-legend{display:flex;gap:20px;flex-wrap:wrap;padding:10px 4px;margin-top:2px}
 .week-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mid)}
@@ -363,6 +366,13 @@ a{color:var(--accent);text-decoration:none}
   .view-toggle{display:none}
   .page-sub{display:none}
   .week-view-wrap{display:none}
+
+  /* Week navigation stays (it drives the list view here), but the arrows
+     lose their wording so the three items fit one line on a phone. */
+  .week-nav{gap:8px}
+  .week-nav-word{display:none}
+  .week-nav-btn{padding:8px 14px;font-size:15px}
+  .week-nav-label{min-width:0;flex:1;font-size:11px}
 
   /* Carnet panel */
   .carnet-panel{padding:16px}
@@ -550,13 +560,15 @@ a{color:var(--accent);text-decoration:none}
           </div>
         </div>
         <div style="border-bottom:1px solid var(--border);margin-bottom:16px"></div>
+        <!-- Outside #week-view on purpose: the grid is hidden on mobile but the
+             week navigation drives the list view there too. -->
+        <div class="week-nav">
+          <button type="button" class="week-nav-btn" id="week-prev-btn" onclick="changeWeek(-1)">←<span class="week-nav-word"> Semaine précédente</span></button>
+          <div class="week-nav-label" id="week-nav-label"></div>
+          <button type="button" class="week-nav-btn" id="week-next-btn" onclick="changeWeek(1)"><span class="week-nav-word">Semaine suivante </span>→</button>
+        </div>
         <div class="courses-list" id="courses-list" style="display:none"></div>
         <div class="week-view-wrap" id="week-view">
-          <div class="week-nav" style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
-            <button type="button" class="week-nav-btn" id="week-prev-btn" onclick="changeWeek(-1)" style="border:1px solid var(--border);background:#fff;padding:6px 12px;cursor:pointer;font-size:13px">← Semaine précédente</button>
-            <div class="week-nav-label" id="week-nav-label" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--warm);min-width:180px;text-align:center"></div>
-            <button type="button" class="week-nav-btn" id="week-next-btn" onclick="changeWeek(1)" style="border:1px solid var(--border);background:#fff;padding:6px 12px;cursor:pointer;font-size:13px">Semaine suivante →</button>
-          </div>
           <div class="week-grid" id="week-grid"></div>
           <div class="week-legend">
             <div class="week-legend-item"><div class="week-legend-dot" style="background:#D68FA0"></div>Munz Floor — lieu Rue de Sèvres</div>
@@ -1050,7 +1062,21 @@ function setViewMode(mode) {
 
 function changeWeek(delta) {
   weekOffset = Math.max(0, weekOffset + delta);
-  renderWeekView();
+  renderCourseList(); // dispatches to renderWeekView() when that view is active
+}
+
+// Shared by both views -- the week navigation sits outside #week-view because
+// mobile hides the grid but still browses the schedule week by week.
+function updateWeekNav() {
+  const monday = getWeekMonday(weekOffset);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const prevBtn = document.getElementById('week-prev-btn');
+  if (prevBtn) prevBtn.disabled = weekOffset === 0;
+  const labelEl = document.getElementById('week-nav-label');
+  if (labelEl) {
+    const fmt = d => d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+    labelEl.textContent = weekOffset === 0 ? 'Cette semaine' : `${fmt(monday)} – ${fmt(sunday)}`;
+  }
 }
 
 function renderWeekView() {
@@ -1066,16 +1092,7 @@ function renderWeekView() {
   for (let d = 0; d < 7; d++) byDay[d] = [];
   slots.forEach(s => { byDay[s.day].push(s); });
 
-  const weekMonday = getWeekMonday(weekOffset);
-  const weekSunday = new Date(weekMonday); weekSunday.setDate(weekMonday.getDate() + 6);
-  const prevBtn = document.getElementById('week-prev-btn');
-  if (prevBtn) prevBtn.disabled = weekOffset === 0;
-  const labelEl = document.getElementById('week-nav-label');
-  if (labelEl) {
-    labelEl.textContent = weekOffset === 0
-      ? 'Cette semaine'
-      : `${weekMonday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekSunday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
-  }
+  updateWeekNav();
 
   let html = '';
   for (let d = 0; d < 7; d++) {
@@ -1166,25 +1183,33 @@ function renderCourseList() {
     if (ct) slots = slots.filter(s => s.type === ct);
   }
 
+  updateWeekNav();
   const list = document.getElementById('courses-list');
-  if (!slots.length) { list.innerHTML = '<div class="empty-day">Aucun cours disponible pour ces critères.</div>'; return; }
 
-  const grouped = {};
-  slots.forEach(s => { if (!grouped[s.day]) grouped[s.day] = []; grouped[s.day].push(s); });
-
+  // Grouped by the real date of each weekday in the week being browsed, not by
+  // bare weekday name -- this is the mobile schedule, so it has to say which
+  // Monday it means, and past days of the current week simply drop out.
   let html = '';
-  Object.keys(grouped).sort((a,b)=>a-b).forEach(day => {
-    if (currentDay === null)
-      html += `<div style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--warm);padding:16px 0 8px;margin-top:8px;border-bottom:1px solid var(--border)">${DAYS[day]}</div>`;
-    grouped[day].forEach(s => {
-      const spots   = getAvailableSpots(s);
+  for (let d = 0; d < 7; d++) {
+    const dayDate = getDateForWeekDay(weekOffset, d);
+    if (isPastDate(dayDate)) continue;
+    const dateISO   = formatDateISO(dayDate);
+    const daySlots  = slots.filter(s => s.day === d);
+    if (!daySlots.length) continue;
+
+    const dayLabel = dayDate.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+    html += `<div style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--warm);padding:16px 0 8px;margin-top:8px;border-bottom:1px solid var(--border)">${dayLabel}</div>`;
+
+    daySlots.forEach(s => {
+      const absent  = isTeacherAbsentOn(s.teacherId, dateISO);
+      const tooLate = !isSlotBookableAt(dateISO, s.start);
+      const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s);
       const price   = getPriceForSlot(s);
-      const nextDate= getNextAvailableOccurrence(s);
       const loc     = s.location || 'assas';
       const locInfo = LOCATIONS[loc] || LOCATIONS.assas;
 
-      const inCart = cart.some(c => c.slot.id === s.id);
-      html += `<div class="course-item${inCart?' in-cart':''}${spots===0?' full':''}" onclick="toggleCart(${s.id})">
+      const inCart = cart.some(c => c.slot.id === s.id && formatDateISO(c.nextDate) === dateISO);
+      html += `<div class="course-item${inCart?' in-cart':''}${spots===0?' full':''}" onclick="toggleCart(${s.id}, '${dateISO}')">
         <div>
           <div class="badges">
             <span class="badge-type badge-${s.type}">${typeLabel(s.type)}</span>
@@ -1193,19 +1218,22 @@ function renderCourseList() {
           <div class="course-time">${s.start} – ${s.end}</div>
           <div class="course-name">${s.title}</div>
           <div class="course-teacher">👤 ${s.teacher}</div>
-          <div class="course-date">Prochain cours : ${formatDateFR(nextDate)}</div>
+          <div class="course-date">${dayLabel}</div>
         </div>
         <div class="course-right">
           <div class="course-add-btn">${inCart ? '✓' : '+'}</div>
           ${paymentMode === 'carnet' && selectedCarnet
             ? '<div class="course-price free">1 séance</div>'
             : `<div class="course-price">${price}€</div>`}
-          ${spotsHTML(spots)}
+          ${tooLate ? '<div class="course-spots spots-none">Trop tard</div>'
+            : absent ? '<div class="course-spots spots-none">Indisponible</div>'
+            : spotsHTML(spots)}
         </div>
       </div>`;
     });
-  });
-  list.innerHTML = html;
+  }
+
+  list.innerHTML = html || '<div class="empty-day">Aucun cours disponible pour ces critères cette semaine.</div>';
 }
 
 function getPriceForSlot(slot) {
