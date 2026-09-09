@@ -204,6 +204,7 @@ a{color:var(--accent);text-decoration:none}
 .buy-type-banner{padding:11px 24px;color:#fff;font-size:9px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;margin-bottom:10px}
 .week-day-date{font-size:10px;font-weight:300;opacity:.65;margin-top:2px;letter-spacing:0}
 .week-no-slot{padding:16px 6px;text-align:center;color:#ddd;font-size:11px;font-style:italic}
+.week-nav-btn:disabled{opacity:.35;cursor:not-allowed}
 .week-legend{display:flex;gap:20px;flex-wrap:wrap;padding:10px 4px;margin-top:2px}
 .week-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mid)}
 .week-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
@@ -551,6 +552,11 @@ a{color:var(--accent);text-decoration:none}
         <div style="border-bottom:1px solid var(--border);margin-bottom:16px"></div>
         <div class="courses-list" id="courses-list" style="display:none"></div>
         <div class="week-view-wrap" id="week-view">
+          <div class="week-nav" style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
+            <button type="button" class="week-nav-btn" id="week-prev-btn" onclick="changeWeek(-1)" style="border:1px solid var(--border);background:#fff;padding:6px 12px;cursor:pointer;font-size:13px">← Semaine précédente</button>
+            <div class="week-nav-label" id="week-nav-label" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--warm);min-width:180px;text-align:center"></div>
+            <button type="button" class="week-nav-btn" id="week-next-btn" onclick="changeWeek(1)" style="border:1px solid var(--border);background:#fff;padding:6px 12px;cursor:pointer;font-size:13px">Semaine suivante →</button>
+          </div>
           <div class="week-grid" id="week-grid"></div>
           <div class="week-legend">
             <div class="week-legend-item"><div class="week-legend-dot" style="background:#D68FA0"></div>Munz Floor — lieu Rue de Sèvres</div>
@@ -733,6 +739,7 @@ let buySelectedTarif = null;
 let buyCurrentStep   = 1;
 let buyCardElement   = null;
 let viewMode = 'week'; // 'list' | 'week'
+let weekOffset = 0;    // 0 = current calendar week; navigated via prev/next week buttons
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1033,6 +1040,11 @@ function setViewMode(mode) {
   else renderCourseList();
 }
 
+function changeWeek(delta) {
+  weekOffset = Math.max(0, weekOffset + delta);
+  renderWeekView();
+}
+
 function renderWeekView() {
   let slots = getSlots().sort((a,b) => a.day - b.day || a.start.localeCompare(b.start));
   if (typeFilter !== 'all') slots = slots.filter(s => s.type === typeFilter);
@@ -1046,30 +1058,46 @@ function renderWeekView() {
   for (let d = 0; d < 7; d++) byDay[d] = [];
   slots.forEach(s => { byDay[s.day].push(s); });
 
+  const weekMonday = getWeekMonday(weekOffset);
+  const weekSunday = new Date(weekMonday); weekSunday.setDate(weekMonday.getDate() + 6);
+  const prevBtn = document.getElementById('week-prev-btn');
+  if (prevBtn) prevBtn.disabled = weekOffset === 0;
+  const labelEl = document.getElementById('week-nav-label');
+  if (labelEl) {
+    labelEl.textContent = weekOffset === 0
+      ? 'Cette semaine'
+      : `${weekMonday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} – ${weekSunday.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}`;
+  }
+
   let html = '';
   for (let d = 0; d < 7; d++) {
     const daySlots = byDay[d];
-    const colDate = getNextOccurrence(d);
+    const colDate = getDateForWeekDay(weekOffset, d);
     const colDateStr = colDate.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+    const dateISO = formatDateISO(colDate);
+    const past = isPastDate(colDate);
     html += `<div class="week-col">
       <div class="week-day-header">${DAYS[d]}<div class="week-day-date">${colDateStr}</div></div>
       <div class="week-slots">`;
-    if (!daySlots.length) {
+    if (past) {
+      html += `<div class="week-no-slot">Passé</div>`;
+    } else if (!daySlots.length) {
       html += `<div class="week-no-slot">—</div>`;
     } else {
       daySlots.forEach(s => {
-        const spots  = getAvailableSpots(s);
+        const absent = isTeacherAbsentOn(s.teacherId, dateISO);
+        const spots  = absent ? 0 : getAvailableSpots(s);
         const price  = getPriceForSlot(s);
-        const inCart = cart.some(c => c.slot.id === s.id);
+        const inCart = cart.some(c => c.slot.id === s.id && formatDateISO(c.nextDate) === dateISO);
         const full   = spots === 0;
         const priceStr = paymentMode === 'carnet' && selectedCarnet ? '1 séance' : price + '€';
         const typeLabels = {collectif:'Semi-Collectif',prive:'Privé',duo:'Duo',munz:'Munz Floor'};
-        html += `<div class="week-slot ${s.type}${inCart?' in-cart':''}${full?' full':''}" onclick="toggleWeekSlotExpanded(${s.id}, this)">
+        html += `<div class="week-slot ${s.type}${inCart?' in-cart':''}${full?' full':''}" onclick="toggleWeekSlotExpanded(${s.id}, this, '${dateISO}')">
           <div class="week-slot-badge ${s.type}">${typeLabels[s.type]||s.type}</div>
           <div class="week-slot-time">${s.start}–${s.end}</div>
           <div class="week-slot-name">${s.title.replace('Cours ','')}</div>
           <div class="week-slot-teacher">${s.teacher}</div>
-          <div class="week-slot-price">${full ? 'Complet' : priceStr}</div>
+          <div class="week-slot-price">${full ? (absent ? 'Indisponible' : 'Complet') : priceStr}</div>
           ${full ? '' : `<div class="week-slot-add-row">
             <div class="week-slot-add-btn">${inCart ? '✓' : '+'}</div>
             <div class="week-slot-add-label">${inCart ? 'Ajouté — cliquer pour retirer' : 'Cliquer pour ajouter'}</div>
@@ -1203,11 +1231,11 @@ function typeLabel(type) {
   return labels[type] || type;
 }
 
-function toggleWeekSlotExpanded(id, el) {
+function toggleWeekSlotExpanded(id, el, dateISO) {
   if (el.classList.contains('full')) return;
   if (el.classList.contains('in-cart') || el.classList.contains('expanded')) {
     el.classList.remove('expanded');
-    toggleCart(id);
+    toggleCart(id, dateISO);
   } else {
     document.querySelectorAll('.week-slot.expanded').forEach(s => s.classList.remove('expanded'));
     el.classList.add('expanded');
@@ -1223,9 +1251,10 @@ function getCarnetSlotType(carnet) {
   return 'collectif';
 }
 
-function toggleCart(id) {
+function toggleCart(id, dateISO) {
   const slot = getSlots().find(s => s.id === id);
   if (!slot || getAvailableSpots(slot) === 0) return;
+  if (dateISO && isTeacherAbsentOn(slot.teacherId, dateISO)) return;
   if (paymentMode === 'carnet' && !selectedCarnet) {
     document.getElementById('carnet-block').scrollIntoView({behavior:'smooth'});
     document.getElementById('carnet-login-err').innerHTML = '<div class="alert alert-error">Sélectionnez d\'abord un carnet.</div>';
@@ -1235,16 +1264,23 @@ function toggleCart(id) {
     const carnetType = getCarnetSlotType(selectedCarnet);
     if (carnetType && slot.type !== carnetType) return;
   }
+  const targetDate = dateISO ? new Date(dateISO + 'T12:00:00') : getNextAvailableOccurrence(slot);
   const inCart = cart.findIndex(c => c.slot.id === id);
-  if (inCart >= 0) {
+  const sameDateAlreadyInCart = inCart >= 0 && formatDateISO(cart[inCart].nextDate) === formatDateISO(targetDate);
+  if (sameDateAlreadyInCart) {
     cart.splice(inCart, 1);
+  } else if (inCart >= 0) {
+    // Slot already in cart for a different week -- move it to the newly
+    // clicked date rather than silently dropping it (a slot only ever
+    // books/pays for one occurrence per cart, see the comment below).
+    cart[inCart].nextDate = targetDate;
   } else {
     const price = paymentMode === 'carnet' ? 0 : getPriceForSlot(slot);
     // participants is per-item (not a single cart-wide count) since a cart
     // can mix a 1-person "privé" slot with a 2-person "duo" slot. Only
     // "duo" slots offer a choice (see the stepper in updateCartSidebar) --
     // everything else always books/pays for exactly 1 person per item.
-    cart.push({ slot, nextDate: getNextAvailableOccurrence(slot), price, participants: 1 });
+    cart.push({ slot, nextDate: targetDate, price, participants: 1 });
   }
   renderCourseList();
   updateCartSidebar();

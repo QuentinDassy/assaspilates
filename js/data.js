@@ -284,6 +284,33 @@ function getNextOccurrence(dayOfWeek) {
   return d;
 }
 
+// Monday (00:00) of the calendar week `offset` weeks from the current one
+// (offset=0 -> the week containing today). Backs the booking page's
+// navigable week view (site/booking/index.html).
+function getWeekMonday(offset) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const jsDay = today.getDay(); // 0=dimanche..6=samedi
+  const mondayDelta = jsDay === 0 ? -6 : 1 - jsDay;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayDelta + offset * 7);
+  return monday;
+}
+
+// dayOfWeek: 0=Lundi…6=Dimanche -> the concrete date of that weekday in the
+// week `offset` weeks from now.
+function getDateForWeekDay(offset, dayOfWeek) {
+  const d = getWeekMonday(offset);
+  d.setDate(d.getDate() + dayOfWeek);
+  return d;
+}
+
+function isPastDate(date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
 function formatDateFR(date) {
   return date.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
