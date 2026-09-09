@@ -1,0 +1,11 @@
+# The HTML pages are served uncached but OVH's default sends these scripts with
+# max-age=900, so a deploy could leave a browser running fresh HTML against a
+# 15-minute-stale data.js -- which is exactly how the booking week view broke
+# (it called functions the cached copy didn't have yet). "no-cache" still lets
+# the browser reuse the file, it just has to revalidate first (cheap 304s).
+<IfModule mod_headers.c>
+    <FilesMatch "\.js$">
+        Header set Cache-Control "no-cache"
+        Header unset Expires
+    </FilesMatch>
+</IfModule>
