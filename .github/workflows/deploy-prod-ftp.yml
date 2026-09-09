@@ -1,0 +1,34 @@
+name: Deploy prod (FTP)
+
+# OVH's native Git deploy (used for the `test` subdomain, see
+# sync-ovh-deploy.yml) only has one slot configured on this hosting plan's
+# Multisite panel, and the "Configurer Git" option isn't available for the
+# assas-pilates-ballet.com row -- so the `prod/` folder is synced over FTPS
+# instead. site/api/_lib/config.php lives only on the server (gitignored,
+# holds secrets) and is explicitly excluded so this workflow never touches
+# or deletes it.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: FTPS deploy to prod/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.OVH_FTP_SERVER }}
+          username: ${{ secrets.OVH_FTP_USERNAME }}
+          password: ${{ secrets.OVH_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./site/
+          server-dir: /prod/
+          exclude: |
+            **/api/_lib/config.php
+            **/api/_lib/jwks_cache.json
+            **/.git*
+            **/.git*/**
