@@ -425,7 +425,7 @@ function renderAbsencesModal(teacherId) {
 
   const absences = getTeacherAbsences().filter(a => a.teacherId === teacherId)
     .sort((a, b) => b.startDate.localeCompare(a.startDate));
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateISO(new Date());
 
   modal.innerHTML = `
     <div style="background:#fff;max-width:480px;width:100%;position:relative;max-height:90vh;overflow-y:auto">
@@ -749,7 +749,7 @@ function nextDateForDay(dayOfWeek, fromDateStr) {
   if (diff <= 0) diff += 7;
   const d = new Date(base);
   d.setDate(base.getDate() + diff);
-  return d.toISOString().split('T')[0];
+  return formatDateISO(d);
 }
 
 function onEditDayChange(day) {
@@ -998,7 +998,7 @@ function updateCarnetFormFromTarif() {
   if (months) {
     const expiry = new Date();
     expiry.setMonth(expiry.getMonth() + months);
-    document.getElementById('carnet-expires').value = expiry.toISOString().split('T')[0];
+    document.getElementById('carnet-expires').value = formatDateISO(expiry);
   }
 }
 
@@ -1074,7 +1074,7 @@ async function saveCarnet() {
     const carnet = {
       code, tarifId: tarifOpt.value || null, tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
       clientName: name, clientEmail: email, totalSessions: total, remainingSessions: remain,
-      expiresAt: expires || null, active: true, createdAt: new Date().toISOString().split('T')[0], bookingIds: [],
+      expiresAt: expires || null, active: true, createdAt: formatDateISO(new Date()), bookingIds: [],
     };
     const carnets = getCarnets();
     carnets.push(carnet);
@@ -1342,7 +1342,7 @@ function adminPrintInvoiceBooking(bookingId) {
 function renderPlanningAdmin() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatDateISO(today);
 
   // Week start = this Monday + offset
   const weekStart = new Date(today);
@@ -1367,7 +1367,7 @@ function renderPlanningAdmin() {
 
   // ---- header row ----
   const headerCols = days.map(d => {
-    const ds = d.toISOString().split('T')[0];
+    const ds = formatDateISO(d);
     const cls = ds === todayStr ? ' today' : ds < todayStr ? ' past' : '';
     return `<div class="cal-header-day${cls}">
       <div class="cal-header-day-name">${d.toLocaleDateString('fr-FR',{weekday:'short'})}</div>
@@ -1384,7 +1384,7 @@ function renderPlanningAdmin() {
 
   // ---- day columns ----
   const dayCols = days.map(d => {
-    const ds  = d.toISOString().split('T')[0];
+    const ds  = formatDateISO(d);
     const appDay = (d.getDay() + 6) % 7;
     const daySlots = slots.filter(s => s.day === appDay);
     const isPast   = ds < todayStr;
@@ -1438,7 +1438,7 @@ function renderPlanningAdmin() {
 let _allClients = [];
 
 function renderClientsAdmin() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateISO(new Date());
   const bookings = getBookings();
   const carnets  = getCarnets();
   const map = {};
@@ -1475,7 +1475,7 @@ function renderClientsAdmin() {
 
 function filterClients() {
   const q = (document.getElementById('clients-search')?.value || '').toLowerCase();
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateISO(new Date());
   const list = q ? _allClients.filter(c => c.name.toLowerCase().includes(q) || c.email.includes(q)) : _allClients;
 
   document.getElementById('clients-tbody').innerHTML = list.length
