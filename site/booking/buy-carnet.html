@@ -242,11 +242,14 @@ a:hover{opacity:.75}
               <span id="returning-toggle-new">Vous avez déjà un compte ? <a href="#" onclick="toggleReturningClient(true);return false;" style="color:var(--warm);opacity:1">Se connecter</a></span>
               <span id="returning-toggle-existing" style="display:none">Nouveau client ? <a href="#" onclick="toggleReturningClient(false);return false;" style="color:var(--warm);opacity:1">Créer un compte</a></span>
             </p>
-            <div class="form-row">
-              <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
-              <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
+            <p id="buy-known-as" style="display:none;font-size:13px;color:var(--warm);margin-bottom:10px"></p>
+            <div id="buy-identity-fields">
+              <div class="form-row">
+                <div class="form-group"><label>Prénom *</label><input type="text" id="f-firstname" placeholder="Marie" autocomplete="given-name"></div>
+                <div class="form-group"><label>Nom *</label><input type="text" id="f-lastname" placeholder="Dupont" autocomplete="family-name"></div>
+              </div>
+              <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
             </div>
-            <div class="form-group"><label>Téléphone</label><input type="tel" id="f-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
 
             <!-- New client: create password -->
             <div id="new-password-section">
@@ -356,6 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const session = await refreshAuthSessionIfNeeded();
     if (session && session.user) {
       showLoggedInAs(session.user.email);
+      // Pulls the client's name/phone into local storage so step 2 can skip
+      // asking for what they've already given us (applyBuyerIdentity()).
+      await syncMyBookingsFromApi(session.user.email);
     }
   } catch (e) {}
 });
@@ -475,8 +481,34 @@ function selectCarnet(id) {
 }
 
 // ===== STEPS =====
+/**
+ * A signed-in visitor already told us who they are, so don't ask again --
+ * prefill and drop the identity fields and the password sections, since
+ * there's nothing left to sign up or sign in to.
+ */
+function applyBuyerIdentity() {
+  const session = getAuthSession();
+  if (!session || !session.user) return false;
+  const profile = getMyProfile() || {};
+  const email = profile.email || session.user.email;
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  setV('f-firstname', profile.firstName);
+  setV('f-lastname',  profile.lastName);
+  setV('f-email',     email);
+  setV('f-phone',     profile.phone);
+  if (!profile.firstName || !profile.lastName) return false;
+  document.getElementById('buy-identity-fields').style.display     = 'none';
+  document.getElementById('new-password-section').style.display    = 'none';
+  document.getElementById('existing-password-section').style.display = 'none';
+  const known = document.getElementById('buy-known-as');
+  known.style.display = 'block';
+  known.textContent = `Connecté·e en tant que ${profile.firstName} ${profile.lastName} — ${email}`;
+  return true;
+}
+
 async function goStep(step) {
   if (step === 2 && !selectedTarif) return;
+  if (step === 2) applyBuyerIdentity();
 
   if (step === 3) {
     const first = document.getElementById('f-firstname').value.trim();

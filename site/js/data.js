@@ -210,6 +210,14 @@ async function syncMyBookingsFromApi(email) {
     });
     saveBookings(getBookings().filter(b => (b.clientEmail || '').toLowerCase() !== lower).concat(mappedBookings));
     saveCarnets(getCarnets().filter(c => (c.clientEmail || '').toLowerCase() !== lower).concat(mappedCarnets));
+    if (data.client) {
+      setData('my_profile', {
+        email: data.client.email || lower,
+        firstName: data.client.first_name || '',
+        lastName: data.client.last_name || '',
+        phone: data.client.phone || '',
+      });
+    }
     return true;
   } catch (e) {
     console.warn('syncMyBookingsFromApi failed (PHP API not reachable on this deploy?):', e);
@@ -224,6 +232,8 @@ function getInfos()    { return getData('infos',    DEFAULT_INFOS);    }
 function getCarnets()  { return getData('carnets',  DEFAULT_CARNETS);  }
 function getBookings() { return getData('bookings', DEFAULT_BOOKINGS); }
 function getTeacherAbsences() { return getData('teacher_absences', DEFAULT_TEACHER_ABSENCES); }
+/** Profile of the signed-in client, filled by syncMyBookingsFromApi(). */
+function getMyProfile()       { return getData('my_profile', null); }
 
 function saveSlots(d)    { setData('slots',    d); }
 function saveTeam(d)     { setData('team',     d); }

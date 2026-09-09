@@ -807,7 +807,15 @@ async function adminCancelBooking(id) {
     await apbApiFetch('/api/admin-bookings.php', { method: 'POST', body: JSON.stringify({ action: 'cancel', bookingId: id }) });
     await syncAdminDataFromApi();
   } catch (e) {
-    // Local-only demo booking (no matching row via the API) -- old local-only path.
+    // Only fall back to the local-only path when there is no API at all (the
+    // Netlify copy ships no PHP, and apbApiFetch leaves status undefined
+    // there). A server that answered and refused -- a 403 from a session
+    // replaced by a client login, say -- must not be reported as cancelled:
+    // the row stays live and the next sync brings it straight back.
+    if (e.status !== undefined) {
+      showAlert('bookings-alert', adminApiErrorMessage(e), 'error');
+      return;
+    }
     cancelBooking(id);
   }
   renderBookingList();
@@ -1146,7 +1154,13 @@ async function saveCarnet() {
     showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
     renderCarnetsAdmin();
   } catch (e) {
-    // API unreachable on this deploy (e.g. Netlify) -- old local-only path.
+    // A refusal from a live server must not hand the studio a code to pass on
+    // to a client -- that carnet would exist in this browser and nowhere else.
+    // The local path is only for a deploy with no API behind it (Netlify).
+    if (e.status !== undefined) {
+      showAlert('carnets-alert', adminApiErrorMessage(e), 'error');
+      return;
+    }
     const code = generateCarnetCode();
     const carnet = {
       code, tarifId: tarifOpt.value || null, tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',

@@ -483,23 +483,28 @@ a{color:var(--accent);text-decoration:none}
           <div class="form-section-title">Vos coordonnées</div>
           <div id="buy-step2-alert"></div>
           <div class="booking-form">
-            <div class="form-row">
-              <div class="form-group"><label>Prénom *</label><input type="text" id="bf-firstname" placeholder="Marie" autocomplete="given-name"></div>
-              <div class="form-group"><label>Nom *</label><input type="text" id="bf-lastname" placeholder="Dupont" autocomplete="family-name"></div>
-            </div>
-            <div class="form-group"><label>Email *</label><input type="email" id="bf-email" placeholder="marie@exemple.com" autocomplete="email"></div>
-            <div class="form-group"><label>Téléphone</label><input type="tel" id="bf-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Mot de passe *</label>
-                <div class="pw-wrap"><input type="password" id="bf-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password',this)" tabindex="-1">👁</button></div>
+            <p id="buy-known-as" style="display:none;font-size:13px;color:var(--warm);margin-bottom:4px"></p>
+            <div id="buy-identity-fields">
+              <div class="form-row">
+                <div class="form-group"><label>Prénom *</label><input type="text" id="bf-firstname" placeholder="Marie" autocomplete="given-name"></div>
+                <div class="form-group"><label>Nom *</label><input type="text" id="bf-lastname" placeholder="Dupont" autocomplete="family-name"></div>
               </div>
-              <div class="form-group">
-                <label>Confirmer *</label>
-                <div class="pw-wrap"><input type="password" id="bf-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password2',this)" tabindex="-1">👁</button></div>
-              </div>
+              <div class="form-group"><label>Email *</label><input type="email" id="bf-email" placeholder="marie@exemple.com" autocomplete="email"></div>
+              <div class="form-group"><label>Téléphone</label><input type="tel" id="bf-phone" placeholder="06 00 00 00 00" autocomplete="tel"></div>
             </div>
-            <p style="font-size:12px;color:#999;margin-top:-6px">Ce mot de passe vous permettra d'accéder à votre espace et de réserver via carnet.</p>
+            <div id="buy-password-fields">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Mot de passe *</label>
+                  <div class="pw-wrap"><input type="password" id="bf-password" placeholder="Choisissez un mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password',this)" tabindex="-1">👁</button></div>
+                </div>
+                <div class="form-group">
+                  <label>Confirmer *</label>
+                  <div class="pw-wrap"><input type="password" id="bf-password2" placeholder="Répétez le mot de passe" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('bf-password2',this)" tabindex="-1">👁</button></div>
+                </div>
+              </div>
+              <p style="font-size:12px;color:#999;margin-top:-6px">Ce mot de passe vous permettra d'accéder à votre espace et de réserver via carnet.</p>
+            </div>
           </div>
           <div style="display:flex;gap:12px;margin-top:24px">
             <button class="btn-outline" onclick="buyGoStep(1)">← Retour</button>
@@ -1743,7 +1748,6 @@ function triggerMailto(href) {
 }
 
 function showSuccess(bookings) {
-  const confirmedEarlier = [...justConfirmedBookings];
   justConfirmedBookings = [];
 
   document.getElementById('booking-screen').style.display = 'none';
@@ -1819,38 +1823,13 @@ function showSuccess(bookings) {
     ? `Bonjour ${b0.clientFirstName},\n\nVotre inscription est bien enregistrée :\n\n${lines}\n\n${payStr}\n\nCe cours semi-collectif sera confirmé automatiquement dès qu'un second participant rejoindra ce créneau. Vous recevrez alors un email de confirmation.\n\n${manageLine}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`
     : `Bonjour ${b0.clientFirstName},\n\nVotre réservation est confirmée chez Assas Pilates Ballet :\n\n${lines}\n\n${payStr}\n\n${manageLine}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
 
-  setTimeout(() => triggerMailto(`mailto:${b0.clientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`), 600);
-
-  // Confirmation emails to students whose pending booking just got confirmed (2nd student effect)
-  confirmedEarlier.forEach((prevB, i) => {
-    const d = new Date(prevB.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    const prevSubject = `Confirmation de réservation — Assas Pilates Ballet`;
-    const prevBody = `Bonjour ${prevB.clientFirstName},\n\nBonne nouvelle ! Votre cours est maintenant confirmé — un second participant a rejoint ce créneau.\n\n  - ${prevB.slotTitle} : ${d} de ${prevB.slotStart} à ${prevB.slotEnd} (Réf: ${prevB.id})\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
-    setTimeout(() => triggerMailto(`mailto:${prevB.clientEmail}?subject=${encodeURIComponent(prevSubject)}&body=${encodeURIComponent(prevBody)}`), 1200 + i * 400);
-  });
-
-  // Email notification professeur(s)
-  const infos = getInfos();
-  const studioEmail = infos.email || 'contact@assas-pilates-ballet.com';
-  const slotDates = [...new Set(bookings.map(b => b.slotId + '_' + b.courseDate))];
-  slotDates.forEach((key, idx) => {
-    const [slotIdStr, courseDate] = key.split('_');
-    const ref = bookings.find(b => b.slotId === parseInt(slotIdStr) && b.courseDate === courseDate);
-    if (!ref) return;
-    const allEnrolled = getBookings().filter(b => b.slotId === ref.slotId && b.courseDate === courseDate && b.status !== 'cancelled');
-    const team = getTeam();
-    const tm   = team.find(t => t.name === ref.slotTeacher);
-    const teacherEmail = (tm && tm.email) ? tm.email : studioEmail;
-    const dateLabel = new Date(courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    const tSubject = `Nouvelle inscription — ${ref.slotTitle} (${dateLabel})`;
-    const pendingNote = ref.status === 'pending' ? '\n⚠️ Ce créneau est en attente d\'un second participant.' : '';
-    const tBody = `Bonjour ${ref.slotTeacher},\n\nNouvelle inscription à votre cours :${pendingNote}\n${ref.slotTitle}\n${dateLabel}, ${ref.slotStart}–${ref.slotEnd}\n\nÉlèves inscrits (${allEnrolled.length}) :\n${allEnrolled.map(b => `- ${b.clientFirstName} ${b.clientLastName}${b.status==='pending'?' (en attente)':''}`).join('\n')}\n\nCordialement,\nAssas Pilates Ballet`;
-    setTimeout(() => triggerMailto(`mailto:${teacherEmail}?subject=${encodeURIComponent(tSubject)}&body=${encodeURIComponent(tBody)}`), (1000 + confirmedEarlier.length * 400) + idx * 400);
-  });
-
+  // Nothing is sent automatically: these mailto: links used to fire on their
+  // own and popped the visitor's own mail app open right after payment --
+  // once addressed to themselves, once to the teacher, from the client's
+  // address. The button below keeps the confirmation available on demand.
   const mailtoBtn = document.getElementById('btn-send-confirmation');
   if (mailtoBtn) {
-    mailtoBtn.textContent = 'Renvoyer l\'email';
+    mailtoBtn.textContent = '📧 M\'envoyer la confirmation par email';
     mailtoBtn.onclick = () => triggerMailto(`mailto:${b0.clientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`);
     mailtoBtn.style.display = 'inline-flex';
   }
@@ -1933,43 +1912,77 @@ function buySelectCarnet(id) {
   if (buySelectedTarif) setTimeout(() => buyGoStep(2), 200);
 }
 
+/**
+ * A signed-in visitor has already told us who they are, so the buy form drops
+ * the identity and password fields rather than asking again -- there is
+ * nothing left to sign up or sign in to.
+ */
+function applyBuyerIdentity() {
+  const session = getAuthSession();
+  if (!session || !session.user) return false;
+  const profile = getMyProfile() || {};
+  const email = profile.email || session.user.email;
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  setV('bf-firstname', profile.firstName);
+  setV('bf-lastname',  profile.lastName);
+  setV('bf-email',     email);
+  setV('bf-phone',     profile.phone);
+  // Without a name on file there's still something to ask for.
+  if (!profile.firstName || !profile.lastName) return false;
+  document.getElementById('buy-identity-fields').style.display = 'none';
+  document.getElementById('buy-password-fields').style.display = 'none';
+  const known = document.getElementById('buy-known-as');
+  known.style.display = 'block';
+  known.textContent = `Connecté·e en tant que ${profile.firstName} ${profile.lastName} — ${email}`;
+  return true;
+}
+
 async function buyGoStep(step) {
   if (step === 2 && !buySelectedTarif) return;
+  if (step === 2) applyBuyerIdentity();
   if (step === 3) {
+    const alreadyAuthed = applyBuyerIdentity();
     const first = document.getElementById('bf-firstname').value.trim();
     const last  = document.getElementById('bf-lastname').value.trim();
     const email = document.getElementById('bf-email').value.trim();
     const pwd   = document.getElementById('bf-password').value;
     const pwd2  = document.getElementById('bf-password2').value;
     const alertEl = document.getElementById('buy-step2-alert');
-    if (!first || !last || !email || !pwd || !pwd2) {
+    if (!first || !last || !email) {
       alertEl.innerHTML = '<div class="alert alert-error">Veuillez remplir tous les champs obligatoires (*).</div>'; return;
     }
     if (!email.includes('@')) {
       alertEl.innerHTML = '<div class="alert alert-error">Email invalide.</div>'; return;
     }
-    if (pwd.length < 6) {
-      alertEl.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>'; return;
-    }
-    if (pwd !== pwd2) {
-      alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return;
-    }
-    try {
-      await supabaseSignUp(email.toLowerCase(), pwd);
-    } catch (e) {
-      // An existing customer buying another carnet used to be sent to the
-      // "Utiliser mon carnet" panel, which refuses anyone without an active
-      // carnet and points them back here -- a closed loop for exactly the
-      // person trying to buy one. The password typed above signs them in.
-      if (!isAccountAlreadyExists(e)) {
-        alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
-        return;
+    // Signed in already: nothing to sign up or sign in to, so skip straight
+    // to the profile update and payment below.
+    if (!alreadyAuthed) {
+      if (!pwd || !pwd2) {
+        alertEl.innerHTML = '<div class="alert alert-error">Veuillez remplir tous les champs obligatoires (*).</div>'; return;
+      }
+      if (pwd.length < 6) {
+        alertEl.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>'; return;
+      }
+      if (pwd !== pwd2) {
+        alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return;
       }
       try {
-        await supabaseSignIn(email.toLowerCase(), pwd);
-      } catch (e2) {
-        alertEl.innerHTML = '<div class="alert alert-error">Un compte existe déjà avec cet email, mais ce mot de passe ne correspond pas. Saisissez votre mot de passe habituel, ou réinitialisez-le depuis <a href="manage.html">Mon espace</a>.</div>';
-        return;
+        await supabaseSignUp(email.toLowerCase(), pwd);
+      } catch (e) {
+        // An existing customer buying another carnet used to be sent to the
+        // "Utiliser mon carnet" panel, which refuses anyone without an active
+        // carnet and points them back here -- a closed loop for exactly the
+        // person trying to buy one. The password typed above signs them in.
+        if (!isAccountAlreadyExists(e)) {
+          alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+          return;
+        }
+        try {
+          await supabaseSignIn(email.toLowerCase(), pwd);
+        } catch (e2) {
+          alertEl.innerHTML = '<div class="alert alert-error">Un compte existe déjà avec cet email, mais ce mot de passe ne correspond pas. Saisissez votre mot de passe habituel, ou réinitialisez-le depuis <a href="manage.html">Mon espace</a>.</div>';
+          return;
+        }
       }
     }
     // The clients row created by the signup trigger only has `email` -- fill
