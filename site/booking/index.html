@@ -792,6 +792,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initStripe();
 });
 
+// The booking cutoff is relative to "now", so a page left open overnight would
+// keep offering courses that have since started. Re-render when the tab comes
+// back into view (toggleCart re-checks the cutoff too, for a tab never left).
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentStep === 1) renderCourseList();
+});
+
 // Fetches the Stripe publishable key from the server (site/api/public-config.php)
 // rather than admin-panel localStorage -- that key used to be per-browser only,
 // so it silently reverted to a non-working placeholder on any other computer.
@@ -1085,9 +1092,10 @@ function renderWeekView() {
       html += `<div class="week-no-slot">—</div>`;
     } else {
       daySlots.forEach(s => {
-        const absent = isTeacherAbsentOn(s.teacherId, dateISO);
-        const spots  = absent ? 0 : getAvailableSpots(s);
-        const price  = getPriceForSlot(s);
+        const absent  = isTeacherAbsentOn(s.teacherId, dateISO);
+        const tooLate = !isSlotBookableAt(dateISO, s.start);
+        const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s);
+        const price   = getPriceForSlot(s);
         const inCart = cart.some(c => c.slot.id === s.id && formatDateISO(c.nextDate) === dateISO);
         const full   = spots === 0;
         const priceStr = paymentMode === 'carnet' && selectedCarnet ? '1 séance' : price + '€';
@@ -1097,7 +1105,7 @@ function renderWeekView() {
           <div class="week-slot-time">${s.start}–${s.end}</div>
           <div class="week-slot-name">${s.title.replace('Cours ','')}</div>
           <div class="week-slot-teacher">${s.teacher}</div>
-          <div class="week-slot-price">${full ? (absent ? 'Indisponible' : 'Complet') : priceStr}</div>
+          <div class="week-slot-price">${full ? (tooLate ? 'Trop tard' : absent ? 'Indisponible' : 'Complet') : priceStr}</div>
           ${full ? '' : `<div class="week-slot-add-row">
             <div class="week-slot-add-btn">${inCart ? '✓' : '+'}</div>
             <div class="week-slot-add-label">${inCart ? 'Ajouté — cliquer pour retirer' : 'Cliquer pour ajouter'}</div>
@@ -1253,34 +1261,47 @@ function getCarnetSlotType(carnet) {
 
 function toggleCart(id, dateISO) {
   const slot = getSlots().find(s => s.id === id);
-  if (!slot || getAvailableSpots(slot) === 0) return;
-  if (dateISO && isTeacherAbsentOn(slot.teacherId, dateISO)) return;
-  if (paymentMode === 'carnet' && !selectedCarnet) {
-    document.getElementById('carnet-block').scrollIntoView({behavior:'smooth'});
-    document.getElementById('carnet-login-err').innerHTML = '<div class="alert alert-error">Sélectionnez d\'abord un carnet.</div>';
-    return;
-  }
-  if (paymentMode === 'carnet' && selectedCarnet) {
-    const carnetType = getCarnetSlotType(selectedCarnet);
-    if (carnetType && slot.type !== carnetType) return;
-  }
+  if (!slot) return;
   const targetDate = dateISO ? new Date(dateISO + 'T12:00:00') : getNextAvailableOccurrence(slot);
+  const targetISO  = formatDateISO(targetDate);
   const inCart = cart.findIndex(c => c.slot.id === id);
-  const sameDateAlreadyInCart = inCart >= 0 && formatDateISO(cart[inCart].nextDate) === formatDateISO(targetDate);
+  const sameDateAlreadyInCart = inCart >= 0 && formatDateISO(cart[inCart].nextDate) === targetISO;
+
   if (sameDateAlreadyInCart) {
+    // Removing is never blocked -- a course that crossed the booking cutoff
+    // while this page sat open still has to be removable from the cart.
     cart.splice(inCart, 1);
-  } else if (inCart >= 0) {
-    // Slot already in cart for a different week -- move it to the newly
-    // clicked date rather than silently dropping it (a slot only ever
-    // books/pays for one occurrence per cart, see the comment below).
-    cart[inCart].nextDate = targetDate;
   } else {
-    const price = paymentMode === 'carnet' ? 0 : getPriceForSlot(slot);
-    // participants is per-item (not a single cart-wide count) since a cart
-    // can mix a 1-person "privé" slot with a 2-person "duo" slot. Only
-    // "duo" slots offer a choice (see the stepper in updateCartSidebar) --
-    // everything else always books/pays for exactly 1 person per item.
-    cart.push({ slot, nextDate: targetDate, price, participants: 1 });
+    if (getAvailableSpots(slot) === 0) return;
+    if (isTeacherAbsentOn(slot.teacherId, targetISO)) return;
+    if (!isSlotBookableAt(targetISO, slot.start)) {
+      // Re-render so the tile flips to "Trop tard" instead of the click
+      // just doing nothing on a page that's been open past the cutoff.
+      renderCourseList();
+      return;
+    }
+    if (paymentMode === 'carnet' && !selectedCarnet) {
+      document.getElementById('carnet-block').scrollIntoView({behavior:'smooth'});
+      document.getElementById('carnet-login-err').innerHTML = '<div class="alert alert-error">Sélectionnez d\'abord un carnet.</div>';
+      return;
+    }
+    if (paymentMode === 'carnet' && selectedCarnet) {
+      const carnetType = getCarnetSlotType(selectedCarnet);
+      if (carnetType && slot.type !== carnetType) return;
+    }
+    if (inCart >= 0) {
+      // Slot already in cart for a different week -- move it to the newly
+      // clicked date rather than silently dropping it (a slot only ever
+      // books/pays for one occurrence per cart, see the comment below).
+      cart[inCart].nextDate = targetDate;
+    } else {
+      const price = paymentMode === 'carnet' ? 0 : getPriceForSlot(slot);
+      // participants is per-item (not a single cart-wide count) since a cart
+      // can mix a 1-person "privé" slot with a 2-person "duo" slot. Only
+      // "duo" slots offer a choice (see the stepper in updateCartSidebar) --
+      // everything else always books/pays for exactly 1 person per item.
+      cart.push({ slot, nextDate: targetDate, price, participants: 1 });
+    }
   }
   renderCourseList();
   updateCartSidebar();
