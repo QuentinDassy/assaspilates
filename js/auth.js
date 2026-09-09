@@ -61,9 +61,24 @@ async function supabaseSignIn(email, password) {
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.msg || 'Email ou mot de passe incorrect.');
+  if (!res.ok) {
+    // Supabase refuses the password grant until the address is confirmed
+    // ("Confirm email" is on for this project). Saying "mot de passe
+    // incorrect" there sends people hunting for a password problem that
+    // doesn't exist -- name the real blocker instead.
+    if (isEmailNotConfirmed(data)) {
+      throw new Error("Votre compte existe, mais son adresse email n'est pas encore confirmée. Ouvrez le lien de confirmation reçu par email, puis réessayez.");
+    }
+    throw new Error(data.error_description || data.msg || 'Email ou mot de passe incorrect.');
+  }
   storeAuthSession(data);
   return data;
+}
+
+function isEmailNotConfirmed(data) {
+  const code = data.error_code || data.code || '';
+  const text = data.error_description || data.msg || data.message || '';
+  return code === 'email_not_confirmed' || /email not confirmed/i.test(text);
 }
 
 async function supabaseSignOut() {

@@ -66,6 +66,22 @@ function apbMapAdminBooking(b) {
 // Returns true if the API was reachable and the sync ran (real data now in
 // localStorage); false means fall back to seedDemoData() (e.g. on the
 // Netlify copy of this site, which has no PHP backend at all).
+/**
+ * "Admin access required" reads as a permissions bug, but it almost always
+ * means the session was replaced: signing in as a client anywhere on this
+ * domain (booking, manage, buy-carnet) overwrites the one auth session in
+ * localStorage, so this panel keeps showing cached data while its API calls
+ * go out as that client. Say so, and send them back to the admin login.
+ */
+function adminApiErrorMessage(e) {
+  if (e && e.status === 403) {
+    document.getElementById('admin-login-screen').style.display = 'flex';
+    document.getElementById('admin-layout').style.display = 'none';
+    return "Votre session n'est plus celle d'un administrateur — vous vous êtes connecté avec un compte client dans ce navigateur. Reconnectez-vous avec votre compte admin (testez le parcours client dans une fenêtre de navigation privée pour éviter ça).";
+  }
+  return `Erreur : ${e.message}`;
+}
+
 async function syncAdminDataFromApi() {
   try {
     const [bookingsResp, carnetsResp] = await Promise.all([
@@ -1114,7 +1130,7 @@ async function deactivateCarnet(code) {
       showAlert('carnets-alert', `Carnet ${code} désactivé.`);
       return;
     } catch (e) {
-      showAlert('carnets-alert', `Erreur : ${e.message}`, 'error');
+      showAlert('carnets-alert', adminApiErrorMessage(e), 'error');
       return;
     }
   }
@@ -1393,11 +1409,41 @@ function renderPlanningAdmin() {
       `<div class="cal-h-line${i % 2 === 0 ? ' hour' : ''}" style="top:${i * ROW_H}px"></div>`
     ).join('');
 
-    const events = daySlots.map(slot => {
+    // Two courses can run at the same hour in different rooms (Thursday 10:00
+    // is both a Munz Floor and a Semi Collectif). These boxes are absolutely
+    // positioned and full width, so without lanes the later one covers the
+    // other outright -- bookings and all. Give each overlapping run its own
+    // share of the column, the way a calendar app does.
+    const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const items = daySlots
+      .map(slot => ({ slot, from: toMin(slot.start), to: toMin(slot.end) }))
+      .sort((a, b) => a.from - b.from || a.to - b.to);
+
+    let clusterId = -1, clusterEnd = -Infinity, laneEnds = [];
+    items.forEach(it => {
+      if (it.from >= clusterEnd) { clusterId++; laneEnds = []; }
+      let lane = laneEnds.findIndex(end => end <= it.from);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = it.to;
+      it.lane = lane;
+      it.cluster = clusterId;
+      clusterEnd = Math.max(clusterEnd, it.to);
+    });
+    const lanesPerCluster = {};
+    items.forEach(it => {
+      lanesPerCluster[it.cluster] = Math.max(lanesPerCluster[it.cluster] || 0, it.lane + 1);
+    });
+
+    const events = items.map(({ slot, lane, cluster }) => {
       const [sh, sm] = slot.start.split(':').map(Number);
       const [eh, em] = slot.end.split(':').map(Number);
       const top    = ((sh * 60 + sm) - MIN_H * 60) / 30 * ROW_H;
       const height = Math.max(((eh * 60 + em) - (sh * 60 + sm)) / 30 * ROW_H - 2, 22);
+      const lanes  = lanesPerCluster[cluster];
+      // Only override the stylesheet's full-width left/right when sharing.
+      const across = lanes > 1
+        ? `left:calc(${(lane * 100) / lanes}% + 3px);width:calc(${100 / lanes}% - 6px);right:auto;`
+        : '';
 
       const enrolled = bookings.filter(b =>
         b.slotId === slot.id && b.courseDate === ds && (b.status === 'confirmed' || b.status === 'pending')
@@ -1407,7 +1453,7 @@ function renderPlanningAdmin() {
       const names = enrolled.map(b => `${escapeHtml(b.clientFirstName)} ${escapeHtml((b.clientLastName||'').charAt(0))}.${b.status==='pending'?' ⏳':''}`).join(', ');
       const tooltip = `${slot.title} — ${enrolled.map(b => b.clientFirstName+' '+b.clientLastName+(b.status==='pending'?' (en attente)':'')).join(', ')||'Aucune réservation'}`;
 
-      return `<div class="cal-event ${typeClass}" style="top:${top}px;height:${height}px" title="${escapeHtml(tooltip)}">
+      return `<div class="cal-event ${typeClass}" style="top:${top}px;height:${height}px;${across}" title="${escapeHtml(tooltip)}">
         <div class="cal-event-time">${slot.start}–${slot.end}</div>
         <div class="cal-event-title">${shortTitle}</div>
         ${enrolled.length ? `<div class="cal-event-students">${names}</div>` : ''}
