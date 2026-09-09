@@ -1957,8 +1957,20 @@ async function buyGoStep(step) {
     try {
       await supabaseSignUp(email.toLowerCase(), pwd);
     } catch (e) {
-      alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)} Un compte existe déjà ? Utilisez le panneau "Utiliser mon carnet" pour vous connecter.</div>`;
-      return;
+      // An existing customer buying another carnet used to be sent to the
+      // "Utiliser mon carnet" panel, which refuses anyone without an active
+      // carnet and points them back here -- a closed loop for exactly the
+      // person trying to buy one. The password typed above signs them in.
+      if (!isAccountAlreadyExists(e)) {
+        alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        return;
+      }
+      try {
+        await supabaseSignIn(email.toLowerCase(), pwd);
+      } catch (e2) {
+        alertEl.innerHTML = '<div class="alert alert-error">Un compte existe déjà avec cet email, mais ce mot de passe ne correspond pas. Saisissez votre mot de passe habituel, ou réinitialisez-le depuis <a href="manage.html">Mon espace</a>.</div>';
+        return;
+      }
     }
     // The clients row created by the signup trigger only has `email` -- fill
     // in the rest so booking snapshots don't show blank names.
