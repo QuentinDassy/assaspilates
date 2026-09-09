@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /booking/manage.html
+Disallow: /api/
+
+Sitemap: https://assas-pilates-ballet.com/sitemap.xml
