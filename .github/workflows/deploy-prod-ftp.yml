@@ -1,34 +1,41 @@
-name: Deploy prod (FTP)
+name: Deploy prod (SFTP)
 
 # OVH's native Git deploy (used for the `test` subdomain, see
 # sync-ovh-deploy.yml) only has one slot configured on this hosting plan's
 # Multisite panel, and the "Configurer Git" option isn't available for the
-# assas-pilates-ballet.com row -- so the `prod/` folder is synced over FTPS
-# instead. site/api/_lib/config.php lives only on the server (gitignored,
-# holds secrets) and is explicitly excluded so this workflow never touches
-# or deletes it.
+# assas-pilates-ballet.com row -- so the `prod/` folder is synced over SFTP
+# instead (OVH's FTP server rejected explicit FTPS with "security scheme
+# not implemented", but SFTP on port 22 is natively supported). lftp mirror
+# only uploads/updates -- it never deletes remote-only files -- so
+# site/api/_lib/config.php (server-only secret, gitignored, never present
+# in this checkout) is never touched.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  ftp-deploy:
+  sftp-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: FTPS deploy to prod/
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.OVH_FTP_SERVER }}
-          username: ${{ secrets.OVH_FTP_USERNAME }}
-          password: ${{ secrets.OVH_FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./site/
-          server-dir: /prod/
-          exclude: |
-            **/api/_lib/config.php
-            **/api/_lib/jwks_cache.json
-            **/.git*
-            **/.git*/**
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Mirror site/ to prod/ over SFTP
+        env:
+          FTP_SERVER: ${{ secrets.OVH_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.OVH_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.OVH_FTP_PASSWORD }}
+        run: |
+          lftp -e "
+            set sftp:auto-confirm yes;
+            set net:timeout 15;
+            set net:max-retries 3;
+            mirror --reverse --verbose \
+              --exclude-glob config.php \
+              --exclude-glob jwks_cache.json \
+              ./site/ /prod/;
+            bye
+          " -u "$FTP_USERNAME,$FTP_PASSWORD" sftp://$FTP_SERVER
