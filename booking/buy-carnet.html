@@ -498,7 +498,19 @@ async function goStep(step) {
       if (!pwd) { setAlert('Veuillez entrer votre mot de passe.'); return; }
       try {
         await supabaseSignIn(email, pwd);
-      } catch (e) { setAlert(escapeHtml(e.message)); return; }
+      } catch (e) {
+        // "J'ai déjà un compte" is the natural guess for anyone who already
+        // bought here -- but a course bought without an account only creates
+        // a client record, never a login. Rejected credentials mean either a
+        // wrong password or no account at all, and the two can't be told
+        // apart without turning this into an account-enumeration oracle, so
+        // name both ways out instead of leaving them stuck.
+        if (isInvalidCredentials(e)) {
+          setAlert("Connexion refusée. Soit le mot de passe est incorrect (utilisez « Mot de passe oublié » depuis Mon espace), soit cet email n'a pas encore de compte — un cours acheté sans compte n'en crée pas. Dans ce cas, choisissez « Créer un compte » ci-dessus : vos réservations passées y seront rattachées automatiquement.");
+          return;
+        }
+        setAlert(escapeHtml(e.message)); return;
+      }
     } else {
       const pwd  = document.getElementById('f-password').value;
       const pwd2 = document.getElementById('f-password2').value;
@@ -507,7 +519,17 @@ async function goStep(step) {
       if (pwd !== pwd2)    { setAlert('Les mots de passe ne correspondent pas.'); return; }
       try {
         await supabaseSignUp(email, pwd);
-      } catch (e) { setAlert(escapeHtml(e.message)); return; }
+      } catch (e) {
+        // The mirror case: the address already has a login. Flip the form to
+        // the sign-in half rather than making them find the toggle.
+        if (isAccountAlreadyExists(e) || isInvalidCredentials(e)) {
+          toggleReturningClient(true);
+          document.getElementById('f-password-existing').value = pwd;
+          setAlert("Cet email a déjà un compte. Entrez son mot de passe ci-dessus pour continuer (ou réinitialisez-le via « Mot de passe oublié » depuis Mon espace).");
+          return;
+        }
+        setAlert(escapeHtml(e.message)); return;
+      }
     }
 
     // The clients row created by the signup trigger only has `email` --
