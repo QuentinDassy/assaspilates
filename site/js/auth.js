@@ -40,7 +40,7 @@ async function supabaseSignUp(email, password) {
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.msg || data.error_description || data.error || 'Erreur lors de la création du compte.');
+  if (!res.ok) throw authError(data, 'Erreur lors de la création du compte.');
   if (data.access_token) {
     storeAuthSession(data);
     return data;
@@ -69,16 +69,38 @@ async function supabaseSignIn(email, password) {
     if (isEmailNotConfirmed(data)) {
       throw new Error("Votre compte existe, mais son adresse email n'est pas encore confirmée. Ouvrez le lien de confirmation reçu par email, puis réessayez.");
     }
-    throw new Error(data.error_description || data.msg || 'Email ou mot de passe incorrect.');
+    throw authError(data, 'Email ou mot de passe incorrect.');
   }
   storeAuthSession(data);
   return data;
+}
+
+// Supabase spells its failures across several fields depending on the
+// endpoint and version. Callers need to tell "wrong password" from "this
+// address already has an account" apart, so carry the code on the Error
+// rather than leaving them to pattern-match a display string.
+function authError(data, fallback) {
+  const err = new Error(data.error_description || data.msg || data.message || data.error || fallback);
+  err.code = data.error_code || data.code || data.error || '';
+  return err;
 }
 
 function isEmailNotConfirmed(data) {
   const code = data.error_code || data.code || '';
   const text = data.error_description || data.msg || data.message || '';
   return code === 'email_not_confirmed' || /email not confirmed/i.test(text);
+}
+
+/** True when the failure means "this email already has an account". */
+function isAccountAlreadyExists(err) {
+  return /user_already_exists|email_exists/i.test(err.code || '')
+      || /already registered|already exists/i.test(err.message || '');
+}
+
+/** True when the failure means "email/password pair rejected". */
+function isInvalidCredentials(err) {
+  return /invalid_credentials|invalid_grant/i.test(err.code || '')
+      || /invalid login credentials/i.test(err.message || '');
 }
 
 async function supabaseSignOut() {
