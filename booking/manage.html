@@ -387,7 +387,7 @@ function toggleSignupMode(signup) {
   isSignupMode = signup;
   document.getElementById('login-card-title').textContent = signup ? 'Activer mon compte' : 'Accéder à mon espace';
   document.getElementById('login-card-sub').textContent = signup
-    ? "Créez un mot de passe pour l'email utilisé par le studio -- votre carnet vous sera automatiquement lié."
+    ? "Créez un mot de passe pour cette adresse email -- vos réservations et carnets existants y seront automatiquement rattachés."
     : "Entrez votre email et le mot de passe créé lors de l'achat de votre carnet.";
   document.getElementById('l-password2-group').style.display = signup ? 'block' : 'none';
   document.getElementById('login-submit-btn').textContent = signup ? 'Activer mon compte' : 'Accéder à mon espace';
@@ -905,6 +905,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (prefillEmail) {
     document.getElementById('l-email').value = prefillEmail;
   }
+  // ?signup=1 -- sent here from a guest booking's confirmation screen, which
+  // has no account yet (site/booking/index.html showSuccess()).
+  if (params.get('signup') === '1') toggleSignupMode(true);
 
   const session = await refreshAuthSessionIfNeeded();
   if (session && session.user) {

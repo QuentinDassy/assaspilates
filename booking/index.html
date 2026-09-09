@@ -687,9 +687,10 @@ a{color:var(--accent);text-decoration:none}
       <button id="btn-send-confirmation" class="btn-manage" style="display:none;align-items:center;gap:8px;cursor:pointer;border:none">
         📧 Envoyer la confirmation par email
       </button>
-      <a href="manage.html" class="btn-manage">Gérer mes réservations</a>
+      <a href="manage.html" class="btn-manage" id="success-manage-link">Gérer mes réservations</a>
       <button class="btn-outline" onclick="resetBooking()">Nouvelle réservation</button>
     </div>
+    <p id="success-manage-hint" style="display:none;font-size:12px;color:#888;line-height:1.8;margin-top:14px"></p>
   </div>
 </div>
 
@@ -1752,9 +1753,31 @@ function showSuccess(bookings) {
     </p>
   `;
 
+  // A guest unit booking creates a clients row with no auth_user_id, so
+  // manage.html (which needs a real session) would just show them a login
+  // wall. Signing up with this same email links that row to the new account
+  // (handle_new_auth_user() in 0002_auth.sql does it ON CONFLICT), so point
+  // them at signup rather than promising a space they can't reach.
+  const hasAccount = !!(getAuthSession() || {}).user;
+  const manageLink = document.getElementById('success-manage-link');
+  const manageHint = document.getElementById('success-manage-hint');
+  const signupHref = `manage.html?signup=1&email=${encodeURIComponent(b0.clientEmail || '')}`;
+  if (manageLink) {
+    manageLink.textContent = hasAccount ? 'Gérer mes réservations' : 'Créer mon espace';
+    manageLink.href = hasAccount ? 'manage.html' : signupHref;
+  }
+  if (manageHint) {
+    manageHint.style.display = hasAccount ? 'none' : 'block';
+    manageHint.textContent = hasAccount ? '' :
+      `Vous avez réservé sans compte. Créez votre espace avec l'adresse ${b0.clientEmail || ''} pour retrouver, modifier ou annuler cette réservation.`;
+  }
+
   // Email client
   const payStr    = total > 0 ? `Total réglé : ${total}€` : 'Réglé par carnet de séances';
   const manageUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'manage.html';
+  const manageLine = hasAccount
+    ? `Gérez vos réservations : ${manageUrl}`
+    : `Créez votre espace avec cette adresse email pour gérer vos réservations : ${manageUrl}?signup=1&email=${encodeURIComponent(b0.clientEmail || '')}`;
   const lines = bookings.map(b => {
     const d = new Date(b.courseDate+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
     const pendingTag = b.status === 'pending' ? ' [EN ATTENTE — 2 participants requis]' : '';
@@ -1765,8 +1788,8 @@ function showSuccess(bookings) {
     ? `Inscription en attente — Assas Pilates Ballet`
     : `Confirmation de réservation — Assas Pilates Ballet`;
   const emailBody = isPending
-    ? `Bonjour ${b0.clientFirstName},\n\nVotre inscription est bien enregistrée :\n\n${lines}\n\n${payStr}\n\nCe cours semi-collectif sera confirmé automatiquement dès qu'un second participant rejoindra ce créneau. Vous recevrez alors un email de confirmation.\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`
-    : `Bonjour ${b0.clientFirstName},\n\nVotre réservation est confirmée chez Assas Pilates Ballet :\n\n${lines}\n\n${payStr}\n\nGérez vos réservations : ${manageUrl}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
+    ? `Bonjour ${b0.clientFirstName},\n\nVotre inscription est bien enregistrée :\n\n${lines}\n\n${payStr}\n\nCe cours semi-collectif sera confirmé automatiquement dès qu'un second participant rejoindra ce créneau. Vous recevrez alors un email de confirmation.\n\n${manageLine}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`
+    : `Bonjour ${b0.clientFirstName},\n\nVotre réservation est confirmée chez Assas Pilates Ballet :\n\n${lines}\n\n${payStr}\n\n${manageLine}\n\nCordialement,\nAssas Pilates Ballet\n12, rue Duguay-Trouin — 75006 Paris`;
 
   setTimeout(() => triggerMailto(`mailto:${b0.clientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`), 600);
 
