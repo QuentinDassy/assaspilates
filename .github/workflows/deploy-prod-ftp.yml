@@ -21,7 +21,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+        # The runner image carries third-party apt sources (Google Chrome)
+        # whose index intermittently fails its hash check, and `apt-get
+        # update` then exits 100 and takes the whole deploy down with it --
+        # even though Ubuntu's own lists, the only ones lftp needs, fetched
+        # fine. Drop those sources and judge the step on the install itself.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update || echo "apt-get update reported errors, continuing to the install"
+          sudo apt-get install -y lftp
 
       - name: Mirror site/ to prod/ over SFTP
         env:
