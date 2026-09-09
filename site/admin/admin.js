@@ -269,11 +269,16 @@ function renderSlotsTable() {
 }
 
 /**
- * The distinct courses already on the schedule, so a new slot can reuse one
- * instead of being retyped. Picking one carries its type across, which is
- * what sets the price server-side (admin-slots.php reads the type's unit
- * tarif) -- a course typed from scratch used to land at 0€.
+ * The courses already on the schedule, picked from a list rather than
+ * retyped. Choosing one carries its type across, and the type is what prices
+ * the slot server-side (admin-slots.php reads that type's unit tarif) -- a
+ * title typed from scratch is how a slot ended up published at 0€.
+ *
+ * The free-text intitulé stays available behind the last entry, otherwise
+ * the studio could never add a course it doesn't already run.
  */
+const SLOT_TEMPLATE_NEW = '__new__';
+
 function renderSlotTemplates() {
   const sel = document.getElementById('slot-template');
   if (!sel) return;
@@ -291,14 +296,32 @@ function renderSlotTemplates() {
     .sort((a, b) => a.title.localeCompare(b.title))
     .map(s => `<option value="${escapeHtml(s.title)}|${escapeHtml(s.type)}">${escapeHtml(s.title)} — ${unitPrice(s.type)}</option>`)
     .join('');
-  sel.innerHTML = '<option value="">— Nouveau cours (saisir l\'intitulé) —</option>' + options;
+  sel.innerHTML = options + `<option value="${SLOT_TEMPLATE_NEW}">— Autre cours (saisir l'intitulé) —</option>`;
 }
 
 function applySlotTemplate(value) {
-  if (!value) return;
+  const titleEl   = document.getElementById('slot-title');
+  const titleWrap = document.getElementById('slot-title-group');
+  if (value === SLOT_TEMPLATE_NEW) {
+    titleWrap.style.display = 'block';
+    titleEl.value = '';
+    titleEl.focus();
+    return;
+  }
+  titleWrap.style.display = 'none';
   const sep = value.lastIndexOf('|');
-  document.getElementById('slot-title').value = value.slice(0, sep);
-  document.getElementById('slot-type').value  = value.slice(sep + 1);
+  titleEl.value = value.slice(0, sep);
+  document.getElementById('slot-type').value = value.slice(sep + 1);
+}
+
+/** Points the picker at `title`, falling back to the free-text entry. */
+function selectSlotTemplate(title, type) {
+  const sel = document.getElementById('slot-template');
+  if (!sel) return;
+  const match = [...sel.options].find(o => o.value === `${title}|${type}`);
+  sel.value = match ? match.value : SLOT_TEMPLATE_NEW;
+  applySlotTemplate(sel.value);
+  if (!match) document.getElementById('slot-title').value = title;
 }
 
 async function saveSlot() {
@@ -338,8 +361,9 @@ function editSlot(id) {
   selectedDay = slot.day;
   document.getElementById('slot-start').value   = slot.start;
   document.getElementById('slot-end').value      = slot.end;
-  document.getElementById('slot-title').value   = slot.title;
   document.getElementById('slot-type').value    = slot.type;
+  renderSlotTemplates();
+  selectSlotTemplate(slot.title, slot.type);
   document.getElementById('slot-location').value = slot.location || 'assas';
   renderTeacherSelect();
   if (slot.teacherId) document.getElementById('slot-teacher').value = slot.teacherId;
@@ -364,10 +388,11 @@ function resetSlotForm() {
   document.getElementById('slot-id').value      = '';
   document.getElementById('slot-start').value   = '09:00';
   document.getElementById('slot-end').value     = '09:55';
-  const tpl = document.getElementById('slot-template');
-  if (tpl) tpl.value = '';
   document.getElementById('slot-title').value   = '';
   document.getElementById('slot-type').value    = 'collectif';
+  renderSlotTemplates();
+  const tpl = document.getElementById('slot-template');
+  if (tpl && tpl.options.length) applySlotTemplate(tpl.options[0].value);
   document.getElementById('slot-location').value = 'assas';
   renderTeacherSelect();
   document.getElementById('slot-form-title').textContent = 'Nouveau créneau';
