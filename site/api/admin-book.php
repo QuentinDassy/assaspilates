@@ -43,11 +43,23 @@ $clientId = $clientRows[0]['id'];
 
 // Price comes from the slot itself (set server-side from the type's unit
 // tarif at creation), so an "onsite" booking records what the studio charged.
-$slotRows = apbSupabaseSelect('slots', '?id=eq.' . $slotId . '&select=price_cents');
+$slotRows = apbSupabaseSelect('slots', '?id=eq.' . $slotId . '&select=price_cents,day_of_week');
 if (empty($slotRows)) {
     apbJsonError(404, 'slot_not_found', "Ce cours n'existe pas.");
 }
 $priceCents = (int) ($slotRows[0]['price_cents'] ?? 0);
+
+// The chosen date must fall on the course's own weekday -- otherwise the
+// booking lands at that slot's time on a day the course doesn't run, breaking
+// the agenda (and possibly overlapping another course). day_of_week is
+// 0=Monday..6=Sunday (same as the slots table); PHP 'N' is 1=Monday..7=Sunday.
+$slotDow = (int) ($slotRows[0]['day_of_week'] ?? -1);
+$dateDow = ((int) (new DateTime($courseDate))->format('N')) - 1;
+if ($slotDow !== $dateDow) {
+    $jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+    $attendu = $jours[$slotDow] ?? '?';
+    apbJsonError(422, 'date_wrong_weekday', "La date choisie ne tombe pas un $attendu — ce cours a lieu le $attendu.");
+}
 
 // User-facing French translations for the RPC's RAISE EXCEPTION codes.
 $errorMessages = [
