@@ -1167,31 +1167,43 @@ function cbSelectedSlot() {
   return getSlots().find(s => s.id === id) || null;
 }
 
+const CB_TYPE_LABELS = { collectif: 'Semi-collectif', prive: 'Cours privé', duo: 'Duo', munz: 'Munz Floor', decouverte: 'Découverte' };
+
+// Discipline « achetée » du carnet : on privilégie le type de son tarif (fiable)
+// et on retombe sur le type stocké. Sert à trier/étiqueter les cours proposés.
+function cbCarnetDiscipline(c) {
+  const tarif = getTarifs().find(t => String(t.id) === String(c.tarifId));
+  return (tarif && tarif.type) || c.type || '';
+}
+
 function openCarnetBookingModal(code) {
   const c = cbFindCarnet(code);
   if (!c) return;
   document.getElementById('cb-carnet-code').value = code;
 
+  const disc = cbCarnetDiscipline(c);
+  const discLabel = CB_TYPE_LABELS[disc] || disc || '—';
   document.getElementById('cb-info').innerHTML =
     `<strong>${escapeHtml(getClientName(c))}</strong> — ${escapeHtml(c.clientEmail || '')}<br>`
     + `Carnet <span style="font-family:monospace">${escapeHtml(c.code)}</span> · `
     + `${c.remainingSessions}/${c.totalSessions} séance(s) restante(s)`
-    + (c.tarifName ? ` · ${escapeHtml(c.tarifName)}` : '');
+    + (c.tarifName ? ` · ${escapeHtml(c.tarifName)}` : '')
+    + `<br>Discipline du carnet : <strong>${escapeHtml(discLabel)}</strong>`;
 
-  // Ne proposer que les cours de la discipline du carnet (la RPC ne décompte
-  // que si le type du cours correspond à celui du carnet).
-  const slots = [...getSlots()]
-    .filter(s => !c.type || s.type === c.type)
-    .sort((a, b) => a.day - b.day || a.start.localeCompare(b.start));
+  // On propose tous les cours (jamais bloqué), mais ceux de la discipline du
+  // carnet sont remontés en tête et l'étiquette de type est affichée. Le
+  // décompte reste garanti côté serveur : api_book_slot n'accepte que si le
+  // type du cours correspond à celui du carnet.
   const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
+  const slots = [...getSlots()].sort((a, b) =>
+    ((a.type === disc ? 0 : 1) - (b.type === disc ? 0 : 1)) || a.day - b.day || a.start.localeCompare(b.start)
+  );
   const sel = document.getElementById('cb-slot');
   sel.innerHTML = slots.map(s =>
-    `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
+    `<option value="${s.id}">[${CB_TYPE_LABELS[s.type] || s.type}] ${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
   ).join('');
-
-  const empty = !slots.length;
-  document.getElementById('cb-slot-empty').style.display = empty ? 'block' : 'none';
-  sel.style.display = empty ? 'none' : '';
+  document.getElementById('cb-slot-empty').style.display = slots.length ? 'none' : 'block';
+  sel.style.display = slots.length ? '' : 'none';
 
   cbOnSlotChange();
   document.getElementById('carnet-booking-modal-overlay').classList.add('open');
