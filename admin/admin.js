@@ -842,10 +842,28 @@ function closeNewBookingModal() {
   document.getElementById('booking-modal-overlay').classList.remove('open');
 }
 
-// Sélection d'un cours : suggère la prochaine occurrence de son jour + récap.
+// Remplit une liste déroulante avec les prochaines occurrences réelles du
+// cours (même jour de semaine, chaque semaine). Empêche de choisir une date
+// qui ne correspond pas au créneau -- ce qui déréglait l'agenda.
+function apbFillOccurrences(selectId, slot, count = 12) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  if (!slot) { sel.innerHTML = ''; return; }
+  const base = getNextOccurrence(slot.day);
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i * 7);
+    const iso = formatDateISO(d);
+    const label = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    html += `<option value="${iso}">${label}</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+// Sélection d'un cours : liste ses prochaines occurrences + récap.
 function nbOnSlotChange() {
   const slot = nbSelectedSlot();
-  if (slot) document.getElementById('nb-date').value = formatDateISO(getNextOccurrence(slot.day));
+  apbFillOccurrences('nb-date', slot);
   document.getElementById('nb-summary').innerHTML = slot
     ? `Paiement : <strong>payé sur place</strong> · Tarif indicatif : <strong>${nbUnitPrice(slot.type)}</strong>`
     : '';
@@ -1219,8 +1237,7 @@ function closeCarnetBookingModal() {
 }
 
 function cbOnSlotChange() {
-  const slot = cbSelectedSlot();
-  if (slot) document.getElementById('cb-date').value = formatDateISO(getNextOccurrence(slot.day));
+  apbFillOccurrences('cb-date', cbSelectedSlot());
 }
 
 async function saveCarnetBooking() {
