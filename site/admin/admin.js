@@ -1113,7 +1113,7 @@ function renderCarnetsAdmin() {
   if (tarifSel) {
     const carnetTarifs = getTarifs().filter(t => t.isCarnet);
     tarifSel.innerHTML = '<option value="">— Choisir une formule carnet —</option>' +
-      carnetTarifs.map(t => `<option value="${t.id}" data-sessions="${t.sessionCount}" data-months="${t.validityMonths}" data-name="${t.name}">${t.name} (${t.sessionCount} séances — ${t.price}€)</option>`).join('');
+      carnetTarifs.map(t => `<option value="${t.id}" data-sessions="${t.sessionCount}" data-months="${t.validityMonths}" data-name="${t.name}">${t.label} — ${t.name} (${t.sessionCount} séances — ${t.price}€)</option>`).join('');
   }
 
   // Sort: active first, then by creation desc
