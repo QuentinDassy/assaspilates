@@ -517,20 +517,26 @@ function renderAbsencesModal(teacherId) {
           <div class="form-group"><label>Du</label><input type="date" id="absence-start" value="${today}" min="${today}" onchange="onAbsenceStartChange()"></div>
           <div class="form-group"><label>Au</label><input type="date" id="absence-end" value="${today}" min="${today}"></div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label>De (heure)</label><input type="time" id="absence-start-time"></div>
+          <div class="form-group"><label>À (heure)</label><input type="time" id="absence-end-time"></div>
+        </div>
+        <p style="font-size:11px;color:#999;margin:-6px 0 12px">Heures optionnelles — laisser vide pour bloquer la journée entière.</p>
         <div class="form-group"><label>Motif (optionnel)</label><input type="text" id="absence-reason" placeholder="Congés, formation..."></div>
         <div class="form-actions" style="margin-bottom:20px">
           <button class="btn btn-primary" onclick="addAbsence(${teacherId})">Ajouter</button>
         </div>
         <table class="table">
-          <thead><tr><th>Du</th><th>Au</th><th>Motif</th><th></th></tr></thead>
+          <thead><tr><th>Du</th><th>Au</th><th>Horaire</th><th>Motif</th><th></th></tr></thead>
           <tbody>
             ${absences.length ? absences.map(a => `
               <tr>
                 <td style="font-size:12px">${frDate(a.startDate)}</td>
                 <td style="font-size:12px">${frDate(a.endDate)}</td>
+                <td style="font-size:12px">${a.startTime ? `${escapeHtml(a.startTime)}–${escapeHtml(a.endTime)}` : 'Journée entière'}</td>
                 <td style="font-size:12px">${escapeHtml(a.reason || '—')}</td>
                 <td class="actions"><button class="btn btn-sm btn-danger" onclick="deleteAbsence('${a.id}',${teacherId})">✕</button></td>
-              </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:16px;font-style:italic">Aucune période enregistrée.</td></tr>'}
+              </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;font-style:italic">Aucune période enregistrée.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -558,13 +564,17 @@ function onAbsenceStartChange() {
 async function addAbsence(teacherId) {
   const startDate = document.getElementById('absence-start').value;
   const endDate   = document.getElementById('absence-end').value;
+  const startTime = document.getElementById('absence-start-time').value;
+  const endTime   = document.getElementById('absence-end-time').value;
   const reason    = document.getElementById('absence-reason').value.trim();
   const alertEl = document.getElementById('absences-alert');
   if (!startDate || !endDate) { alertEl.innerHTML = '<div class="alert alert-error">Dates de début et de fin requises.</div>'; return; }
   if (endDate < startDate)    { alertEl.innerHTML = '<div class="alert alert-error">La date de fin doit être après la date de début.</div>'; return; }
+  if ((startTime && !endTime) || (!startTime && endTime)) { alertEl.innerHTML = '<div class="alert alert-error">Renseignez l\'heure de début ET de fin, ou laissez les deux vides.</div>'; return; }
+  if (startTime && endTime && endTime <= startTime) { alertEl.innerHTML = '<div class="alert alert-error">L\'heure de fin doit être après l\'heure de début.</div>'; return; }
   try {
     await apbApiFetch('/api/admin-teacher-absences.php', {
-      method: 'POST', body: JSON.stringify({ action: 'create', teamMemberId: teacherId, startDate, endDate, reason }),
+      method: 'POST', body: JSON.stringify({ action: 'create', teamMemberId: teacherId, startDate, endDate, startTime, endTime, reason }),
     });
     await syncContentFromSupabase();
     renderAbsencesModal(teacherId);

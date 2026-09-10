@@ -135,7 +135,9 @@ async function syncContentFromSupabase() {
     })));
 
     saveTeacherAbsences(absencesRows.map(r => ({
-      id: r.id, teacherId: r.team_member_id, startDate: r.start_date, endDate: r.end_date, reason: r.reason || '',
+      id: r.id, teacherId: r.team_member_id, startDate: r.start_date, endDate: r.end_date,
+      startTime: r.start_time ? r.start_time.slice(0, 5) : '', endTime: r.end_time ? r.end_time.slice(0, 5) : '',
+      reason: r.reason || '',
     })));
 
     saveTeam(teamRows.map(r => ({

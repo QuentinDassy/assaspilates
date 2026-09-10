@@ -34,12 +34,23 @@ if ($action === 'create') {
     if ($endDate < $startDate) {
         apbJsonError(400, 'invalid_request', 'endDate must be on or after startDate.');
     }
-    $created = apbSupabaseInsert('teacher_absences', [
+    $patch = [
         'team_member_id' => $teamMemberId,
         'start_date' => $startDate,
         'end_date' => $endDate,
         'reason' => (string) ($body['reason'] ?? ''),
-    ]);
+    ];
+    // Fenêtre horaire optionnelle : soit les deux, soit aucune.
+    $startTime = trim((string) ($body['startTime'] ?? ''));
+    $endTime   = trim((string) ($body['endTime'] ?? ''));
+    if ($startTime !== '' || $endTime !== '') {
+        if (!preg_match('/^\d{2}:\d{2}$/', $startTime) || !preg_match('/^\d{2}:\d{2}$/', $endTime) || $endTime <= $startTime) {
+            apbJsonError(400, 'invalid_request', "Plage horaire invalide : renseignez une heure de début et de fin, la fin après le début.");
+        }
+        $patch['start_time'] = $startTime;
+        $patch['end_time'] = $endTime;
+    }
+    $created = apbSupabaseInsert('teacher_absences', $patch);
     apbJsonSuccess($created, 201);
 }
 
