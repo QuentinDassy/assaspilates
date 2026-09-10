@@ -823,6 +823,7 @@ function nbSelectedSlot() {
 }
 
 function openNewBookingModal() {
+  document.getElementById('nb-alert').innerHTML = '';
   document.getElementById('nb-client-list').innerHTML =
     nbKnownClients().map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.name)}</option>`).join('');
   document.getElementById('nb-client').value = '';
@@ -854,12 +855,12 @@ async function saveNewBooking() {
   const clientEmail = document.getElementById('nb-client').value.trim();
   const slot        = nbSelectedSlot();
   const courseDate  = document.getElementById('nb-date').value;
-  if (!clientEmail) { showAlert('bookings-alert', 'Veuillez indiquer l\'élève.', 'error'); return; }
+  if (!clientEmail) { showAlert('nb-alert', 'Veuillez indiquer l\'élève.', 'error'); return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clientEmail)) {
-    showAlert('bookings-alert', 'Sélectionnez l\'élève par son email (un compte existant est requis).', 'error'); return;
+    showAlert('nb-alert', 'Sélectionnez l\'élève par son email (un compte existant est requis).', 'error'); return;
   }
-  if (!slot)       { showAlert('bookings-alert', 'Veuillez choisir un cours.', 'error'); return; }
-  if (!courseDate) { showAlert('bookings-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
+  if (!slot)       { showAlert('nb-alert', 'Veuillez choisir un cours.', 'error'); return; }
+  if (!courseDate) { showAlert('nb-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
 
   try {
     await apbApiFetch('/api/admin-book.php', {
@@ -871,7 +872,7 @@ async function saveNewBooking() {
     renderBookingList();
     showAlert('bookings-alert', '✓ Élève inscrit au cours (payé sur place).');
   } catch (e) {
-    showAlert('bookings-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
+    showAlert('nb-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
   }
 }
 
@@ -1180,6 +1181,7 @@ function openCarnetBookingModal(code) {
   const c = cbFindCarnet(code);
   if (!c) return;
   document.getElementById('cb-carnet-code').value = code;
+  document.getElementById('cb-alert').innerHTML = '';
 
   const disc = cbCarnetDiscipline(c);
   const discLabel = CB_TYPE_LABELS[disc] || disc || '—';
@@ -1222,10 +1224,14 @@ async function saveCarnetBooking() {
   const c = cbFindCarnet(document.getElementById('cb-carnet-code').value);
   const slot = cbSelectedSlot();
   const courseDate = document.getElementById('cb-date').value;
-  if (!c || !c.id)  { showAlert('carnets-alert', 'Carnet introuvable ou non synchronisé.', 'error'); return; }
-  if (!slot)        { showAlert('carnets-alert', 'Veuillez choisir un cours.', 'error'); return; }
-  if (!courseDate)  { showAlert('carnets-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
+  // Feedback shown INSIDE the modal (cb-alert), otherwise it lands in the
+  // page's carnets-alert, hidden behind the open modal -> "rien ne se passe".
+  if (!c || !c.id)  { showAlert('cb-alert', 'Carnet introuvable ou non synchronisé.', 'error'); return; }
+  if (!slot)        { showAlert('cb-alert', 'Veuillez choisir un cours.', 'error'); return; }
+  if (!courseDate)  { showAlert('cb-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
 
+  const btn = document.getElementById('cb-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Placement…'; }
   try {
     await apbApiFetch('/api/admin-book.php', {
       method: 'POST',
@@ -1237,7 +1243,9 @@ async function saveCarnetBooking() {
     if (typeof renderBookingList === 'function') renderBookingList();
     showAlert('carnets-alert', '✓ Séance placée. Le carnet a été décompté.');
   } catch (e) {
-    showAlert('carnets-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
+    showAlert('cb-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Placer la séance'; }
   }
 }
 

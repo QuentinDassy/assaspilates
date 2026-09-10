@@ -510,6 +510,7 @@
       <button class="modal-close" onclick="closeNewBookingModal()" aria-label="Fermer">✕</button>
     </div>
     <div class="modal-body">
+      <div id="nb-alert"></div>
       <div class="form-group">
         <label>Élève</label>
         <input type="text" id="nb-client" list="nb-client-list" placeholder="Nom ou email de l'élève" autocomplete="off">
@@ -542,6 +543,7 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="cb-carnet-code">
+      <div id="cb-alert"></div>
       <div id="cb-info" style="font-size:12px;color:#555;background:#faf9f6;border:1px solid var(--border);padding:10px 12px;margin-bottom:14px"></div>
       <div class="form-group">
         <label>Cours</label>
@@ -556,7 +558,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeCarnetBookingModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCarnetBooking()">Placer la séance</button>
+      <button class="btn btn-primary" id="cb-save-btn" onclick="saveCarnetBooking()">Placer la séance</button>
     </div>
   </div>
 </div>
