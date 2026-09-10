@@ -533,6 +533,34 @@
   </div>
 </div>
 
+<!-- MODALE : Placer une séance de carnet -->
+<div class="modal-overlay" id="carnet-booking-modal-overlay" onclick="if(event.target===this)closeCarnetBookingModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Placer une séance</h3>
+      <button class="modal-close" onclick="closeCarnetBookingModal()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cb-carnet-code">
+      <div id="cb-info" style="font-size:12px;color:#555;background:#faf9f6;border:1px solid var(--border);padding:10px 12px;margin-bottom:14px"></div>
+      <div class="form-group">
+        <label>Cours</label>
+        <select id="cb-slot" onchange="cbOnSlotChange()"></select>
+        <small id="cb-slot-empty" style="display:none;color:#c0392b">Aucun cours de cette discipline dans le planning.</small>
+      </div>
+      <div class="form-group">
+        <label>Date du cours</label>
+        <input type="date" id="cb-date">
+      </div>
+      <div style="font-size:12px;color:#666">Décompte : <strong>1 séance</strong> sur ce carnet.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCarnetBookingModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCarnetBooking()">Placer la séance</button>
+    </div>
+  </div>
+</div>
+
 <!-- Mobile overlay -->
 <div class="mobile-overlay" id="mobile-overlay" onclick="closeSidebar()"></div>
 

@@ -23,6 +23,11 @@ $body = apbJsonBody();
 $clientEmail = trim((string) ($body['clientEmail'] ?? ''));
 $slotId      = isset($body['slotId']) ? (int) $body['slotId'] : 0;
 $courseDate  = (string) ($body['courseDate'] ?? '');
+// Optional: when present, the session is drawn from this carnet (payment_type
+// 'carnet') instead of recorded as paid on site. api_book_slot() verifies the
+// carnet belongs to the client, is active, unexpired, has a session left, and
+// matches the slot type -- so the placement here can never over-deduct.
+$carnetId = trim((string) ($body['carnetId'] ?? ''));
 
 if ($clientEmail === '' || !$slotId || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $courseDate)) {
     apbJsonError(400, 'invalid_request', 'clientEmail, slotId et courseDate (YYYY-MM-DD) sont requis.');
@@ -52,20 +57,25 @@ $errorMessages = [
     'SLOT_FULL'        => 'Ce cours est complet.',
     'TEACHER_ABSENT'   => "Le professeur n'est pas disponible à cette date (absence/vacances).",
     'BOOKING_TOO_LATE' => "Les réservations ferment 1h avant le début du cours.",
+    'CARNET_REQUIRED'  => 'Aucun carnet indiqué.',
+    'CARNET_INVALID_OR_DEPLETED' => "Ce carnet n'est pas valable pour ce cours (épuisé, expiré, ou d'une autre discipline que le cours).",
 ];
 
+// Carnet placement draws a session from the carnet (price 0); otherwise the
+// booking is recorded as paid on site at the slot's price.
+$rpcParams = $carnetId !== ''
+    ? ['p_payment_type' => 'carnet', 'p_carnet_id' => $carnetId, 'p_total_paid_cents' => 0]
+    : ['p_payment_type' => 'onsite', 'p_carnet_id' => null,      'p_total_paid_cents' => $priceCents];
+
 try {
-    $booking = apbSupabaseRpc('api_book_slot', [
-        'p_client_id'        => $clientId,
-        'p_slot_id'          => $slotId,
-        'p_course_date'      => $courseDate,
-        'p_payment_type'     => 'onsite',
-        'p_carnet_id'        => null,
-        'p_total_paid_cents' => $priceCents,
-        'p_payment_status'   => 'paid',
-        'p_client_message'   => null,
-        'p_participants'     => 1,
-    ]);
+    $booking = apbSupabaseRpc('api_book_slot', array_merge([
+        'p_client_id'      => $clientId,
+        'p_slot_id'        => $slotId,
+        'p_course_date'    => $courseDate,
+        'p_payment_status' => 'paid',
+        'p_client_message' => null,
+        'p_participants'   => 1,
+    ], $rpcParams));
 } catch (RuntimeException $e) {
     $code = $e->getMessage();
     apbJsonError(422, $code, $errorMessages[$code] ?? "Impossible d'inscrire l'élève à ce cours.");

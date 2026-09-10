@@ -1138,6 +1138,7 @@ function renderCarnetsAdmin() {
       <td style="font-size:12px">${c.expiresAt || '—'}</td>
       <td><span style="font-size:11px;font-weight:500;color:${statusColor}">${statusLabel}</span></td>
       <td class="actions">
+        ${(c.active && !expired && !depleted) ? `<button class="btn btn-sm btn-primary" onclick="openCarnetBookingModal('${escapeJsAttr(c.code)}')">Placer une séance</button>` : ''}
         <button class="btn btn-sm btn-outline" onclick="editCarnet('${c.code}')">Modifier</button>
         ${c.active ? `<button class="btn btn-sm btn-danger" onclick="deactivateCarnet('${c.code}')">Désact.</button>` : ''}
       </td>
@@ -1150,6 +1151,82 @@ function renderCarnetsAdmin() {
   if (activeC.length)   rows += sepRow(`Actifs — ${activeC.length}`) + activeC.map(carnetRow).join('');
   if (inactiveC.length) rows += sepRow(`Épuisés / Expirés — ${inactiveC.length}`) + inactiveC.map(carnetRow).join('');
   document.getElementById('carnets-tbody').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;font-style:italic">Aucun carnet créé.</td></tr>';
+}
+
+// ===== PLACER UNE SÉANCE DE CARNET (réservation manuelle décomptée) =====
+// Réserve un cours pour le titulaire du carnet en décomptant une séance, via
+// /api/admin-book.php (paymentType 'carnet'). api_book_slot vérifie que le
+// carnet correspond au client, est actif/non expiré, a une séance et est de
+// la même discipline que le cours.
+function cbFindCarnet(code) {
+  return getCarnets().find(c => c.code === code) || null;
+}
+
+function cbSelectedSlot() {
+  const id = parseInt(document.getElementById('cb-slot').value);
+  return getSlots().find(s => s.id === id) || null;
+}
+
+function openCarnetBookingModal(code) {
+  const c = cbFindCarnet(code);
+  if (!c) return;
+  document.getElementById('cb-carnet-code').value = code;
+
+  document.getElementById('cb-info').innerHTML =
+    `<strong>${escapeHtml(getClientName(c))}</strong> — ${escapeHtml(c.clientEmail || '')}<br>`
+    + `Carnet <span style="font-family:monospace">${escapeHtml(c.code)}</span> · `
+    + `${c.remainingSessions}/${c.totalSessions} séance(s) restante(s)`
+    + (c.tarifName ? ` · ${escapeHtml(c.tarifName)}` : '');
+
+  // Ne proposer que les cours de la discipline du carnet (la RPC ne décompte
+  // que si le type du cours correspond à celui du carnet).
+  const slots = [...getSlots()]
+    .filter(s => !c.type || s.type === c.type)
+    .sort((a, b) => a.day - b.day || a.start.localeCompare(b.start));
+  const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
+  const sel = document.getElementById('cb-slot');
+  sel.innerHTML = slots.map(s =>
+    `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
+  ).join('');
+
+  const empty = !slots.length;
+  document.getElementById('cb-slot-empty').style.display = empty ? 'block' : 'none';
+  sel.style.display = empty ? 'none' : '';
+
+  cbOnSlotChange();
+  document.getElementById('carnet-booking-modal-overlay').classList.add('open');
+}
+
+function closeCarnetBookingModal() {
+  document.getElementById('carnet-booking-modal-overlay').classList.remove('open');
+}
+
+function cbOnSlotChange() {
+  const slot = cbSelectedSlot();
+  if (slot) document.getElementById('cb-date').value = formatDateISO(getNextOccurrence(slot.day));
+}
+
+async function saveCarnetBooking() {
+  const c = cbFindCarnet(document.getElementById('cb-carnet-code').value);
+  const slot = cbSelectedSlot();
+  const courseDate = document.getElementById('cb-date').value;
+  if (!c || !c.id)  { showAlert('carnets-alert', 'Carnet introuvable ou non synchronisé.', 'error'); return; }
+  if (!slot)        { showAlert('carnets-alert', 'Veuillez choisir un cours.', 'error'); return; }
+  if (!courseDate)  { showAlert('carnets-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
+
+  try {
+    await apbApiFetch('/api/admin-book.php', {
+      method: 'POST',
+      body: JSON.stringify({ clientEmail: c.clientEmail, slotId: slot.id, courseDate, carnetId: c.id }),
+    });
+    await syncAdminDataFromApi();
+    closeCarnetBookingModal();
+    renderCarnetsAdmin();
+    if (typeof renderBookingList === 'function') renderBookingList();
+    showAlert('carnets-alert', '✓ Séance placée. Le carnet a été décompté.');
+  } catch (e) {
+    showAlert('carnets-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
+  }
 }
 
 function updateCarnetFormFromTarif() {
