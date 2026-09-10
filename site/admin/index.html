@@ -428,6 +428,16 @@
                 <option value="">— Choisir une formule carnet —</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Discipline</label>
+              <select id="carnet-type">
+                <option value="collectif">Semi-collectif</option>
+                <option value="prive">Cours privé</option>
+                <option value="duo">Duo</option>
+                <option value="munz">Munz Floor</option>
+              </select>
+              <small>Détermine les cours plaçables avec ce carnet. Renseignée automatiquement depuis la formule.</small>
+            </div>
             <div class="form-row">
               <div class="form-group"><label>Nom du client</label><input type="text" id="carnet-client-name" placeholder="Marie Dupont"></div>
               <div class="form-group"><label>Email client</label><input type="email" id="carnet-client-email" placeholder="marie@exemple.com"></div>
@@ -455,6 +465,11 @@
           <div class="card-header">
             <h3>Carnets actifs</h3>
             <span class="badge" id="carnets-count"></span>
+          </div>
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+            <input type="text" id="carnet-search" placeholder="Rechercher (code, nom, email, formule…)"
+                   oninput="renderCarnetsAdmin()"
+                   style="width:100%;padding:8px 12px;border:1px solid var(--border);font-family:inherit;font-size:13px;outline:none;background:#faf9f6">
           </div>
           <div class="card-body p0 table-responsive">
             <table class="table">

@@ -1114,7 +1114,7 @@ function renderCarnetsAdmin() {
   if (tarifSel) {
     const carnetTarifs = getTarifs().filter(t => t.isCarnet);
     tarifSel.innerHTML = '<option value="">— Choisir une formule carnet —</option>' +
-      carnetTarifs.map(t => `<option value="${t.id}" data-sessions="${t.sessionCount}" data-months="${t.validityMonths}" data-name="${t.name}">${t.label} — ${t.name} (${t.sessionCount} séances — ${t.price}€)</option>`).join('');
+      carnetTarifs.map(t => `<option value="${t.id}" data-sessions="${t.sessionCount}" data-months="${t.validityMonths}" data-name="${t.name}" data-type="${t.type}">${t.label} — ${t.name} (${t.sessionCount} séances — ${t.price}€)</option>`).join('');
   }
 
   // Sort: active first, then by creation desc
@@ -1145,13 +1145,16 @@ function renderCarnetsAdmin() {
       </td>
     </tr>`;
   };
-  const activeC   = sorted.filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= now));
-  const inactiveC = sorted.filter(c => !c.active || c.remainingSessions <= 0 || (c.expiresAt && new Date(c.expiresAt) < now));
+  const q = (document.getElementById('carnet-search')?.value || '').trim().toLowerCase();
+  const match = c => !q || `${c.code} ${getClientName(c)} ${c.clientEmail || ''} ${c.tarifName || ''}`.toLowerCase().includes(q);
+  const filtered  = sorted.filter(match);
+  const activeC   = filtered.filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= now));
+  const inactiveC = filtered.filter(c => !c.active || c.remainingSessions <= 0 || (c.expiresAt && new Date(c.expiresAt) < now));
   const sepRow = label => `<tr><td colspan="6" style="background:var(--dark);color:rgba(255,255,255,.5);font-size:9px;letter-spacing:.2em;text-transform:uppercase;padding:5px 14px">${label}</td></tr>`;
   let rows = '';
   if (activeC.length)   rows += sepRow(`Actifs — ${activeC.length}`) + activeC.map(carnetRow).join('');
   if (inactiveC.length) rows += sepRow(`Épuisés / Expirés — ${inactiveC.length}`) + inactiveC.map(carnetRow).join('');
-  document.getElementById('carnets-tbody').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;font-style:italic">Aucun carnet créé.</td></tr>';
+  document.getElementById('carnets-tbody').innerHTML = rows || `<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;font-style:italic">${q ? 'Aucun carnet pour cette recherche.' : 'Aucun carnet créé.'}</td></tr>`;
 }
 
 // ===== PLACER UNE SÉANCE DE CARNET (réservation manuelle décomptée) =====
@@ -1255,6 +1258,7 @@ function updateCarnetFormFromTarif() {
   if (!opt.value) return;
   const sessions = parseInt(opt.dataset.sessions) || 0;
   const months   = parseInt(opt.dataset.months)   || 0;
+  if (opt.dataset.type) document.getElementById('carnet-type').value = opt.dataset.type;
   document.getElementById('carnet-sessions').value   = sessions;
   document.getElementById('carnet-remaining').value  = sessions;
   if (months) {
@@ -1288,6 +1292,7 @@ async function saveCarnet() {
         await apbApiFetch('/api/admin-carnets.php', { method: 'POST', body: JSON.stringify({
           action: 'update', carnetId: existing.id, sessionCount: total, remainingSessions: remain,
           expiresAt: expires || undefined, active: remain > 0, email, firstName, lastName,
+          type: document.getElementById('carnet-type').value,
         }) });
         await syncAdminDataFromApi();
         showAlert('carnets-alert', `✓ Carnet ${editCode} mis à jour.`);
@@ -1320,7 +1325,7 @@ async function saveCarnet() {
       action: 'create', email, firstName, lastName,
       tarifId: tarifOpt.value ? parseInt(tarifOpt.value) : null,
       tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
-      type: tarif ? tarif.type : 'collectif',
+      type: document.getElementById('carnet-type').value || (tarif ? tarif.type : 'collectif'),
       sessionCount: total, remainingSessions: remain, validityMonths: parseInt(tarifOpt.dataset.months) || 6,
       totalPaidCents: 0,
     }) });
@@ -1365,6 +1370,7 @@ function editCarnet(code) {
   document.getElementById('carnet-remaining').value    = c.remainingSessions;
   document.getElementById('carnet-expires').value      = c.expiresAt || '';
   document.getElementById('carnet-tarif-id').value     = c.tarifId || '';
+  document.getElementById('carnet-type').value         = cbCarnetDiscipline(c) || c.type || 'collectif';
   document.getElementById('carnet-form-title').textContent = `Modifier — ${c.code}`;
   document.getElementById('carnet-save-btn').textContent   = 'Enregistrer les modifications';
   document.getElementById('generated-code-block').style.display = 'none';
@@ -1402,6 +1408,7 @@ function resetCarnetForm() {
   document.getElementById('carnet-remaining').value    = '';
   document.getElementById('carnet-expires').value      = '';
   document.getElementById('carnet-tarif-id').value     = '';
+  document.getElementById('carnet-type').value         = 'collectif';
   document.getElementById('carnet-form-title').textContent = 'Créer un carnet';
   document.getElementById('carnet-save-btn').textContent   = 'Générer le carnet';
   document.getElementById('generated-code-block').style.display = 'none';

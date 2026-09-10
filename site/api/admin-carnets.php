@@ -81,6 +81,12 @@ if ($action === 'update') {
     if (isset($body['remainingSessions'])) $patch['remaining_sessions'] = (int) $body['remainingSessions'];
     if (isset($body['expiresAt']) && $body['expiresAt'] !== '') $patch['expires_at'] = (string) $body['expiresAt'];
     if (isset($body['active'])) $patch['active'] = (bool) $body['active'];
+    // Discipline: lets the admin fix a carnet stored with the wrong type
+    // (e.g. a manual carnet that defaulted to 'collectif'). Guarded to the
+    // allowed values so a typo can't slip past the DB check constraint.
+    if (isset($body['type']) && in_array($body['type'], ['collectif', 'prive', 'duo', 'munz'], true)) {
+        $patch['type'] = (string) $body['type'];
+    }
 
     // Editing the client's email re-points the carnet at a (possibly new) client row.
     if (!empty($body['email'])) {
