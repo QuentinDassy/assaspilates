@@ -1544,7 +1544,6 @@ function renderPlanningAdmin() {
       <button class="btn btn-outline btn-sm" onclick="calWeekOffset--; renderPlanningAdmin()">← Préc.</button>
       <span class="cal-nav-title">${weekLabel}</span>
       <button class="btn btn-outline btn-sm" onclick="calWeekOffset++; renderPlanningAdmin()">Suiv. →</button>
-      <button class="btn btn-primary btn-sm" onclick="openAddCourseModal()">＋ Ajouter un cours</button>
     </div>
     <div class="cal-wrap">
       <div class="cal-header" style="display:grid;grid-template-columns:${colTemplate}">
@@ -1554,97 +1553,6 @@ function renderPlanningAdmin() {
         <div class="cal-time-col">${timeAxis}</div>${dayCols}
       </div>
     </div>`;
-}
-
-// ===== AJOUT D'UN COURS DEPUIS LE PLANNING =====
-// Réutilise le même chemin serveur que saveSlot() (/api/admin-slots.php) :
-// le prix du créneau est calculé côté serveur d'après le type du cours.
-function openAddCourseModal(day) {
-  // Jour
-  const daySel = document.getElementById('pc-day');
-  daySel.innerHTML = DAYS.map((d, i) => `<option value="${i}">${d}</option>`).join('');
-  daySel.value = (typeof day === 'number') ? day : 0;
-
-  // Professeur·e (liste issue de l'équipe)
-  const team = [...getTeam()].sort((a, b) => (a.order || 0) - (b.order || 0));
-  document.getElementById('pc-teacher').innerHTML =
-    team.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-
-  // Sélecteur de cours (mêmes intitulés + prix unitaire que « Emploi du temps »)
-  const seen = new Map();
-  getSlots().forEach(s => {
-    const key = `${s.title}|${s.type}`;
-    if (!seen.has(key)) seen.set(key, s);
-  });
-  const tarifs = getTarifs();
-  const unitPrice = type => {
-    const t = tarifs.find(x => x.type === type && !x.isCarnet);
-    return t ? `${t.price}€` : '—';
-  };
-  const sel = document.getElementById('pc-template');
-  sel.innerHTML = [...seen.values()]
-    .sort((a, b) => a.title.localeCompare(b.title))
-    .map(s => `<option value="${escapeHtml(s.title)}|${escapeHtml(s.type)}">${escapeHtml(s.title)} — ${unitPrice(s.type)}</option>`)
-    .join('') + `<option value="__new__">— Autre cours (saisir l'intitulé) —</option>`;
-
-  // Horaires par défaut
-  document.getElementById('pc-start').value    = '09:00';
-  document.getElementById('pc-end').value      = '09:55';
-  document.getElementById('pc-location').value = 'assas';
-  if (sel.options.length) applyPcTemplate(sel.options[0].value);
-
-  document.getElementById('course-modal-overlay').classList.add('open');
-}
-
-function closeAddCourseModal() {
-  document.getElementById('course-modal-overlay').classList.remove('open');
-}
-
-function applyPcTemplate(value) {
-  const titleEl   = document.getElementById('pc-title');
-  const titleWrap = document.getElementById('pc-title-group');
-  if (value === '__new__') {
-    titleWrap.style.display = 'block';
-    titleEl.value = '';
-    titleEl.focus();
-    return;
-  }
-  titleWrap.style.display = 'none';
-  const sep = value.lastIndexOf('|');
-  titleEl.value = value.slice(0, sep);
-  document.getElementById('pc-type').value = value.slice(sep + 1);
-}
-
-async function savePlanningCourse() {
-  const teacherId   = parseInt(document.getElementById('pc-teacher').value) || null;
-  const teacherName = (getTeam().find(t => t.id === teacherId) || {}).name || '';
-  const start = document.getElementById('pc-start').value;
-  const end   = document.getElementById('pc-end').value;
-  const payload = {
-    action:   'create',
-    day:      parseInt(document.getElementById('pc-day').value),
-    start, end,
-    title:    document.getElementById('pc-title').value.trim(),
-    type:     document.getElementById('pc-type').value,
-    location: document.getElementById('pc-location').value,
-    teacherId, teacherName,
-  };
-  if (!payload.title) { showAlert('planning-alert', 'Veuillez renseigner l\'intitulé du cours.', 'error'); return; }
-  if (!teacherId)     { showAlert('planning-alert', 'Veuillez sélectionner un·e professeur·e.', 'error'); return; }
-  if (!start || !end) { showAlert('planning-alert', 'Veuillez renseigner les horaires.', 'error'); return; }
-  if (end <= start)   { showAlert('planning-alert', 'L\'heure de fin doit être après l\'heure de début.', 'error'); return; }
-
-  try {
-    await apbApiFetch('/api/admin-slots.php', { method: 'POST', body: JSON.stringify(payload) });
-    await syncContentFromSupabase();
-    closeAddCourseModal();
-    renderPlanningAdmin();
-    renderSlotsTable();
-    renderMiniSchedule('dash-schedule');
-    showAlert('planning-alert', '✓ Cours ajouté au planning. Visible instantanément sur le site.');
-  } catch (e) {
-    showAlert('planning-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
-  }
 }
 
 // ===== CLIENTS =====
