@@ -776,6 +776,8 @@ function renderBookingList() {
       <td>
         ${b.paymentType === 'carnet'
           ? `<span style="font-size:11px;color:#2E6B30">Carnet</span>`
+          : b.paymentType === 'onsite'
+          ? `<span style="font-size:11px;color:#8a5a00">Sur place</span><div style="font-size:10px;color:#888">${b.totalPaid || 0}€</div>`
           : `<span style="font-size:11px">Carte</span><div style="font-size:10px;color:#888">${b.totalPaid || 0}€</div>`}
       </td>
       <td><span style="font-size:11px;font-weight:500;color:${statusColor}">${statusLabel}</span></td>
@@ -793,6 +795,84 @@ function renderBookingList() {
   if (upcoming.length) bRows += bSep(`À venir — ${upcoming.length}`) + upcoming.map(bookRow).join('');
   if (past.length)     bRows += bSep(`Passés / Annulés — ${past.length}`) + past.map(bookRow).join('');
   document.getElementById('bookings-tbody').innerHTML = bRows;
+}
+
+// ===== NOUVELLE RÉSERVATION (inscrire un élève à un cours) =====
+// Passe par /api/admin-book.php -> api_book_slot (même transaction que le
+// parcours client : capacité, absence prof, fermeture 1h avant). L'élève doit
+// avoir un compte existant ; le paiement est enregistré comme « sur place ».
+function nbKnownClients() {
+  const map = new Map();
+  [...getBookings(), ...getCarnets()].forEach(o => {
+    const email = (o.clientEmail || '').trim();
+    if (!email) return;
+    const key = email.toLowerCase();
+    if (!map.has(key)) map.set(key, { email, name: getClientName(o) });
+  });
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function nbUnitPrice(type) {
+  const t = getTarifs().find(x => x.type === type && !x.isCarnet);
+  return t ? `${t.price}€` : '—';
+}
+
+function nbSelectedSlot() {
+  const id = parseInt(document.getElementById('nb-slot').value);
+  return getSlots().find(s => s.id === id) || null;
+}
+
+function openNewBookingModal() {
+  document.getElementById('nb-client-list').innerHTML =
+    nbKnownClients().map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.name)}</option>`).join('');
+  document.getElementById('nb-client').value = '';
+
+  const slots = [...getSlots()].sort((a, b) => a.day - b.day || a.start.localeCompare(b.start));
+  const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
+  document.getElementById('nb-slot').innerHTML = slots.map(s =>
+    `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
+  ).join('');
+
+  nbOnSlotChange();
+  document.getElementById('booking-modal-overlay').classList.add('open');
+}
+
+function closeNewBookingModal() {
+  document.getElementById('booking-modal-overlay').classList.remove('open');
+}
+
+// Sélection d'un cours : suggère la prochaine occurrence de son jour + récap.
+function nbOnSlotChange() {
+  const slot = nbSelectedSlot();
+  if (slot) document.getElementById('nb-date').value = formatDateISO(getNextOccurrence(slot.day));
+  document.getElementById('nb-summary').innerHTML = slot
+    ? `Paiement : <strong>payé sur place</strong> · Tarif indicatif : <strong>${nbUnitPrice(slot.type)}</strong>`
+    : '';
+}
+
+async function saveNewBooking() {
+  const clientEmail = document.getElementById('nb-client').value.trim();
+  const slot        = nbSelectedSlot();
+  const courseDate  = document.getElementById('nb-date').value;
+  if (!clientEmail) { showAlert('bookings-alert', 'Veuillez indiquer l\'élève.', 'error'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clientEmail)) {
+    showAlert('bookings-alert', 'Sélectionnez l\'élève par son email (un compte existant est requis).', 'error'); return;
+  }
+  if (!slot)       { showAlert('bookings-alert', 'Veuillez choisir un cours.', 'error'); return; }
+  if (!courseDate) { showAlert('bookings-alert', 'Veuillez choisir la date du cours.', 'error'); return; }
+
+  try {
+    await apbApiFetch('/api/admin-book.php', {
+      method: 'POST',
+      body: JSON.stringify({ clientEmail, slotId: slot.id, courseDate }),
+    });
+    await syncAdminDataFromApi();
+    closeNewBookingModal();
+    renderBookingList();
+    showAlert('bookings-alert', '✓ Élève inscrit au cours (payé sur place).');
+  } catch (e) {
+    showAlert('bookings-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
+  }
 }
 
 async function adminCancelBooking(id) {
