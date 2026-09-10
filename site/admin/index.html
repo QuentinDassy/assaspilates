@@ -492,10 +492,65 @@
         <h2>Planning cours</h2>
         <p>Vue semaine — cours et élèves inscrits</p>
       </div>
+      <div id="planning-alert"></div>
       <div id="planning-content"></div>
     </div>
 
   </main>
+</div>
+
+<!-- MODALE : Ajouter un cours au planning -->
+<div class="modal-overlay" id="course-modal-overlay" onclick="if(event.target===this)closeAddCourseModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Ajouter un cours</h3>
+      <button class="modal-close" onclick="closeAddCourseModal()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Jour de la semaine</label>
+        <select id="pc-day"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Début</label><input type="time" id="pc-start" value="09:00"></div>
+        <div class="form-group"><label>Fin</label><input type="time" id="pc-end" value="09:55"></div>
+      </div>
+      <div class="form-group">
+        <label>Cours</label>
+        <select id="pc-template" onchange="applyPcTemplate(this.value)"></select>
+      </div>
+      <div class="form-group" id="pc-title-group" style="display:none">
+        <label>Intitulé du nouveau cours</label>
+        <input type="text" id="pc-title" placeholder="Ex: Cours Semi Collectif Mat – DÉBUTANT">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type</label>
+          <select id="pc-type">
+            <option value="collectif">Semi-collectif</option>
+            <option value="prive">Cours privé</option>
+            <option value="duo">Duo</option>
+            <option value="munz">Munz Floor</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Lieu</label>
+          <select id="pc-location">
+            <option value="assas">Studio Assas (Duguay-Trouin)</option>
+            <option value="lieu2">LIEU2 (Munz Floor)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Professeur·e</label>
+        <select id="pc-teacher"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAddCourseModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="savePlanningCourse()">Enregistrer le cours</button>
+    </div>
+  </div>
 </div>
 
 <!-- Mobile overlay -->
