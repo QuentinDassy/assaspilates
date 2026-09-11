@@ -31,7 +31,7 @@ a:hover{opacity:.75}
 .nav-link-primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ===== LOGIN ===== */
-#login-screen{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 80px)}
+#login-screen,#reset-screen{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 80px)}
 .login-visual{background:linear-gradient(145deg,#1e1e1a 0%,#2a2a24 50%,#1a1a18 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px;position:relative}
 .login-visual::before{content:'';position:absolute;inset:28px;border:1px solid rgba(151,164,144,.15)}
 .login-visual-title{font-family:var(--font-serif);font-size:clamp(36px,4vw,64px);font-weight:300;color:#fff;line-height:1.08;text-align:center;position:relative;z-index:1;letter-spacing:.02em}
@@ -66,6 +66,7 @@ a:hover{opacity:.75}
 .alert-error{background:#fdf5f5;border-color:#f0cccc;color:var(--error)}
 .alert-warn{background:#FFF9E6;border-color:#F0D88C;color:#856404}
 .alert-info{background:#FFF8F0;border-color:#E8D8C0;color:var(--warm)}
+.alert-success{background:#F2F8F2;border-color:#CCE0CC;color:var(--green)}
 
 /* ===== DASHBOARD ===== */
 .dashboard-wrap{max-width:1140px;margin:0 auto;padding:52px 24px 96px;display:grid;grid-template-columns:340px 1fr;gap:40px;align-items:start}
@@ -186,7 +187,7 @@ a:hover{opacity:.75}
   .dashboard-wrap{grid-template-columns:1fr;gap:24px}
 }
 @media(max-width:768px){
-  #login-screen{grid-template-columns:1fr}
+  #login-screen,#reset-screen{grid-template-columns:1fr}
   .login-visual{display:none}
   .login-form-side{padding:40px 24px}
   .nav{flex-wrap:nowrap;padding:0 4%}
@@ -279,6 +280,50 @@ a:hover{opacity:.75}
       <p style="margin-top:20px;text-align:center;font-size:12px;color:#bbb;line-height:2">
         Pas encore client ? <a href="buy-carnet.html" style="opacity:1">Acheter un carnet</a> · <a href="index.html" style="opacity:1">Réserver un cours</a>
       </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== NOUVEAU MOT DE PASSE (retour du lien de réinitialisation) ===== -->
+<div id="reset-screen" style="display:none">
+  <div class="login-visual">
+    <div class="login-visual-ornament"></div>
+    <div class="login-visual-title">Assas<em>Pilates</em>Ballet</div>
+    <div class="login-visual-ornament"></div>
+    <div class="login-visual-sub">Paris 6e — Studio de pilates</div>
+  </div>
+  <div class="login-form-side">
+    <div class="login-inner">
+      <div class="page-eyebrow">Espace client</div>
+      <div class="page-title">Nouveau mot de passe</div>
+      <p class="page-sub">Choisissez le mot de passe qui vous servira à accéder à votre espace.</p>
+
+      <div class="login-card">
+        <h2>Réinitialiser mon mot de passe</h2>
+        <p>Ce lien n'est valable qu'une seule fois — définissez votre nouveau mot de passe maintenant.</p>
+        <div id="reset-alert"></div>
+        <div class="form-group">
+          <label>Nouveau mot de passe *</label>
+          <div class="pw-wrap">
+            <input type="password" id="r-password" placeholder="••••••••" autocomplete="new-password"
+                   onkeydown="if(event.key==='Enter')submitNewPassword()">
+            <button type="button" class="pw-toggle" onclick="togglePw('r-password',this)" tabindex="-1">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Confirmer le mot de passe *</label>
+          <div class="pw-wrap">
+            <input type="password" id="r-password2" placeholder="••••••••" autocomplete="new-password"
+                   onkeydown="if(event.key==='Enter')submitNewPassword()">
+            <button type="button" class="pw-toggle" onclick="togglePw('r-password2',this)" tabindex="-1">👁</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="reset-submit-btn" onclick="submitNewPassword()">Enregistrer le mot de passe</button>
+        <p style="margin-top:12px;text-align:center;font-size:12px">
+          <a href="#" onclick="showScreen('login-screen');return false;" style="color:var(--warm);opacity:1">Retour à la connexion</a>
+        </p>
+      </div>
     </div>
   </div>
 </div>
@@ -485,10 +530,13 @@ async function logout() {
 
 // ===== SCREENS =====
 function showScreen(id) {
-  ['login-screen','dashboard','cancel-screen','cancelled-screen'].forEach(s => {
+  ['login-screen','reset-screen','dashboard','cancel-screen','cancelled-screen'].forEach(s => {
     document.getElementById(s).style.display = 'none';
   });
-  document.getElementById(id).style.display = 'block';
+  // '' restores whatever the stylesheet says rather than forcing 'block',
+  // which would flatten the two-column grids (#login-screen, #reset-screen)
+  // into a single stacked column.
+  document.getElementById(id).style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -849,7 +897,10 @@ async function forgotPassword() {
     return;
   }
   try {
-    await fetch(`${AUTH_URL}/recover`, {
+    // redirect_to is a query param on GoTrue's REST API, not a body field.
+    // Without it the email's link falls back to the project's Site URL (the
+    // homepage), which has no reset form on it.
+    await fetch(`${AUTH_URL}/recover?redirect_to=${encodeURIComponent(passwordResetRedirectUrl())}`, {
       method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -860,6 +911,129 @@ async function forgotPassword() {
   alertEl.innerHTML = '<div class="alert alert-info">Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.</div>';
 }
 
+
+// ===== RÉINITIALISATION DU MOT DE PASSE (retour du lien email) =====
+// The "mot de passe oublié" email sends people to Supabase's /auth/v1/verify,
+// which bounces them back here with a short-lived recovery session in the URL
+// *fragment* (#access_token=...&type=recovery). Nothing on the site used to
+// read that fragment, so the link was a dead end -- the account could never
+// actually be given a new password.
+//
+// The tokens stay in memory only until the new password is saved, and are
+// stripped from the address bar on arrival: a recovery URL left there could
+// be screenshotted or pasted into a chat and would hand over the account.
+let pendingRecovery = null;
+
+/** Where the recovery email should send people back to -- this very page. */
+function passwordResetRedirectUrl() {
+  return location.origin + location.pathname;
+}
+
+function readHashParams() {
+  return new URLSearchParams(location.hash.replace(/^#/, ''));
+}
+
+function stripUrlHash() {
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+/**
+ * Handles a page load that came from a recovery link. Returns true when it
+ * did (and the caller should stop there -- no session restore, the recovery
+ * session isn't a login).
+ */
+function handleRecoveryLanding() {
+  const params  = readHashParams();
+  const failure = params.get('error_description') || params.get('error');
+
+  // An expired or already-used link isn't a failed request -- Supabase
+  // reports it in the fragment of a perfectly successful page load.
+  if (failure) {
+    stripUrlHash();
+    document.getElementById('login-alert').innerHTML =
+      '<div class="alert alert-error">Ce lien de réinitialisation n\'est plus valable : il expire au bout d\'une heure et ne peut servir qu\'une fois. Entrez votre email ci-dessous puis cliquez à nouveau sur « Mot de passe oublié ».</div>';
+    return true;
+  }
+
+  const accessToken = params.get('access_token');
+  if (params.get('type') !== 'recovery' || !accessToken) return false;
+
+  pendingRecovery = {
+    access_token:  accessToken,
+    refresh_token: params.get('refresh_token') || '',
+    expires_in:    Number(params.get('expires_in')) || 3600,
+  };
+  stripUrlHash();
+  showScreen('reset-screen');
+  document.getElementById('r-password').focus();
+  return true;
+}
+
+async function submitNewPassword() {
+  const password  = document.getElementById('r-password').value;
+  const password2 = document.getElementById('r-password2').value;
+  const alertEl   = document.getElementById('reset-alert');
+  alertEl.innerHTML = '';
+
+  if (!pendingRecovery) {
+    alertEl.innerHTML = '<div class="alert alert-error">Ce lien de réinitialisation a déjà été utilisé. Redemandez-en un depuis « Mot de passe oublié ».</div>';
+    return;
+  }
+  // Same floor as signup() -- Supabase would reject anything shorter anyway.
+  if (password.length < 6) {
+    alertEl.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>';
+    return;
+  }
+  if (password !== password2) {
+    alertEl.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>';
+    return;
+  }
+
+  const btn = document.getElementById('reset-submit-btn');
+  btn.disabled = true;
+  let user;
+  try {
+    const res = await fetch(`${AUTH_URL}/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${pendingRecovery.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw authError(data, 'Impossible de mettre à jour le mot de passe.');
+    user = data;
+  } catch (e) {
+    btn.disabled = false;
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  // The recovery session is a real session -- keep it rather than making
+  // someone type the password they just chose.
+  storeAuthSession({
+    access_token:  pendingRecovery.access_token,
+    refresh_token: pendingRecovery.refresh_token,
+    expires_in:    pendingRecovery.expires_in,
+    user,
+  });
+  pendingRecovery = null;
+  document.getElementById('r-password').value = '';
+  document.getElementById('r-password2').value = '';
+  btn.disabled = false;
+
+  const loginAlert = document.getElementById('login-alert');
+  loginAlert.innerHTML = '<div class="alert alert-success">Mot de passe mis à jour.</div>';
+  document.getElementById('l-email').value = (user && user.email) || '';
+  // finishLoginAndShowDashboard() signs the account back out and reports into
+  // the alert element when it finds neither booking nor carnet -- land on the
+  // login screen first so that message has somewhere to show, and let it
+  // switch to the dashboard itself when there is something to display.
+  showScreen('login-screen');
+  await finishLoginAndShowDashboard({ user }, loginAlert);
+}
 // ===== CARNET HELPERS =====
 function resolveCarnetType(c) {
   if (c.type) return c.type;
@@ -910,6 +1084,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ?signup=1 -- sent here from a guest booking's confirmation screen, which
   // has no account yet (site/booking/index.html showSuccess()).
   if (params.get('signup') === '1') toggleSignupMode(true);
+
+  // A recovery link carries its own (recovery-only) session in the URL
+  // fragment -- deal with that before restoring any stored session.
+  if (handleRecoveryLanding()) return;
 
   const session = await refreshAuthSessionIfNeeded();
   if (session && session.user) {
