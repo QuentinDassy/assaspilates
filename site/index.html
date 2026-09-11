@@ -51,6 +51,19 @@
 </script>
 </head>
 <body>
+<!-- Supabase only sends a password-reset link back to a URL on the project's
+     allow-list; anything else falls back to the Site URL, i.e. this page. The
+     recovery tokens ride in the fragment, which no server ever sees, so hand
+     them -- fragment intact -- to the one page that knows what to do with
+     them rather than dropping someone on the homepage with a dead link. -->
+<script>
+(function () {
+  var hash = location.hash || '';
+  if (/(^|[#&])type=recovery/.test(hash) || /error_code=/.test(hash)) {
+    location.replace('/booking/manage.html' + hash);
+  }
+})();
+</script>
 
 <nav class="site-nav">
   <a class="nav-logo" href="#" onclick="return showPage('home')">
