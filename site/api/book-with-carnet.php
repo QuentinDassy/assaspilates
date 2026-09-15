@@ -12,6 +12,7 @@
  */
 
 require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/mailer.php';
 
 apbRequireMethod('POST');
 $client = apbRequireClient();
@@ -62,4 +63,5 @@ try {
     apbJsonError(422, $code, $errorMessages[$code] ?? 'Impossible de réserver ce cours pour le moment.');
 }
 
+apbNotifyTeacherBooking($booking);
 apbJsonSuccess($booking);

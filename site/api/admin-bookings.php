@@ -9,6 +9,7 @@
  */
 
 require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/mailer.php';
 
 apbRequireAdmin();
 
@@ -33,6 +34,9 @@ if ($action === 'cancel') {
         'BOOKING_NOT_FOUND' => 'Réservation introuvable.',
         'ALREADY_CANCELLED' => 'Cette réservation est déjà annulée.',
     ];
+    // Read before cancelling: the teacher mail needs the payment_status the
+    // booking had, and the RPC's own return is the already-cancelled row.
+    $before = apbSupabaseSelect('bookings', '?id=eq.' . urlencode($bookingId) . '&select=*');
     try {
         $booking = apbSupabaseRpc('api_cancel_booking', [
             'p_booking_id' => $bookingId,
@@ -42,6 +46,9 @@ if ($action === 'cancel') {
     } catch (RuntimeException $e) {
         $code = $e->getMessage();
         apbJsonError(422, $code, $errorMessages[$code] ?? "Impossible d'annuler cette réservation.");
+    }
+    if (!empty($before)) {
+        apbNotifyTeacherCancellation($before[0]);
     }
     apbJsonSuccess($booking);
 }

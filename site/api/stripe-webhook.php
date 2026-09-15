@@ -27,6 +27,7 @@
 
 require_once __DIR__ . '/_lib/auth.php';
 require_once __DIR__ . '/_lib/stripe_client.php';
+require_once __DIR__ . '/_lib/mailer.php';
 
 $cfg = apbConfig();
 $payload = file_get_contents('php://input');
@@ -58,7 +59,12 @@ function apbHandlePaymentSucceeded(array $pi): void
     if ($kind === 'booking') {
         $ids = array_filter(explode(',', $pi['metadata']['booking_ids'] ?? ''));
         foreach ($ids as $id) {
-            apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id), ['payment_status' => 'paid']);
+            // Stripe retries deliveries: only a booking this delivery actually
+            // flips to paid gets announced, so a retry never mails the teacher twice.
+            $flipped = apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id) . '&payment_status=neq.paid', ['payment_status' => 'paid']);
+            if (!empty($flipped)) {
+                apbNotifyTeacherBookingById($id);
+            }
         }
     } elseif ($kind === 'carnet') {
         foreach (apbCarnetIdsFromMetadata($pi) as $carnetId) {

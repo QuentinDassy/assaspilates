@@ -21,6 +21,7 @@
 
 require_once __DIR__ . '/_lib/auth.php';
 require_once __DIR__ . '/_lib/stripe_client.php';
+require_once __DIR__ . '/_lib/mailer.php';
 
 apbRequireMethod('POST');
 $client = apbRequireClient();
@@ -62,6 +63,8 @@ try {
     $code = $e->getMessage();
     apbJsonError(422, $code, $errorMessages[$code] ?? 'Impossible d\'annuler cette réservation pour le moment.');
 }
+
+apbNotifyTeacherCancellation($booking);
 
 $refunded = false;
 if ($booking['payment_type'] === 'stripe' && $booking['payment_status'] === 'paid' && $booking['payment_intent_id']) {
