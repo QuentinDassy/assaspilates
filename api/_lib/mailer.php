@@ -152,10 +152,29 @@ function apbAttendeeList(array $attendees): string
     return '<p style="margin:0 0 4px">Inscrits (' . $total . ') :</p><ul style="margin:0;padding-left:20px">' . $items . '</ul>';
 }
 
+/**
+ * True once the course has started. Guards the booking mail: since
+ * supabase/migrations/0011_retroactive_booking.sql an admin can record a
+ * session that already happened, and announcing "Nouvelle réservation" for
+ * last Tuesday's course would only confuse the teacher.
+ */
+function apbCourseAlreadyStarted(array $booking): bool
+{
+    try {
+        $start = new DateTime($booking['course_date'] . ' ' . $booking['slot_start_snapshot'], new DateTimeZone('Europe/Paris'));
+        return $start <= new DateTime('now', new DateTimeZone('Europe/Paris'));
+    } catch (Throwable $e) {
+        return false; // Unparseable date: mail rather than stay silent.
+    }
+}
+
 /** Mail the teacher that a student booked. $booking is a full bookings row. */
 function apbNotifyTeacherBooking(array $booking): void
 {
     try {
+        if (apbCourseAlreadyStarted($booking)) {
+            return;
+        }
         $teacher = apbTeacherForBooking($booking);
         if (!$teacher) {
             return;
@@ -178,6 +197,11 @@ function apbNotifyTeacherCancellation(array $booking): void
     try {
         // A hold that was never paid was never announced to the teacher either.
         if (($booking['payment_status'] ?? '') !== 'paid') {
+            return;
+        }
+        // Same reasoning as the booking mail: tidying up a past course in the
+        // admin isn't news the teacher needs.
+        if (apbCourseAlreadyStarted($booking)) {
             return;
         }
         $teacher = apbTeacherForBooking($booking);

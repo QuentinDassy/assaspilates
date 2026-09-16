@@ -250,3 +250,17 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--dark);
   .table th:nth-child(5), .table td:nth-child(5),
   .table th:nth-child(6), .table td:nth-child(6) { display: none; }
 }
+
+/* Rappel « séance passée » dans les modales d'inscription (admin.js,
+   apbUpdateRetroNote). Pas de règle `display` en dehors de [hidden] :
+   l'attribut HTML hidden doit continuer à masquer la note. */
+.retro-note {
+  margin-top: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8a5d00;
+  background: #fdf6e3;
+  border: 1px solid #efd9a3;
+}
+.retro-note[hidden] { display: none; }
