@@ -195,10 +195,9 @@ function apbMapApiCarnet(c, email) {
   };
 }
 
-// Returns true if the API was reachable (OVH deploy) and the sync ran;
-// false means the caller is on a deploy without the PHP API (e.g. Netlify)
-// or the request failed -- callers should keep working off whatever local
-// data already exists rather than treating this as fatal.
+// Returns true if the sync ran; false means the request failed -- callers
+// keep working off whatever local data already exists rather than treating
+// this as fatal.
 async function syncMyBookingsFromApi(email) {
   try {
     const data = await apbApiFetch('/api/my-bookings.php');
@@ -222,7 +221,7 @@ async function syncMyBookingsFromApi(email) {
     }
     return true;
   } catch (e) {
-    console.warn('syncMyBookingsFromApi failed (PHP API not reachable on this deploy?):', e);
+    console.warn('syncMyBookingsFromApi failed:', e);
     return false;
   }
 }
@@ -269,21 +268,6 @@ function getNextAvailableOccurrence(slot) {
 // site/js/auth.js (Supabase Auth: supabaseSignIn/supabaseSignUp/supabaseSignOut).
 
 // ===== UTILITIES =====
-function generateCarnetCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let part = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  let code;
-  const existing = getCarnets().map(c => c.code);
-  do { code = 'APB-' + part() + '-' + part(); } while (existing.includes(code));
-  return code;
-}
-
-function generateBookingId() {
-  const ts  = Date.now().toString(36).toUpperCase();
-  const rnd = Math.random().toString(36).substr(2,4).toUpperCase();
-  return 'RES-' + ts + '-' + rnd;
-}
-
 // dayOfWeek: 0=Lundi … 6=Dimanche → renvoie la prochaine date (jamais aujourd'hui)
 function getNextOccurrence(dayOfWeek) {
   const jsDay = (dayOfWeek + 1) % 7; // lundi(0)→1, dimanche(6)→0
@@ -357,175 +341,6 @@ function isCancellable(booking) {
   return hoursLeft > (infos.cancelHours || 24);
 }
 
-// Annule une réservation + restaure le crédit carnet si applicable
-function cancelBooking(bookingId) {
-  let bookings = getBookings();
-  const idx = bookings.findIndex(b => b.id === bookingId);
-  if (idx === -1) return false;
-  bookings[idx].status = 'cancelled';
-  bookings[idx].cancelledAt = new Date().toISOString();
-  saveBookings(bookings);
-
-  if (bookings[idx].paymentType === 'carnet' && bookings[idx].carnetCode) {
-    let carnets = getCarnets();
-    const ci = carnets.findIndex(c => c.code === bookings[idx].carnetCode);
-    if (ci !== -1) {
-      carnets[ci].remainingSessions = Math.min(carnets[ci].totalSessions, (carnets[ci].remainingSessions || 0) + 1);
-      if (carnets[ci].remainingSessions > 0) carnets[ci].active = true;
-      saveCarnets(carnets);
-    }
-  }
-  return true;
-}
-
-// Valide un code carnet : renvoie l'objet carnet ou null
-function validateCarnetCode(code) {
-  if (!code) return null;
-  const carnets = getCarnets();
-  const c = carnets.find(x => x.code === code.trim().toUpperCase());
-  if (!c || !c.active || c.remainingSessions <= 0) return null;
-  if (c.expiresAt && new Date(c.expiresAt) < new Date()) return null;
-  return c;
-}
-
-// ===== DEMO DATA =====
-function seedDemoData() {
-  const demoEmail = 'marie.dupont@demo.fr';
-  if (getCarnets().find(c => c.code === 'APB-DEMO-2025') && getBookings().find(b => b.id === 'RES-DEMO18')) return demoEmail;
-
-  const today = new Date();
-  const d = (offset) => { const x = new Date(today); x.setDate(today.getDate() + offset); return formatDateISO(x); };
-
-  if (!getCarnets().find(c => c.code === 'APB-DEMO-2025')) {
-
-  const carnet = {
-    code: 'APB-DEMO-2025', tarifId: 3, tarifName: 'Carnet 10 séances',
-    totalSessions: 10, remainingSessions: 6, validityMonths: 6,
-    expiresAt: d(180), active: true,
-    clientEmail: demoEmail, clientFirstName: 'Marie', clientLastName: 'Dupont',
-    clientPhone: '06 12 34 56 78', totalPaid: '350',
-    purchasedAt: new Date(today.getTime() - 30 * 86400000).toISOString(),
-    bookingIds: ['RES-DEMO1','RES-DEMO2','RES-DEMO3','RES-DEMO4'],
-  };
-
-  const mkBooking = (id, slotId, title, day, start, end, teacher, dateOffset, status, cancelOffset) => ({
-    id, clientFirstName: 'Marie', clientLastName: 'Dupont', clientEmail: demoEmail,
-    clientPhone: '06 12 34 56 78', slotId, slotTitle: title, slotDay: day,
-    slotStart: start, slotEnd: end, teacher, courseDate: d(dateOffset),
-    paymentType: 'carnet', carnetCode: 'APB-DEMO-2025', status,
-    bookedAt: new Date(today.getTime() - 25 * 86400000).toISOString(),
-    ...(cancelOffset ? { cancelledAt: new Date(today.getTime() + cancelOffset * 86400000).toISOString() } : {}),
-  });
-
-  const bookings = [
-    mkBooking('RES-DEMO1', 13, 'Cours Semi Collectif Mat – INTERMÉDIAIRE', 2, '09:30', '10:25', 'Leïla Dilhac', 2, 'confirmed'),
-    mkBooking('RES-DEMO2', 18, 'Cours Semi Collectif Mat – INTERMÉDIAIRE', 3, '10:00', '10:55', 'Leïla Dilhac', 9, 'confirmed'),
-    mkBooking('RES-DEMO3', 23, 'Cours Semi Collectif Mat – INTERMÉDIAIRE', 4, '09:00', '09:55', 'Leïla Dilhac', 16, 'confirmed'),
-    mkBooking('RES-DEMO4', 8,  'Cours Semi Collectif Mat – INTERMÉDIAIRE', 1, '10:00', '10:55', 'Leïla Dilhac', -7, 'confirmed'),
-    mkBooking('RES-DEMO5', 1,  'Cours Semi Collectif Mat – DÉBUTANT',      0, '09:00', '09:55', 'Leïla Dilhac', -14, 'confirmed'),
-    mkBooking('RES-DEMO6', 4,  'Cours Semi Collectif Mat – INTERMÉDIAIRE', 0, '12:00', '12:55', 'Leïla Dilhac', -10, 'cancelled', -8),
-  ];
-
-  // ---- Client 2 : Sophie Martin — Carnet 5 séances ----
-  const email2 = 'sophie.martin@demo.fr';
-  const carnet2 = {
-    code: 'APB-DEMO-SOPHIE', tarifId: 2, tarifName: 'Carnet 5 séances',
-    totalSessions: 5, remainingSessions: 3, validityMonths: 3,
-    expiresAt: d(60), active: true,
-    clientEmail: email2, clientFirstName: 'Sophie', clientLastName: 'Martin',
-    clientPhone: '06 98 76 54 32', totalPaid: '200',
-    purchasedAt: new Date(today.getTime() - 20 * 86400000).toISOString(),
-    bookingIds: ['RES-DEMO7','RES-DEMO8'],
-  };
-  const mkB2 = (id, slotId, title, day, start, end, teacher, dateOffset, status) => ({
-    id, clientFirstName:'Sophie', clientLastName:'Martin', clientEmail:email2,
-    clientPhone:'06 98 76 54 32', slotId, slotTitle:title, slotDay:day,
-    slotStart:start, slotEnd:end, teacher, courseDate:d(dateOffset),
-    paymentType:'carnet', carnetCode:'APB-DEMO-SOPHIE', status,
-    bookedAt: new Date(today.getTime() - 18 * 86400000).toISOString(),
-  });
-
-  // ---- Client 3 : Antoine Leclerc — cours privés à l'unité ----
-  const email3 = 'antoine.leclerc@demo.fr';
-  const mkB3 = (id, slotId, title, day, start, end, teacher, dateOffset, status, price) => ({
-    id, clientFirstName:'Antoine', clientLastName:'Leclerc', clientEmail:email3,
-    clientPhone:'07 11 22 33 44', slotId, slotTitle:title, slotDay:day,
-    slotStart:start, slotEnd:end, teacher, courseDate:d(dateOffset),
-    paymentType:'stripe', totalPaid:price, status,
-    bookedAt: new Date(today.getTime() - 10 * 86400000).toISOString(),
-  });
-
-  // ---- Client 4 : Camille Rousseau — Carnet 10 séances ----
-  const email4 = 'camille.rousseau@demo.fr';
-  const carnet4 = {
-    code: 'APB-DEMO-CAMILLE', tarifId: 3, tarifName: 'Carnet 10 séances',
-    totalSessions: 10, remainingSessions: 4, validityMonths: 6,
-    expiresAt: d(120), active: true,
-    clientEmail: email4, clientFirstName: 'Camille', clientLastName: 'Rousseau',
-    clientPhone: '06 55 44 33 22', totalPaid: '350',
-    purchasedAt: new Date(today.getTime() - 90 * 86400000).toISOString(),
-    bookingIds: ['RES-DEMO11','RES-DEMO12'],
-  };
-  const mkB4 = (id, slotId, title, day, start, end, teacher, dateOffset, status) => ({
-    id, clientFirstName:'Camille', clientLastName:'Rousseau', clientEmail:email4,
-    clientPhone:'06 55 44 33 22', slotId, slotTitle:title, slotDay:day,
-    slotStart:start, slotEnd:end, teacher, courseDate:d(dateOffset),
-    paymentType:'carnet', carnetCode:'APB-DEMO-CAMILLE', status,
-    bookedAt: new Date(today.getTime() - 85 * 86400000).toISOString(),
-  });
-
-  const extraBookings = [
-    // Sophie Martin
-    mkB2('RES-DEMO7',  15, 'Cours Semi Collectif Mat – DÉBUTANT',      2, '18:00','18:55', 'Marie Lacoste', 5,  'confirmed'),
-    mkB2('RES-DEMO8',  16, 'Cours Semi Collectif Mat – INTERMÉDIAIRE',  2, '19:00','19:55', 'Marie Lacoste', 12, 'confirmed'),
-    mkB2('RES-DEMO9',  15, 'Cours Semi Collectif Mat – DÉBUTANT',      2, '18:00','18:55', 'Marie Lacoste', -5, 'confirmed'),
-    mkB2('RES-DEMO10', 16, 'Cours Semi Collectif Mat – INTERMÉDIAIRE',  2, '19:00','19:55', 'Marie Lacoste', -12,'cancelled'),
-    // Antoine Leclerc
-    mkB3('RES-DEMO11', 2,  'Cours Privé Mat + Machine',                0, '10:00','10:55', 'Leïla Dilhac', 3,  'confirmed', 90),
-    mkB3('RES-DEMO12', 9,  'Cours Privé Mat + Machine',                1, '11:00','11:55', 'Leïla Dilhac', 10, 'confirmed', 90),
-    mkB3('RES-DEMO13', 14, 'Cours Privé Mat + Machine',                2, '10:30','11:25', 'Leïla Dilhac', -8, 'confirmed', 90),
-    // Camille Rousseau
-    mkB4('RES-DEMO14', 1,  'Cours Semi Collectif Mat – DÉBUTANT',      0, '09:00','09:55', 'Leïla Dilhac', 7,  'confirmed'),
-    mkB4('RES-DEMO15', 4,  'Cours Semi Collectif Mat – INTERMÉDIAIRE', 0, '12:00','12:55', 'Leïla Dilhac', 14, 'confirmed'),
-    mkB4('RES-DEMO16', 13, 'Cours Semi Collectif Mat – INTERMÉDIAIRE', 2, '09:30','10:25', 'Leïla Dilhac', -20,'confirmed'),
-    mkB4('RES-DEMO17', 18, 'Cours Semi Collectif Mat – INTERMÉDIAIRE', 3, '10:00','10:55', 'Leïla Dilhac', -35,'confirmed'),
-  ];
-
-  const carnets = getCarnets();
-  carnets.push(carnet); carnets.push(carnet2); carnets.push(carnet4);
-  saveCarnets(carnets);
-  const bks = getBookings();
-  bookings.forEach(b => bks.push(b));
-  extraBookings.forEach(b => bks.push(b));
-  saveBookings(bks);
-  }
-
-  // ---- Client 5 : Lucas Bernard — carte bancaire, sans carnet ----
-  // Guard séparé : s'ajoute même si le reste est déjà seedé
-  if (getCarnets().find(c => c.code === 'APB-DEMO-2025') && !getBookings().find(b => b.id === 'RES-DEMO18')) {
-    const today5  = new Date();
-    const d5 = (offset) => { const x = new Date(today5); x.setDate(today5.getDate() + offset); return formatDateISO(x); };
-    const email5  = 'lucas.bernard@demo.fr';
-    const mkB5 = (id, slotId, title, day, start, end, teacher, dateOffset, status, price) => ({
-      id, clientFirstName:'Lucas', clientLastName:'Bernard', clientEmail:email5,
-      clientPhone:'06 33 44 55 66', slotId, slotTitle:title, slotDay:day,
-      slotStart:start, slotEnd:end, teacher, courseDate:d5(dateOffset),
-      paymentType:'stripe', totalPaid:price, status,
-      createdAt: new Date(today5.getTime() - 5 * 86400000).toISOString(),
-    });
-    const lucasBookings = [
-      mkB5('RES-DEMO18', 5,  'Cours Privé Mat + Machine', 0, '14:00', '14:55', 'Leïla Dilhac',  4, 'confirmed', 90),
-      mkB5('RES-DEMO19', 7,  'Cours Duo Wall unit',       1, '09:00', '09:55', 'Leïla Dilhac', 11, 'confirmed', 120),
-      mkB5('RES-DEMO20', 17, 'Cours Privé Mat + Machine', 3, '09:00', '09:55', 'Leïla Dilhac', -6, 'confirmed', 90),
-    ];
-    const bks5 = getBookings();
-    lucasBookings.forEach(b => bks5.push(b));
-    saveBookings(bks5);
-  }
-
-  return demoEmail;
-}
-
 // Carnets et réservations par email (espace personnel client)
 function getCarnetsByEmail(email) {
   if (!email) return [];
@@ -539,37 +354,3 @@ function getBookingsByEmail(email) {
   return getBookings().filter(b => b.clientEmail && b.clientEmail.toLowerCase() === e);
 }
 
-// Crée un carnet suite à un achat client
-function createCarnetFromPurchase(tarifId, clientFirstName, clientLastName, clientEmail, clientPhone) {
-  const tarifs = getTarifs();
-  const tarif  = tarifs.find(t => t.id === tarifId);
-  if (!tarif || !tarif.isCarnet) return null;
-
-  const months = tarif.validityMonths || 3;
-  const expiry = new Date();
-  expiry.setMonth(expiry.getMonth() + months);
-
-  const carnet = {
-    code:              generateCarnetCode(),
-    tarifId,
-    tarifName:         tarif.name,
-    type:              tarif.type || 'collectif',
-    totalSessions:     tarif.sessionCount || parseInt(tarif.sessions) || 5,
-    remainingSessions: tarif.sessionCount || parseInt(tarif.sessions) || 5,
-    validityMonths:    months,
-    expiresAt:         formatDateISO(expiry),
-    active:            true,
-    clientEmail:       clientEmail.trim().toLowerCase(),
-    clientFirstName,
-    clientLastName,
-    clientPhone:       clientPhone || '',
-    totalPaid:         tarif.price,
-    purchasedAt:       new Date().toISOString(),
-    bookingIds:        [],
-  };
-
-  const carnets = getCarnets();
-  carnets.push(carnet);
-  saveCarnets(carnets);
-  return carnet;
-}

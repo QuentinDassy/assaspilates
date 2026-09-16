@@ -751,7 +751,6 @@ let locFilter      = 'all';
 let currentDay     = null;
 let stripe         = null;
 let cardElement    = null;
-let justConfirmedBookings = [];    // bookings upgraded pending→confirmed by a 2nd student
 // Buy-carnet state
 let buySelectedTarif = null;
 let buyCurrentStep   = 1;
@@ -1274,8 +1273,8 @@ async function loadAvailability() {
     });
     occurrenceCounts = counts;
   } catch (e) {
-    // API unreachable (e.g. the Netlify copy, which has no PHP): keep the last
-    // known counts; the booking RPC still refuses a full course.
+    // Server unreachable: keep the last known counts; the booking RPC still
+    // refuses a full course.
     console.warn('loadAvailability failed, keeping previous counts:', e);
   }
 }
@@ -1587,11 +1586,6 @@ async function processPayment() {
     });
   } catch (e) {
     showLoading(false);
-    if (e.status === undefined) {
-      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
-      // back to the local-only demo path rather than breaking the page.
-      return processPaymentLocalFallback();
-    }
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     loadAvailability();
@@ -1623,19 +1617,6 @@ async function processPayment() {
   showSuccess(savedBookings);
 }
 
-// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
-// backend at all) -- everything stays purely local/per-browser, same as before.
-async function processPaymentLocalFallback() {
-  const btn = document.getElementById('pay-btn');
-  btn.disabled = true; btn.textContent = 'Traitement...';
-  showLoading(true);
-  await new Promise(r => setTimeout(r, 1800));
-  showLoading(false);
-
-  const savedBookings = cart.map(item => saveNewBooking(item, 'stripe', null, item.price * (item.participants || 1)));
-  showSuccess(savedBookings);
-}
-
 async function processCarnetBooking() {
   if (!selectedCarnet) return;
   showLoading(true);
@@ -1657,23 +1638,15 @@ async function processCarnetBooking() {
       });
       savedBookings.push(apbMapApiBooking(result, loggedInClient.email));
     } catch (e) {
-      if (savedBookings.length === 0 && e.status === undefined) {
-        // Nothing booked yet and the API is unreachable on this deploy (e.g.
-        // the Netlify copy, which has no PHP). Fall back to the local-only
-        // demo path.
-        showLoading(false);
-        return processCarnetBookingLocalFallback();
-      }
       if (savedBookings.length === 0) {
-        // The API answered with a real refusal (course full, too late...):
-        // show it rather than faking a local booking that doesn't exist.
+        // Nothing booked (course full, too late, server unreachable...).
         showLoading(false);
         document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
         loadAvailability();
         return;
       }
-      // Some items in this cart already booked for real via the API --
-      // don't silently duplicate them locally. Surface the error and stop.
+      // Some items in this cart are already booked -- surface the error and
+      // show what did go through.
       showLoading(false);
       alert(`Certaines réservations n'ont pas pu être effectuées : ${e.message}`);
       await syncMyBookingsFromApi(loggedInClient.email);
@@ -1685,97 +1658,6 @@ async function processCarnetBooking() {
   await syncMyBookingsFromApi(loggedInClient.email);
   showLoading(false);
   showSuccess(savedBookings);
-}
-
-// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
-// backend at all) -- everything stays purely local/per-browser, same as before.
-async function processCarnetBookingLocalFallback() {
-  showLoading(true);
-  await new Promise(r => setTimeout(r, 600));
-  showLoading(false);
-
-  let carnets = getCarnets();
-  const idx   = carnets.findIndex(c => c.code === selectedCarnet.code);
-  if (idx !== -1) {
-    carnets[idx].remainingSessions = Math.max(0, carnets[idx].remainingSessions - cart.length);
-    if (carnets[idx].remainingSessions <= 0) carnets[idx].active = false;
-    carnets[idx].bookingIds = carnets[idx].bookingIds || [];
-  }
-
-  const savedBookings = cart.map(item => {
-    const b = saveNewBooking(item, 'carnet', selectedCarnet.code, 0);
-    if (idx !== -1) carnets[idx].bookingIds.push(b.id);
-    return b;
-  });
-
-  if (idx !== -1) saveCarnets(carnets);
-
-  showSuccess(savedBookings);
-}
-
-function getClientInfo() {
-  return {
-    firstName: document.getElementById('f-firstname').value.trim(),
-    lastName:  document.getElementById('f-lastname').value.trim(),
-    email:     document.getElementById('f-email').value.trim(),
-    phone:     document.getElementById('f-phone').value.trim(),
-  };
-}
-
-function saveNewBooking(cartItem, paymentType, carnetCode, totalPaid) {
-  const participants = cartItem.participants || 1;
-  const slot = cartItem.slot;
-  const booking = {
-    id:             generateBookingId(),
-    slotId:         slot.id,
-    slotTitle:      slot.title,
-    slotDay:        slot.day,
-    slotStart:      slot.start,
-    slotEnd:        slot.end,
-    slotTeacher:    slot.teacher,
-    slotLocation:   slot.location || 'assas',
-    courseDate:     formatDateISO(cartItem.nextDate),
-    clientFirstName: document.getElementById('f-firstname').value.trim(),
-    clientLastName:  document.getElementById('f-lastname').value.trim(),
-    clientEmail:     document.getElementById('f-email').value.trim(),
-    clientPhone:     document.getElementById('f-phone').value.trim(),
-    clientMessage:   document.getElementById('f-message').value.trim(),
-    participants,
-    paymentType,
-    paymentStatus: 'paid',
-    carnetCode,
-    totalPaid,
-    status:    'confirmed',
-    createdAt: new Date().toISOString(),
-    cancelledAt: null,
-  };
-
-  // Collectif: 1st student waits for a 2nd before the course is confirmed
-  if (slot.type === 'collectif') {
-    let bks = getBookings();
-    const existing = bks.filter(b =>
-      b.slotId === slot.id &&
-      b.courseDate === booking.courseDate &&
-      b.status !== 'cancelled'
-    );
-    if (existing.length === 0) {
-      booking.status = 'pending';
-    } else {
-      // Upgrade any pending bookings for this slot/date to confirmed
-      bks.forEach(b => {
-        if (b.slotId === slot.id && b.courseDate === booking.courseDate && b.status === 'pending') {
-          b.status = 'confirmed';
-          justConfirmedBookings.push({ ...b });
-        }
-      });
-      saveBookings(bks);
-    }
-  }
-
-  const bookings = getBookings();
-  bookings.push(booking);
-  saveBookings(bookings);
-  return booking;
 }
 
 // ===== SCREENS =====
@@ -1792,7 +1674,6 @@ function triggerMailto(href) {
 }
 
 function showSuccess(bookings) {
-  justConfirmedBookings = [];
 
   document.getElementById('booking-screen').style.display = 'none';
   document.getElementById('success-screen').style.display = 'block';
@@ -2105,11 +1986,6 @@ async function buyProcessPurchase() {
     });
   } catch (e) {
     showLoading(false);
-    if (e.status === undefined) {
-      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
-      // back to the local-only demo path rather than breaking the page.
-      return buyProcessPurchaseLocalFallback(first, last, email, phone);
-    }
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('buy-step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     return;
@@ -2140,33 +2016,6 @@ async function buyProcessPurchase() {
     <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
 
   // Pre-fill carnet login for immediate booking
-  document.getElementById('cl-email').value = email;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
-// backend at all) -- everything stays purely local/per-browser, same as before.
-async function buyProcessPurchaseLocalFallback(first, last, email, phone) {
-  const btn = document.getElementById('buy-pay-btn');
-  btn.disabled = true; btn.textContent = 'Traitement...';
-  showLoading(true);
-  await new Promise(r => setTimeout(r, 1800));
-  showLoading(false);
-
-  const carnet = createCarnetFromPurchase(buySelectedTarif.id, first, last, email, phone);
-  if (!carnet) {
-    document.getElementById('buy-step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
-    btn.disabled = false; btn.textContent = 'Confirmer et payer'; return;
-  }
-
-  document.getElementById('buy-step-3').style.display = 'none';
-  document.getElementById('buy-success').style.display = 'block';
-  document.getElementById('buy-success-details').innerHTML = `
-    <p style="margin-bottom:10px"><strong>Bonjour ${escapeHtml(carnet.clientFirstName)} ${escapeHtml(carnet.clientLastName)},</strong></p>
-    <p>📦 <strong>${escapeHtml(carnet.tarifName)}</strong> — ${carnet.totalSessions} séances</p>
-    <p>📅 Valable jusqu'au <strong>${carnet.expiresAt}</strong></p>
-    <p style="margin-top:10px;font-size:12px;color:#999">Votre carnet est lié à votre adresse email et accessible dans <a href="manage.html?email=${encodeURIComponent(email)}">mon espace</a>.</p>`;
-
   document.getElementById('cl-email').value = email;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }

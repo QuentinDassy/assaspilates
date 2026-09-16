@@ -63,9 +63,6 @@ function apbMapAdminBooking(b) {
   };
 }
 
-// Returns true if the API was reachable and the sync ran (real data now in
-// localStorage); false means fall back to seedDemoData() (e.g. on the
-// Netlify copy of this site, which has no PHP backend at all).
 /**
  * "Admin access required" reads as a permissions bug, but it almost always
  * means the session was replaced: signing in as a client anywhere on this
@@ -99,7 +96,7 @@ async function syncAdminDataFromApi() {
     saveBookings(mappedBookings);
     return true;
   } catch (e) {
-    console.warn('syncAdminDataFromApi failed (PHP API not reachable on this deploy?):', e);
+    console.warn('syncAdminDataFromApi failed:', e);
     return false;
   }
 }
@@ -991,16 +988,10 @@ async function adminCancelBooking(id) {
     await apbApiFetch('/api/admin-bookings.php', { method: 'POST', body: JSON.stringify({ action: 'cancel', bookingId: id }) });
     await syncAdminDataFromApi();
   } catch (e) {
-    // Only fall back to the local-only path when there is no API at all (the
-    // Netlify copy ships no PHP, and apbApiFetch leaves status undefined
-    // there). A server that answered and refused -- a 403 from a session
-    // replaced by a client login, say -- must not be reported as cancelled:
-    // the row stays live and the next sync brings it straight back.
-    if (e.status !== undefined) {
-      showAlert('bookings-alert', adminApiErrorMessage(e), 'error');
-      return;
-    }
-    cancelBooking(id);
+    // Refused (a 403 from a session replaced by a client login, say) or
+    // server unreachable: the booking still stands, don't report it cancelled.
+    showAlert('bookings-alert', adminApiErrorMessage(e), 'error');
+    return;
   }
   renderBookingList();
   const msg = isStripe
@@ -1440,27 +1431,8 @@ async function saveCarnet() {
     showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
     renderCarnetsAdmin();
   } catch (e) {
-    // A refusal from a live server must not hand the studio a code to pass on
-    // to a client -- that carnet would exist in this browser and nowhere else.
-    // The local path is only for a deploy with no API behind it (Netlify).
-    if (e.status !== undefined) {
-      showAlert('carnets-alert', adminApiErrorMessage(e), 'error');
-      return;
-    }
-    const code = generateCarnetCode();
-    const carnet = {
-      code, tarifId: tarifOpt.value || null, tarifName: tarifOpt.value ? tarifOpt.dataset.name : 'Manuel',
-      clientName: name, clientEmail: email, totalSessions: total, remainingSessions: remain,
-      expiresAt: expires || null, active: true, createdAt: formatDateISO(new Date()), bookingIds: [],
-    };
-    const carnets = getCarnets();
-    carnets.push(carnet);
-    saveCarnets(carnets);
-    lastGeneratedCode = code;
-    document.getElementById('generated-code').textContent = code;
-    document.getElementById('generated-code-block').style.display = 'block';
-    showAlert('carnets-alert', `✓ Carnet créé. Transmettez le code au client.`);
-    renderCarnetsAdmin();
+    // No code to hand out: the carnet wasn't created.
+    showAlert('carnets-alert', adminApiErrorMessage(e), 'error');
   }
 }
 
@@ -1631,16 +1603,34 @@ function showStudentProfile(email) {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-function adminCancelStudent(email) {
+async function adminCancelStudent(email) {
   const upcoming = getBookings().filter(b =>
     b.clientEmail && b.clientEmail.toLowerCase() === email.toLowerCase() &&
     b.status === 'confirmed' && new Date(b.courseDate+'T23:59:00') >= new Date()
   );
   if (!upcoming.length) return;
   if (!confirm(`Annuler les ${upcoming.length} réservation(s) à venir de cet élève ?`)) return;
-  upcoming.forEach(b => cancelBooking(b.id));
-  showStudentProfile(email);
-  showAlert('bookings-alert', `✓ ${upcoming.length} réservation(s) annulée(s).`);
+  // One at a time, same server-side cancel as a single booking (carnet
+  // session restored, teacher mailed); stop at the first refusal.
+  let cancelled = 0;
+  let error = null;
+  for (const b of upcoming) {
+    try {
+      await apbApiFetch('/api/admin-bookings.php', { method: 'POST', body: JSON.stringify({ action: 'cancel', bookingId: b.id }) });
+      cancelled++;
+    } catch (e) {
+      error = e;
+      break;
+    }
+  }
+  await syncAdminDataFromApi();
+  renderBookingList();
+  if (document.getElementById('student-modal')) showStudentProfile(email);
+  if (error) {
+    showAlert('bookings-alert', `${cancelled} réservation(s) annulée(s) sur ${upcoming.length}. ${adminApiErrorMessage(error)}`, 'error');
+  } else {
+    showAlert('bookings-alert', `✓ ${cancelled} réservation(s) annulée(s).`);
+  }
 }
 
 function saveClientEdit(oldEmail) {
@@ -1939,10 +1929,10 @@ async function checkAdminAuthAndInit() {
   if (stripeNav) stripeNav.style.display = getStaffFlags().can_view_stripe_config === false ? 'none' : '';
   await syncContentFromSupabase();
   const gotRealData = await syncAdminDataFromApi();
-  if (!gotRealData) {
-    seedDemoData(); // API unreachable on this deploy (e.g. Netlify) -- fall back to local demo data
-  }
   renderDashboard();
+  if (!gotRealData) {
+    alert("Impossible de charger les réservations et les carnets depuis le serveur. Ce qui s'affiche date peut-être de votre dernière visite : rechargez la page dans un instant.");
+  }
 }
 
 async function adminLogin() {

@@ -789,14 +789,15 @@ async function confirmCancel() {
   if (!currentBooking) return;
   const wasCarnet = currentBooking.paymentType === 'carnet';
   try {
-    // Real, API-backed booking -- cancel server-side (restores the carnet
-    // session there) then re-sync so the dashboard reflects the true state.
+    // Cancel server-side (restores the carnet session there) then re-sync so
+    // the dashboard reflects the true state.
     await apbApiFetch('/api/cancel-booking.php', { method: 'POST', body: JSON.stringify({ bookingId: currentBooking.id }) });
     await syncMyBookingsFromApi(currentEmail);
   } catch (e) {
-    // Not an API-backed booking (older local-only demo data) or the PHP API
-    // isn't reachable on this deploy (e.g. Netlify) -- fall back to local-only.
-    cancelBooking(currentBooking.id);
+    // Refused (too late, already cancelled...) or server unreachable: the
+    // booking still stands, so don't tell the client it's cancelled.
+    alert(`L'annulation n'a pas pu être effectuée : ${e.message}`);
+    return;
   }
 
   document.getElementById('cancelled-text').innerHTML =
@@ -812,8 +813,10 @@ async function rebookCourse(slotId, bookingId, paymentType) {
   try {
     await apbApiFetch('/api/cancel-booking.php', { method: 'POST', body: JSON.stringify({ bookingId }) });
   } catch (e) {
-    const b = getBookings().find(x => x.id === bookingId);
-    if (b) cancelBooking(bookingId);
+    // The current booking still stands: sending them off to book another
+    // slot would leave them holding both.
+    alert(`Le changement de créneau n'a pas pu être effectué : ${e.message}`);
+    return;
   }
   window.location.href = `index.html?slot=${slotId}&mode=${paymentType === 'carnet' ? 'carnet' : 'unit'}`;
 }

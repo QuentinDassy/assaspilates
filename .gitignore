@@ -1,6 +1,3 @@
-# Local Netlify folder
-.netlify
-
 # Local Claude Code environment/permission settings (machine-specific, not project config)
 .claude/
 
