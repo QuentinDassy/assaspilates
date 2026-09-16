@@ -761,7 +761,7 @@ let weekOffset = 0;    // 0 = current calendar week; navigated via prev/next wee
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', async () => {
-  await syncContentFromSupabase();
+  await Promise.all([syncContentFromSupabase(), loadAvailability()]);
   const infos = getInfos();
   const h = infos.cancelHours || 24;
   document.getElementById('cancel-hours-txt').textContent = h + 'h avant';
@@ -813,8 +813,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 // The booking cutoff is relative to "now", so a page left open overnight would
 // keep offering courses that have since started. Re-render when the tab comes
 // back into view (toggleCart re-checks the cutoff too, for a tab never left).
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && currentStep === 1) renderCourseList();
+// Same for places left: someone else may have booked in the meantime.
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || currentStep !== 1) return;
+  renderCourseList();
+  await loadAvailability();
+  if (currentStep === 1) renderCourseList();
 });
 
 // Fetches the Stripe publishable key from the server (site/api/public-config.php)
@@ -1117,7 +1121,7 @@ function renderWeekView() {
       daySlots.forEach(s => {
         const absent  = isTeacherAbsentOn(s.teacherId, dateISO);
         const tooLate = !isSlotBookableAt(dateISO, s.start);
-        const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s);
+        const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s, dateISO);
         const price   = getPriceForSlot(s);
         const inCart = cart.some(c => c.slot.id === s.id && formatDateISO(c.nextDate) === dateISO);
         const full   = spots === 0;
@@ -1208,7 +1212,7 @@ function renderCourseList() {
     daySlots.forEach(s => {
       const absent  = isTeacherAbsentOn(s.teacherId, dateISO);
       const tooLate = !isSlotBookableAt(dateISO, s.start);
-      const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s);
+      const spots   = (absent || tooLate) ? 0 : getAvailableSpots(s, dateISO);
       const price   = getPriceForSlot(s);
       const loc     = s.location || 'assas';
       const locInfo = LOCATIONS[loc] || LOCATIONS.assas;
@@ -1251,15 +1255,44 @@ function getPriceForSlot(slot) {
   return 0;
 }
 
-function getAvailableSpots(slot) {
+// Booked counts per concrete (slot, date), keyed "slotId|YYYY-MM-DD", from
+// site/api/availability.php. A missing key means nobody has booked that
+// occurrence yet. Display only: api_book_slot() still does the race-safe
+// check (SLOT_FULL), this just stops the page offering what it will refuse.
+let occurrenceCounts = {};
+
+async function loadAvailability() {
+  try {
+    const data = await apbApiFetch('/api/availability.php');
+    const counts = {};
+    (data.occurrences || []).forEach(o => {
+      counts[`${o.slot_id}|${o.course_date}`] = {
+        capacity: o.capacity,
+        taken: (o.confirmed_count || 0) + (o.pending_count || 0),
+        cancelled: o.status === 'cancelled',
+      };
+    });
+    occurrenceCounts = counts;
+  } catch (e) {
+    // API unreachable (e.g. the Netlify copy, which has no PHP): keep the last
+    // known counts; the booking RPC still refuses a full course.
+    console.warn('loadAvailability failed, keeping previous counts:', e);
+  }
+}
+
+function getAvailableSpots(slot, dateISO) {
   // Real per-slot capacity from Supabase (admin-editable), falling back to the
   // old guesses if a slot predates the sync (shouldn't happen once Phase 1 is live).
-  // Does not yet subtract existing bookings -- that needs the Phase 3
-  // slot_occurrences system for a real, race-safe count.
-  if (typeof slot.capacity === 'number') return slot.capacity;
-  if (slot.type === 'prive') return 1;
-  if (slot.type === 'duo')   return 2;
-  return 8;
+  let capacity = typeof slot.capacity === 'number' ? slot.capacity
+    : slot.type === 'prive' ? 1
+    : slot.type === 'duo'   ? 2
+    : 8;
+  const occ = occurrenceCounts[`${slot.id}|${dateISO}`];
+  if (!occ) return capacity;
+  if (occ.cancelled) return 0; // the RPC refuses these too
+  // The occurrence keeps its own capacity snapshot, which is what the RPC checks.
+  if (typeof occ.capacity === 'number') capacity = occ.capacity;
+  return Math.max(0, capacity - occ.taken);
 }
 
 function spotsHTML(spots) {
@@ -1306,7 +1339,7 @@ function toggleCart(id, dateISO) {
     // while this page sat open still has to be removable from the cart.
     cart.splice(inCart, 1);
   } else {
-    if (getAvailableSpots(slot) === 0) return;
+    if (getAvailableSpots(slot, targetISO) === 0) return;
     if (isTeacherAbsentOn(slot.teacherId, targetISO)) return;
     if (!isSlotBookableAt(targetISO, slot.start)) {
       // Re-render so the tile flips to "Trop tard" instead of the click
@@ -1424,7 +1457,9 @@ function goStep(step) {
 function changeCartParticipants(slotId, delta) {
   const item = cart.find(c => c.slot.id === slotId);
   if (!item || item.slot.type !== 'duo') return;
-  item.participants = Math.max(1, Math.min(2, (item.participants || 1) + delta));
+  // A duo with one place already taken only has room for one more person.
+  const maxParticipants = Math.min(2, getAvailableSpots(item.slot, formatDateISO(item.nextDate)));
+  item.participants = Math.max(1, Math.min(maxParticipants, (item.participants || 1) + delta));
   updateCartSidebar();
 }
 
@@ -1559,6 +1594,7 @@ async function processPayment() {
     }
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    loadAvailability();
     return;
   }
 
@@ -1621,12 +1657,20 @@ async function processCarnetBooking() {
       });
       savedBookings.push(apbMapApiBooking(result, loggedInClient.email));
     } catch (e) {
-      if (savedBookings.length === 0) {
-        // Nothing booked yet via the API -- most likely it's unreachable on
-        // this deploy (e.g. the Netlify copy, which has no PHP) rather than a
-        // real per-slot failure. Fall back to the local-only demo path.
+      if (savedBookings.length === 0 && e.status === undefined) {
+        // Nothing booked yet and the API is unreachable on this deploy (e.g.
+        // the Netlify copy, which has no PHP). Fall back to the local-only
+        // demo path.
         showLoading(false);
         return processCarnetBookingLocalFallback();
+      }
+      if (savedBookings.length === 0) {
+        // The API answered with a real refusal (course full, too late...):
+        // show it rather than faking a local booking that doesn't exist.
+        showLoading(false);
+        document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        loadAvailability();
+        return;
       }
       // Some items in this cart already booked for real via the API --
       // don't silently duplicate them locally. Surface the error and stop.
@@ -1854,6 +1898,8 @@ function resetBooking() {
   setMode('unit');
   goStep(1);
   renderCourseList();
+  // The booking just made (and any others since page load) now counts.
+  loadAvailability().then(renderCourseList);
 }
 
 // ===== BUY CARNET (inline) =====
