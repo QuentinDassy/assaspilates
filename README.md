@@ -146,9 +146,9 @@ Dans `site/css/style.css`, modifiez les variables CSS :
 
 ## 5. Déploiement
 
-### Option A : Site statique (GitHub Pages, Netlify, Vercel)
-Déployez le dossier `site/` directement.
-Le plugin WordPress ne sera pas actif — utilisez le mode démo pour la réservation.
+### Option A : OVH (production actuelle)
+Chaque push sur `main` copie le dossier `site/` vers `prod/` en SFTP (`.github/workflows/deploy-prod-ftp.yml`).
+`site/api/_lib/config.php` n'est pas versionné et reste sur le serveur.
 
 ### Option B : WordPress
 1. Intégrez le HTML/CSS du site vitrine dans votre thème WordPress

@@ -139,10 +139,9 @@ async function refreshAuthSessionIfNeeded() {
 
 /**
  * Calls the PHP API (site/api/*.php) with the current session's bearer token
- * attached automatically. Same-origin relative path ("/api/...") -- only
- * works where the PHP API is actually deployed and reachable (OVH), not on
- * the Netlify copy of this site, which is why every call site wraps this in
- * a try/catch and degrades gracefully rather than breaking the page.
+ * attached automatically. Same-origin relative path ("/api/..."). Throws an
+ * Error whose message can be shown as-is: the API's own French message on a
+ * refusal, or a "can't reach the server" one (status 0) on a network failure.
  */
 async function apbApiFetch(path, options = {}) {
   const session = await refreshAuthSessionIfNeeded();
@@ -153,7 +152,15 @@ async function apbApiFetch(path, options = {}) {
   if (options.body && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(path, Object.assign({}, options, { headers }));
+  let res;
+  try {
+    res = await fetch(path, Object.assign({}, options, { headers }));
+  } catch (e) {
+    const err = new Error('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.');
+    err.code = 'network_error';
+    err.status = 0;
+    throw err;
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const err = new Error((data && data.message) || `Request failed (${res.status})`);

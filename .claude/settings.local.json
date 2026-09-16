@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:lighthearted-concha-3cf9fb.netlify.app)"
-    ]
-  }
-}
