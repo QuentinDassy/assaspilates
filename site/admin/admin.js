@@ -829,19 +829,23 @@ function nbUnitPrice(type) {
 
 function nbSelectedSlot() {
   const id = parseInt(document.getElementById('nb-slot').value);
-  return getSlots().find(s => s.id === id) || null;
+  return apbBookableSlots().find(s => s.id === id) || null;
 }
 
-function openNewBookingModal() {
+async function openNewBookingModal() {
   document.getElementById('nb-alert').innerHTML = '';
   document.getElementById('nb-client-list').innerHTML =
     nbKnownClients().map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.name)}</option>`).join('');
   document.getElementById('nb-client').value = '';
 
-  const slots = [...getSlots()].sort((a, b) => a.day - b.day || a.start.localeCompare(b.start));
+  await apbLoadRetiredSlots();
+  // Les cours retirés en fin de liste : ils ne servent qu'au rétroactif.
+  const slots = apbBookableSlots().sort((a, b) =>
+    (!!a.retired - !!b.retired) || a.day - b.day || a.start.localeCompare(b.start)
+  );
   const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
   document.getElementById('nb-slot').innerHTML = slots.map(s =>
-    `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
+    `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})${apbSlotRetiredLabel(s)}</option>`
   ).join('');
 
   nbOnSlotChange();
@@ -852,22 +856,93 @@ function closeNewBookingModal() {
   document.getElementById('booking-modal-overlay').classList.remove('open');
 }
 
-// Remplit une liste déroulante avec les prochaines occurrences réelles du
-// cours (même jour de semaine, chaque semaine). Empêche de choisir une date
-// qui ne correspond pas au créneau -- ce qui déréglait l'agenda.
-function apbFillOccurrences(selectId, slot, count = 12) {
+// ===== COURS RETIRÉS DU PLANNING (inscription rétroactive) =====
+// Une séance déjà passée a pu avoir lieu sur un cours depuis retiré du
+// planning (suppression douce, active=false -- voir admin-slots.php). Ces
+// cours sont invisibles partout ailleurs, à dessein ; on ne les charge que
+// pour les deux modales d'inscription, et seulement sur une date passée
+// api_book_slot() les accepte (p_allow_past).
+let apbRetiredSlotsCache = null;
+
+async function apbLoadRetiredSlots() {
+  if (apbRetiredSlotsCache) return apbRetiredSlotsCache;
+  try {
+    const resp = await apbApiFetch('/api/admin-slots.php?include_inactive=1');
+    apbRetiredSlotsCache = (resp.slots || []).filter(r => !r.active).map(r => ({
+      id: r.id, day: r.day_of_week, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5),
+      title: r.title, type: r.type, teacher: r.teacher_name, teacherId: r.teacher_id,
+      location: r.location_key, capacity: r.capacity, priceCents: r.price_cents, retired: true,
+    }));
+  } catch (e) {
+    // L'inscription sur les cours actifs doit marcher même si cet appel échoue.
+    console.warn('apbLoadRetiredSlots failed:', e);
+    apbRetiredSlotsCache = [];
+  }
+  return apbRetiredSlotsCache;
+}
+
+/** Cours proposables dans les modales : le planning actuel + les cours retirés. */
+function apbBookableSlots() {
+  return [...getSlots(), ...(apbRetiredSlotsCache || [])];
+}
+
+/** Suffixe d'étiquette : distingue un cours retiré dans les listes déroulantes. */
+function apbSlotRetiredLabel(s) {
+  return s.retired ? ' — retiré du planning' : '';
+}
+
+// Remplit une liste déroulante avec les occurrences réelles du cours (même
+// jour de semaine, chaque semaine). Empêche de choisir une date qui ne
+// correspond pas au créneau -- ce qui déréglait l'agenda.
+//
+// Les dates passées sont proposées aussi, pour inscrire rétroactivement (une
+// séance oubliée sur un carnet, une élève venue sans réserver). Seul l'admin
+// peut les valider : api_book_slot() ne lève la fermeture à 1h que sur
+// p_allow_past, que seul admin-book.php passe
+// (supabase/migrations/0011_retroactive_booking.sql).
+//
+// getNextOccurrence() exclut le jour même, donc la date du jour arrive par la
+// branche « passées » -- mais elle est regroupée avec les suivantes, un cours
+// de ce soir n'étant pas une séance passée.
+function apbFillOccurrences(selectId, slot, count = 12, pastCount = 12) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
   if (!slot) { sel.innerHTML = ''; return; }
-  const base = getNextOccurrence(slot.day);
-  let html = '';
-  for (let i = 0; i < count; i++) {
-    const d = new Date(base); d.setDate(base.getDate() + i * 7);
-    const iso = formatDateISO(d);
-    const label = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    html += `<option value="${iso}">${label}</option>`;
+
+  const next = getNextOccurrence(slot.day);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const option = d =>
+    `<option value="${formatDateISO(d)}">`
+    + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    + '</option>';
+
+  let past = '', upcoming = '';
+  for (let i = -pastCount; i < count; i++) {
+    const d = new Date(next); d.setDate(next.getDate() + i * 7);
+    if (d < today) past += option(d); else upcoming += option(d);
   }
-  sel.innerHTML = html;
+
+  sel.innerHTML =
+    (past ? `<optgroup label="Séances passées (inscription rétroactive)">${past}</optgroup>` : '')
+    + `<optgroup label="À venir">${upcoming}</optgroup>`;
+  // Défaut inchangé : la prochaine occurrence à venir, jamais une date passée.
+  sel.value = formatDateISO(next);
+  apbUpdateRetroNote(selectId.replace(/-date$/, ''));
+}
+
+// Une fois la date choisie, la liste n'affiche plus que « mercredi 9
+// septembre » : rien ne dit que c'est une séance passée. D'où ce rappel, qui
+// évite d'enregistrer une date passée par inadvertance.
+function apbUpdateRetroNote(prefix) {
+  const note = document.getElementById(prefix + '-retro-note');
+  const sel = document.getElementById(prefix + '-date');
+  if (!note || !sel) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const isPast = sel.value && new Date(sel.value + 'T00:00:00') < today;
+  note.hidden = !isPast;
+  note.textContent = isPast
+    ? 'Séance passée : elle sera enregistrée rétroactivement, comme si elle avait été réservée à l\'époque.'
+    : '';
 }
 
 // Sélection d'un cours : liste ses prochaines occurrences + récap.
@@ -1196,7 +1271,7 @@ function cbFindCarnet(code) {
 
 function cbSelectedSlot() {
   const id = parseInt(document.getElementById('cb-slot').value);
-  return getSlots().find(s => s.id === id) || null;
+  return apbBookableSlots().find(s => s.id === id) || null;
 }
 
 const CB_TYPE_LABELS = { collectif: 'Semi-collectif', prive: 'Cours privé', duo: 'Duo', munz: 'Munz Floor', decouverte: 'Découverte' };
@@ -1208,9 +1283,10 @@ function cbCarnetDiscipline(c) {
   return (tarif && tarif.type) || c.type || '';
 }
 
-function openCarnetBookingModal(code) {
+async function openCarnetBookingModal(code) {
   const c = cbFindCarnet(code);
   if (!c) return;
+  await apbLoadRetiredSlots();
   document.getElementById('cb-carnet-code').value = code;
   document.getElementById('cb-alert').innerHTML = '';
 
@@ -1228,12 +1304,13 @@ function openCarnetBookingModal(code) {
   // décompte reste garanti côté serveur : api_book_slot n'accepte que si le
   // type du cours correspond à celui du carnet.
   const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
-  const slots = [...getSlots()].sort((a, b) =>
-    ((a.type === disc ? 0 : 1) - (b.type === disc ? 0 : 1)) || a.day - b.day || a.start.localeCompare(b.start)
+  const slots = apbBookableSlots().sort((a, b) =>
+    ((a.type === disc ? 0 : 1) - (b.type === disc ? 0 : 1))
+    || (!!a.retired - !!b.retired) || a.day - b.day || a.start.localeCompare(b.start)
   );
   const sel = document.getElementById('cb-slot');
   sel.innerHTML = slots.map(s =>
-    `<option value="${s.id}">[${CB_TYPE_LABELS[s.type] || s.type}] ${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})</option>`
+    `<option value="${s.id}">[${CB_TYPE_LABELS[s.type] || s.type}] ${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})${apbSlotRetiredLabel(s)}</option>`
   ).join('');
   document.getElementById('cb-slot-empty').style.display = slots.length ? 'none' : 'block';
   sel.style.display = slots.length ? '' : 'none';
