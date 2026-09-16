@@ -661,11 +661,6 @@ async function processPurchase() {
     });
   } catch (e) {
     showLoading(false);
-    if (e.status === undefined) {
-      // API unreachable (e.g. the Netlify copy, which has no PHP) -- fall
-      // back to the local-only demo path rather than breaking the page.
-      return processPurchaseLocalFallback(first, last, email, phone);
-    }
     btn.disabled = false; btn.textContent = 'Confirmer et payer';
     document.getElementById('step3-alert').innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     return;
@@ -698,26 +693,6 @@ async function processPurchase() {
     expiresAt: c.expires_at, code: c.code,
     parts: all.map(x => ({ type: x.type, sessions: x.total_sessions, code: x.code })),
   }, email);
-}
-
-// Pre-API fallback (kept for the Netlify copy of this site, which has no PHP
-// backend at all) -- everything stays purely local/per-browser, same as before.
-async function processPurchaseLocalFallback(first, last, email, phone) {
-  const btn = document.getElementById('pay-btn');
-  btn.disabled = true; btn.textContent = 'Traitement...';
-  showLoading(true);
-  await new Promise(r => setTimeout(r, 1800));
-  showLoading(false);
-
-  const carnet = createCarnetFromPurchase(selectedTarif.id, first, last, email, phone);
-  if (!carnet) {
-    document.getElementById('step3-alert').innerHTML = '<div class="alert alert-error">Erreur lors de la création du carnet. Veuillez réessayer.</div>';
-    btn.disabled = false;
-    btn.textContent = 'Confirmer et payer';
-    return;
-  }
-
-  showSuccess(carnet, email);
 }
 
 function showSuccess(carnet, email) {
