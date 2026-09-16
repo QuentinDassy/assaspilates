@@ -6,9 +6,16 @@
  * Staff-only. Registers an EXISTING client into a slot occurrence, recorded
  * as paid on site (payment_type 'onsite' -- see
  * supabase/migrations/0009_onsite_payment.sql). Reuses api_book_slot(), the
- * same transactional path as the client booking flows, so capacity, teacher
- * absence and the 1h cutoff are all enforced here too and an admin booking
- * can never double-book or exceed capacity.
+ * same transactional path as the client booking flows, so capacity and
+ * teacher absence are enforced here too and an admin booking can never
+ * double-book or exceed capacity.
+ *
+ * This is the only caller that passes p_allow_past = true
+ * (supabase/migrations/0011_retroactive_booking.sql): the studio needs to
+ * record a session that already happened -- one forgotten on a carnet, or a
+ * student who turned up without booking -- and to register someone on
+ * today's course, both of which the 1h cutoff forbade. The endpoint sits
+ * behind apbRequireAdmin(), so the relaxation never reaches a student.
  *
  * Price is the slot's own price_cents (already derived from the type's unit
  * tarif when the slot was created), never taken from the request.
@@ -88,6 +95,7 @@ try {
         'p_payment_status' => 'paid',
         'p_client_message' => null,
         'p_participants'   => 1,
+        'p_allow_past'     => true,
     ], $rpcParams));
 } catch (RuntimeException $e) {
     $code = $e->getMessage();

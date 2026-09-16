@@ -1,6 +1,7 @@
 <?php
 /**
- * GET  /api/admin-slots.php                                   -- list active slots
+ * GET  /api/admin-slots.php                    -- list active slots
+ * GET  /api/admin-slots.php?include_inactive=1 -- ... plus soft-deleted ones
  * POST /api/admin-slots.php  { action:'create'|'update'|'delete', ... }
  *
  * Requires staff. Public reads still go straight from the browser to
@@ -22,7 +23,14 @@ require_once __DIR__ . '/_lib/auth.php';
 apbRequireAdmin();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
-    $slots = apbSupabaseSelect('slots', '?active=eq.true&order=day_of_week.asc,start_time.asc');
+    // include_inactive is for the admin's retroactive booking modals only
+    // (supabase/migrations/0011_retroactive_booking.sql): a session that
+    // already happened may belong to a course since retired from the
+    // schedule. The Schedule tab keeps calling this without the flag, so a
+    // soft-deleted slot never reappears there.
+    $filter = !empty($_GET['include_inactive']) ? '' : '?active=eq.true';
+    $sep = $filter === '' ? '?' : '&';
+    $slots = apbSupabaseSelect('slots', $filter . $sep . 'order=day_of_week.asc,start_time.asc');
     apbJsonSuccess(['slots' => $slots]);
 }
 
