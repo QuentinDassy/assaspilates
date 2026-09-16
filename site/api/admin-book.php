@@ -15,6 +15,7 @@
  */
 
 require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/mailer.php';
 
 apbRequireAdmin();
 apbRequireMethod('POST');
@@ -93,4 +94,5 @@ try {
     apbJsonError(422, $code, $errorMessages[$code] ?? "Impossible d'inscrire l'élève à ce cours.");
 }
 
+apbNotifyTeacherBooking($booking);
 apbJsonSuccess($booking);

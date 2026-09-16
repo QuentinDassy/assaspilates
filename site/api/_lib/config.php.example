@@ -23,6 +23,13 @@ return [
     'STRIPE_PUBLISHABLE_KEY' => 'pk_test_...',
     'STRIPE_WEBHOOK_SECRET' => 'whsec_...',       // Developers -> Webhooks -> the endpoint's signing secret
 
+    // Resend -- teacher notification mails (site/api/_lib/mailer.php). API Keys
+    // in the Resend dashboard; MAIL_FROM must be on a domain verified under
+    // Domains there. Leave RESEND_API_KEY out and no mail is ever sent.
+    'RESEND_API_KEY' => 're_...',
+    'MAIL_FROM' => 'Assas Pilates Ballet <notifications@assas-pilates-ballet.com>',
+    'MAIL_REPLY_TO' => 'contact@assas-pilates-ballet.com', // optional
+
     // Leave unset on OVH. Only needed locally if something on your machine
     // does TLS interception (e.g. an antivirus like Avast) -- the Stripe SDK
     // ignores php.ini's curl.cainfo and needs this override instead
