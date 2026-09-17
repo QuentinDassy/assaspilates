@@ -210,6 +210,10 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--dark);
 .cal-event-title { font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-event-students { font-size: 9px; margin-top: 2px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-event-count { position: absolute; top: 4px; right: 5px; font-family: var(--font-serif); font-size: 14px; font-weight: 300; opacity: .45; line-height: 1; }
+.cal-cancelled { opacity: .6; }
+.cal-event-cancelled { background: repeating-linear-gradient(135deg, #f4f2ee 0 6px, #ece8e1 6px 12px); border-left-color: #c0392b; color: #8a8580; }
+.cal-event-cancelled .cal-event-time { color: #c0392b; opacity: 1; font-weight: 500; }
+.cal-event-cancelled .cal-event-title { text-decoration: line-through; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {

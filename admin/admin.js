@@ -1708,6 +1708,17 @@ function adminPrintInvoiceBooking(bookingId) {
 }
 
 // ===== PLANNING =====
+// The "vacances" period (if any) that cancels this slot on dateISO. Unlike
+// isTeacherAbsentOn() it honours the optional time window, the same way
+// api_book_slot() does server-side: only a course overlapping it is off.
+function teacherAbsenceFor(slot, dateISO) {
+  if (!slot.teacherId) return null;
+  return getTeacherAbsences().find(a =>
+    a.teacherId === slot.teacherId && dateISO >= a.startDate && dateISO <= a.endDate
+    && (!a.startTime || (slot.start < a.endTime && slot.end > a.startTime))
+  ) || null;
+}
+
 function renderPlanningAdmin() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1798,18 +1809,28 @@ function renderPlanningAdmin() {
         ? `left:calc(${(lane * 100) / lanes}% + 3px);width:calc(${100 / lanes}% - 6px);right:auto;`
         : '';
 
-      const enrolled = bookings.filter(b =>
-        b.slotId === slot.id && b.courseDate === ds && (b.status === 'confirmed' || b.status === 'pending')
-      );
+      // Cancelled bookings stay on the grid, struck through, so a place that
+      // just freed up is visible at a glance instead of silently vanishing.
+      const slotBookings = bookings.filter(b => b.slotId === slot.id && b.courseDate === ds);
+      const enrolled  = slotBookings.filter(b => b.status === 'confirmed' || b.status === 'pending');
+      const cancelled = slotBookings.filter(b => b.status === 'cancelled');
+      const absence   = teacherAbsenceFor(slot, ds);
       const typeClass = enrolled.length ? `cal-event-${slot.type}` : 'cal-event-empty';
       const shortTitle = slot.title.replace(/^Cours\s+/,'').split('–')[0].trim();
-      const names = enrolled.map(b => `${escapeHtml(b.clientFirstName)} ${escapeHtml((b.clientLastName||'').charAt(0))}.${b.status==='pending'?' ⏳':''}`).join(', ');
-      const tooltip = `${slot.title} — ${enrolled.map(b => b.clientFirstName+' '+b.clientLastName+(b.status==='pending'?' (en attente)':'')).join(', ')||'Aucune réservation'}`;
+      const shortName = b => `${escapeHtml(b.clientFirstName)} ${escapeHtml((b.clientLastName||'').charAt(0))}.`;
+      const names = [
+        ...enrolled.map(b => `${shortName(b)}${b.status==='pending'?' ⏳':''}`),
+        ...cancelled.map(b => `<s class="cal-cancelled">${shortName(b)}</s>`),
+      ].join(', ');
+      const tooltip = `${slot.title}${absence ? ` — ANNULÉ (professeur absent${absence.reason ? ' : ' + absence.reason : ''})` : ''} — ${[
+        ...enrolled.map(b => b.clientFirstName+' '+b.clientLastName+(b.status==='pending'?' (en attente)':'')),
+        ...cancelled.map(b => b.clientFirstName+' '+b.clientLastName+' (annulé)'),
+      ].join(', ')||'Aucune réservation'}`;
 
-      return `<div class="cal-event ${typeClass}" style="top:${top}px;height:${height}px;${across}" title="${escapeHtml(tooltip)}">
-        <div class="cal-event-time">${slot.start}–${slot.end}</div>
+      return `<div class="cal-event ${typeClass}${absence ? ' cal-event-cancelled' : ''}" style="top:${top}px;height:${height}px;${across}" title="${escapeHtml(tooltip)}">
+        <div class="cal-event-time">${slot.start}–${slot.end}${absence ? ' · Prof absent' : ''}</div>
         <div class="cal-event-title">${shortTitle}</div>
-        ${enrolled.length ? `<div class="cal-event-students">${names}</div>` : ''}
+        ${names ? `<div class="cal-event-students">${names}</div>` : ''}
         ${enrolled.length ? `<div class="cal-event-count">${enrolled.length}</div>` : ''}
       </div>`;
     }).join('');
