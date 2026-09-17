@@ -460,7 +460,12 @@ async function login() {
   try {
     session = await supabaseSignIn(email, password);
   } catch (e) {
-    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    // Most "wrong password" reports come from students who never had a
+    // password at all (booked as a guest, carnet created by the studio).
+    const hint = isInvalidCredentials(e)
+      ? '<br>Première connexion, ou mot de passe perdu ? Cliquez sur « Mot de passe oublié » : vous recevrez un lien pour en choisir un.'
+      : '';
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}${hint}</div>`;
     document.getElementById('l-password').value = '';
     return;
   }
@@ -900,18 +905,18 @@ async function forgotPassword() {
     return;
   }
   try {
-    // redirect_to is a query param on GoTrue's REST API, not a body field.
-    // Without it the email's link falls back to the project's Site URL (the
-    // homepage), which has no reset form on it.
-    await fetch(`${AUTH_URL}/recover?redirect_to=${encodeURIComponent(passwordResetRedirectUrl())}`, {
+    // Goes through our own API rather than Supabase's /recover, which sends
+    // nothing to a student who never had an account (guest booking, carnet
+    // created by the studio) -- see site/api/request-password-reset.php.
+    await apbApiFetch('/api/request-password-reset.php', {
       method: 'POST',
-      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, redirectTo: passwordResetRedirectUrl() }),
     });
-  } catch (e) { /* fall through to the same generic message either way */ }
-  // Always show the same message whether or not the email has an account --
-  // otherwise this becomes an account-enumeration oracle.
-  alertEl.innerHTML = '<div class="alert alert-info">Si un compte existe avec cet email, un lien de réinitialisation vient d\'être envoyé.</div>';
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  alertEl.innerHTML = '<div class="alert alert-info">Si un compte existe avec cet email, un lien pour choisir votre mot de passe vient d\'être envoyé. Pensez à regarder dans vos spams.</div>';
 }
 
 
