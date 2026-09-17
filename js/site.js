@@ -206,7 +206,17 @@ function renderInfos() {
 }
 
 // ===== INIT =====
+// Munz Floor has its own page now (/munz-floor/, for search engines); the
+// other pages still live in this one, reachable from there as /#schedule etc.
+function showPageFromHash() {
+  const page = location.hash.replace(/^#/, '');
+  if (page === 'munz') { location.replace('/munz-floor/'); return; }
+  if (page && document.getElementById('page-' + page)) showPage(page);
+}
+window.addEventListener('hashchange', showPageFromHash);
+
 document.addEventListener('DOMContentLoaded', async () => {
+  showPageFromHash();
   await syncContentFromSupabase();
   renderSchedule('schedule-grid');
   renderSchedule('home-schedule-grid', true);
