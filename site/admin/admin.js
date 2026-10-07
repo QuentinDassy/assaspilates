@@ -5,6 +5,9 @@
 let selectedDay    = 0;
 let calWeekOffset  = 0;
 
+// Libellés des disciplines (tarifs.type / slots.type / carnets.type).
+const APB_TYPE_LABELS = { collectif: 'Semi-collectif', prive: 'Cours privé', duo: 'Duo', munz: 'Munz Floor', decouverte: 'Découverte' };
+
 // ---- Output-encoding helpers ----
 // Client-submitted fields (name/email/phone from the public booking form) are rendered
 // here via innerHTML. Without escaping, a booking made with e.g. firstName =
@@ -128,6 +131,7 @@ function renderCurrentPage(pageId) {
     case 'team':         renderTeamAdmin();     break;
     case 'tarifs':       renderTarifsAdmin();   break;
     case 'infos':        renderInfosAdmin();    break;
+    case 'mails':        renderMailTemplatesAdmin(); break;
     case 'booking-config': renderBookingConfig(); break;
     case 'booking-list': renderBookingList();   break;
     case 'carnets':      renderCarnetsAdmin();  break;
@@ -591,19 +595,20 @@ async function deleteAbsence(id, teacherId) {
 }
 
 // ===== TARIFS =====
-let tarifNextId;
 
+// Les formules passent par /api/admin-tarifs.php. Avant, saveTarifForm()
+// n'écrivait que dans localStorage tout en annonçant « Visible instantanément
+// sur le site » : le prix ne changeait que sur ce navigateur.
 function renderTarifsAdmin() {
   const tarifs = getTarifs();
-  tarifNextId = Math.max(0, ...tarifs.map(t => t.id)) + 1;
   document.getElementById('tarifs-tbody').innerHTML = tarifs.map(t => `
     <tr>
       <td>
-        <strong>${t.name}</strong>${t.isCarnet ? ' <span style="font-size:10px;background:#e8f5e9;color:#2E6B30;padding:2px 6px">Carnet</span>' : ''}<br>
-        <span style="font-size:11px;color:#999">${t.label}</span>
+        <strong>${escapeHtml(t.name)}</strong>${t.isCarnet ? ' <span style="font-size:10px;background:#e8f5e9;color:#2E6B30;padding:2px 6px">Carnet</span>' : ''}<br>
+        <span style="font-size:11px;color:#999">${escapeHtml(t.label || '')}</span>
       </td>
-      <td style="font-size:12px">${t.sessions}</td>
-      <td style="font-weight:500;color:#93bdb0">${t.price}€</td>
+      <td style="font-size:12px">${escapeHtml(APB_TYPE_LABELS[t.type] || t.type || '—')}<div style="font-size:11px;color:#999">${escapeHtml(t.sessions || '')}</div></td>
+      <td style="font-weight:500;color:#93bdb0">${escapeHtml(String(t.price))}€</td>
       <td>${t.featured ? '<span class="badge badge-featured">✓ Oui</span>' : '—'}</td>
       <td class="actions">
         <button class="btn btn-sm btn-outline" onclick="editTarif(${t.id})">Modifier</button>
@@ -613,13 +618,15 @@ function renderTarifsAdmin() {
   `).join('');
 }
 
-function saveTarifForm() {
+async function saveTarifForm() {
   const id = document.getElementById('tarif-id').value;
-  const sessionCount = parseInt(document.getElementById('tarif-session-count').value) || 0;
-  const validityMonths = parseInt(document.getElementById('tarif-validity').value) || 0;
   const isCarnet = document.getElementById('tarif-is-carnet').checked;
-  const t = {
-    id:       id ? parseInt(id) : tarifNextId++,
+  const payload = {
+    action: id ? 'update' : 'create',
+    id: id ? parseInt(id) : undefined,
+    // La discipline décide quel carnet sert à quel cours : sans elle, la
+    // formule n'est utilisable nulle part (et la base la refuse).
+    type:     document.getElementById('tarif-type').value,
     name:     document.getElementById('tarif-name').value.trim(),
     label:    document.getElementById('tarif-label').value.trim(),
     sessions: document.getElementById('tarif-sessions').value.trim(),
@@ -627,23 +634,29 @@ function saveTarifForm() {
     note:     document.getElementById('tarif-note').value.trim(),
     featured: document.getElementById('tarif-featured').checked,
     isCarnet,
-    sessionCount:   isCarnet ? sessionCount : 0,
-    validityMonths: isCarnet ? validityMonths : 0,
+    sessionCount:   isCarnet ? (parseInt(document.getElementById('tarif-session-count').value) || 0) : 0,
+    validityMonths: isCarnet ? (parseInt(document.getElementById('tarif-validity').value) || 0) : 0,
   };
-  if (!t.name) { showAlert('tarifs-alert', 'Le nom est obligatoire.', 'error'); return; }
-  let tarifs = getTarifs();
-  if (id) tarifs = tarifs.map(x => x.id === t.id ? t : x);
-  else tarifs.push(t);
-  saveTarifs(tarifs);
+  if (!payload.name) { showAlert('tarifs-alert', 'Le nom est obligatoire.', 'error'); return; }
+  if (!payload.type) { showAlert('tarifs-alert', 'Choisissez la discipline de la formule.', 'error'); return; }
+
+  try {
+    await apbApiFetch('/api/admin-tarifs.php', { method: 'POST', body: JSON.stringify(payload) });
+    await syncContentFromSupabase();
+  } catch (e) {
+    showAlert('tarifs-alert', adminApiErrorMessage(e), 'error');
+    return;
+  }
   resetTarifForm();
   renderTarifsAdmin();
-  showAlert('tarifs-alert', '✓ Formule enregistrée. Visible instantanément sur le site.');
+  showAlert('tarifs-alert', '✓ Formule enregistrée. Visible sur le site.');
 }
 
 function editTarif(id) {
   const t = getTarifs().find(x => x.id === id);
   if (!t) return;
   document.getElementById('tarif-id').value            = t.id;
+  document.getElementById('tarif-type').value          = t.type || '';
   document.getElementById('tarif-name').value          = t.name;
   document.getElementById('tarif-label').value         = t.label;
   document.getElementById('tarif-sessions').value      = t.sessions;
@@ -657,17 +670,26 @@ function editTarif(id) {
   toggleCarnetFields();
 }
 
-function deleteTarif(id) {
-  if (!confirm('Supprimer cette formule ?')) return;
-  saveTarifs(getTarifs().filter(t => t.id !== id));
+// Suppression douce côté serveur (active = false) : les carnets déjà vendus
+// référencent la formule sous laquelle ils ont été achetés.
+async function deleteTarif(id) {
+  if (!confirm('Retirer cette formule du site ?\nLes carnets déjà vendus sous cette formule ne sont pas affectés.')) return;
+  try {
+    await apbApiFetch('/api/admin-tarifs.php', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+    await syncContentFromSupabase();
+  } catch (e) {
+    showAlert('tarifs-alert', adminApiErrorMessage(e), 'error');
+    return;
+  }
   renderTarifsAdmin();
-  showAlert('tarifs-alert', 'Formule supprimée.');
+  showAlert('tarifs-alert', 'Formule retirée.');
 }
 
 function resetTarifForm() {
   ['tarif-id','tarif-name','tarif-label','tarif-sessions','tarif-price','tarif-note','tarif-session-count','tarif-validity'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  document.getElementById('tarif-type').value = '';
   document.getElementById('tarif-featured').checked  = false;
   document.getElementById('tarif-is-carnet').checked = false;
   document.getElementById('tarif-form-title').textContent = 'Nouvelle formule';
@@ -694,9 +716,12 @@ function renderInfosAdmin() {
   set('info-ponct',     infos.ponctMsg);
 }
 
-function saveInfosForm() {
+// Passe par /api/admin-infos.php (la ligne unique site_settings). Avant,
+// cette fonction n'écrivait que dans localStorage : « Visibles sur le site »
+// ne valait que pour ce navigateur.
+async function saveInfosForm() {
   const get = id => { const el = document.getElementById(id); return el ? el.value : ''; };
-  const infos = {
+  const payload = {
     addr1:       get('info-addr1'),
     addr2:       get('info-addr2'),
     tel:         get('info-tel'),
@@ -706,8 +731,106 @@ function saveInfosForm() {
     retardMin:   parseInt(get('info-retard')) || 10,
     ponctMsg:    get('info-ponct'),
   };
-  saveInfos(infos);
+  try {
+    await apbApiFetch('/api/admin-infos.php', { method: 'POST', body: JSON.stringify(payload) });
+    await syncContentFromSupabase();
+  } catch (e) {
+    showAlert('infos-alert', adminApiErrorMessage(e), 'error');
+    return;
+  }
+  renderInfosAdmin();
   showAlert('infos-alert', '✓ Informations enregistrées. Visibles sur le site.');
+}
+
+// ===== MAILS AUX ÉLÈVES (gabarits éditables) =====
+// Les textes vivent en base (supabase/migrations/0013_client_mail_templates.sql)
+// et se modifient ici, sans déploiement. Ils ne passent pas par le cache
+// localStorage des autres contenus : ils ne sont lisibles qu'en service_role,
+// jamais avec la clé anon depuis le navigateur.
+let apbMailTemplates = [];
+
+// Variables communes à tous les messages ; booking_moved en a trois de plus,
+// qui décrivent le créneau quitté.
+const APB_MAIL_VARS = ['prenom', 'nom', 'cours', 'date', 'heure_debut', 'heure_fin', 'lieu', 'professeur', 'reference', 'studio_email', 'studio_tel'];
+const APB_MAIL_VARS_EXTRA = { booking_moved: ['ancien_cours', 'ancienne_date', 'ancienne_heure'] };
+
+async function renderMailTemplatesAdmin() {
+  const host = document.getElementById('mails-content');
+  if (!host) return;
+  host.innerHTML = '<div style="color:#bbb;font-style:italic;padding:24px">Chargement…</div>';
+
+  try {
+    const resp = await apbApiFetch('/api/admin-mail-templates.php');
+    apbMailTemplates = resp.templates || [];
+  } catch (e) {
+    // Table absente tant que la migration 0013 n'est pas passée : le dire
+    // plutôt que d'afficher une page vide.
+    host.innerHTML = `<div class="alert alert-error">${escapeHtml(adminApiErrorMessage(e))}</div>`;
+    return;
+  }
+
+  if (!apbMailTemplates.length) {
+    host.innerHTML = '<div style="color:#bbb;font-style:italic;padding:24px">Aucun message configuré.</div>';
+    return;
+  }
+
+  host.innerHTML = apbMailTemplates.map(t => {
+    const vars = APB_MAIL_VARS.concat(APB_MAIL_VARS_EXTRA[t.key] || []);
+    return `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <h3 style="margin:0">${escapeHtml(t.label)}</h3>
+        <label class="checkbox-label" style="margin:0;font-size:12px;white-space:nowrap">
+          <input type="checkbox" id="mt-enabled-${escapeHtml(t.key)}" ${t.enabled ? 'checked' : ''}>
+          Activé
+        </label>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px;color:#888;margin:0 0 14px">${escapeHtml(t.description)}</p>
+        <div class="form-group">
+          <label>Objet du mail</label>
+          <input type="text" id="mt-subject-${escapeHtml(t.key)}" value="${escapeHtml(t.subject)}">
+        </div>
+        <div class="form-group">
+          <label>Contenu (HTML)</label>
+          <textarea id="mt-body-${escapeHtml(t.key)}" rows="12" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.5">${escapeHtml(t.body_html)}</textarea>
+        </div>
+        <div style="font-size:11px;color:#888;margin-bottom:14px">
+          Variables disponibles — cliquez pour copier :
+          ${vars.map(v => `<button type="button" class="btn btn-sm btn-outline" style="font-family:monospace;font-size:10px;padding:1px 5px;margin:2px 2px 0 0" onclick="apbCopyMailVar('${v}')">{${v}}</button>`).join('')}
+        </div>
+        <div class="form-actions" style="margin:0">
+          <button class="btn btn-primary" onclick="saveMailTemplate('${escapeJsAttr(t.key)}')">Enregistrer ce message</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function apbCopyMailVar(name) {
+  const text = '{' + name + '}';
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  showAlert('mails-alert', `${text} copié — collez-le dans le texte.`);
+}
+
+async function saveMailTemplate(key) {
+  const subject  = document.getElementById('mt-subject-' + key).value.trim();
+  const bodyHtml = document.getElementById('mt-body-' + key).value;
+  const enabled  = document.getElementById('mt-enabled-' + key).checked;
+  if (!subject || !bodyHtml.trim()) {
+    showAlert('mails-alert', "L'objet et le contenu sont obligatoires.", 'error');
+    return;
+  }
+  try {
+    await apbApiFetch('/api/admin-mail-templates.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', key, subject, bodyHtml, enabled }),
+    });
+  } catch (e) {
+    showAlert('mails-alert', adminApiErrorMessage(e), 'error');
+    return;
+  }
+  showAlert('mails-alert', '✓ Message enregistré.');
 }
 
 // ===== STRIPE CONFIG (read-only display -- the real values live server-side
@@ -829,11 +952,18 @@ function nbSelectedSlot() {
   return apbBookableSlots().find(s => s.id === id) || null;
 }
 
-async function openNewBookingModal() {
+// Ouvrable depuis le planning avec un cours et une date déjà choisis :
+// « Inscrire un élève » sur une séance précise évite de les resélectionner,
+// et c'est ce qui rend l'inscription à l'unité payée sur place trouvable
+// ailleurs que dans l'onglet Réservations.
+let nbPreset = null;
+
+async function openNewBookingModal(presetSlotId, presetDate) {
   document.getElementById('nb-alert').innerHTML = '';
   document.getElementById('nb-client-list').innerHTML =
     nbKnownClients().map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.name)}</option>`).join('');
   document.getElementById('nb-client').value = '';
+  nbPreset = presetSlotId ? { slotId: presetSlotId, courseDate: presetDate } : null;
 
   await apbLoadRetiredSlots();
   // Les cours retirés en fin de liste : ils ne servent qu'au rétroactif.
@@ -844,8 +974,16 @@ async function openNewBookingModal() {
   document.getElementById('nb-slot').innerHTML = slots.map(s =>
     `<option value="${s.id}">${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})${apbSlotRetiredLabel(s)}</option>`
   ).join('');
+  if (presetSlotId) document.getElementById('nb-slot').value = presetSlotId;
 
   nbOnSlotChange();
+  if (presetDate) {
+    const sel = document.getElementById('nb-date');
+    if ([...sel.options].some(o => o.value === presetDate)) {
+      sel.value = presetDate;
+      apbUpdateRetroNote('nb');
+    }
+  }
   document.getElementById('booking-modal-overlay').classList.add('open');
 }
 
@@ -969,8 +1107,9 @@ async function saveNewBooking() {
     });
     await syncAdminDataFromApi();
     closeNewBookingModal();
-    renderBookingList();
+    apbRerenderCurrentPage();
     showAlert('bookings-alert', '✓ Élève inscrit au cours (payé sur place).');
+    if (nbPreset) { nbPreset = null; openOccurrenceModal(slot.id, courseDate); }
   } catch (e) {
     showAlert('nb-alert', (typeof adminApiErrorMessage === 'function' ? adminApiErrorMessage(e) : `Erreur : ${e.message}`), 'error');
   }
@@ -993,69 +1132,51 @@ async function adminCancelBooking(id) {
     showAlert('bookings-alert', adminApiErrorMessage(e), 'error');
     return;
   }
-  renderBookingList();
+  apbRerenderCurrentPage();
   const msg = isStripe
     ? `✓ Réservation annulée. Pensez à rembourser <strong>${b.totalPaid || 0}€</strong> au client.`
     : `✓ Réservation ${id} annulée.${b.paymentType === 'carnet' ? ' Séance restituée.' : ''}`;
   showAlert('bookings-alert', msg);
 }
 
-function nextDateForDay(dayOfWeek, fromDateStr) {
-  const jsDay = (dayOfWeek + 1) % 7;
-  const base  = fromDateStr ? new Date(fromDateStr + 'T12:00:00') : new Date();
-  base.setHours(0, 0, 0, 0);
-  if (base.getDay() === jsDay) return fromDateStr;
-  let diff = jsDay - base.getDay();
-  if (diff <= 0) diff += 7;
-  const d = new Date(base);
-  d.setDate(base.getDate() + diff);
-  return formatDateISO(d);
+/** Rerend la page ouverte : un déplacement se voit dans les Réservations comme dans le Planning. */
+function apbRerenderCurrentPage() {
+  const active = document.querySelector('.page.active');
+  if (active) renderCurrentPage(active.id.replace(/^page-/, ''));
 }
 
-function onEditDayChange(day) {
-  document.querySelectorAll('#eb-day-pills .day-pill').forEach(btn =>
-    btn.classList.toggle('active', parseInt(btn.dataset.day) === day)
-  );
-  const isCustom = day < 0;
-  document.getElementById('eb-course-group').style.display  = isCustom ? 'none' : '';
-  document.getElementById('eb-custom-fields').style.display = isCustom ? 'block' : 'none';
-  document.getElementById('eb-date-warn').innerHTML = '';
-  if (!isCustom) {
-    const slots = getSlots().filter(s => s.day === day).sort((a,b) => a.start.localeCompare(b.start));
-    document.getElementById('eb-slot').innerHTML = slots.map(s =>
-      `<option value="${s.id}">${s.start}–${s.end} — ${s.title.replace('Cours ','')}</option>`
-    ).join('');
-    document.getElementById('eb-date').value = nextDateForDay(day, document.getElementById('eb-date').value);
-  }
+function ebSelectedSlot() {
+  const id = parseInt(document.getElementById('eb-slot').value);
+  return apbBookableSlots().find(s => s.id === id) || null;
 }
 
-function onEditDateChange() {
-  if (document.getElementById('eb-course-group').style.display === 'none') return;
-  const slot = getSlots().find(s => s.id === parseInt(document.getElementById('eb-slot').value));
-  if (!slot) return;
-  const date = document.getElementById('eb-date').value;
-  if (!date) return;
-  const jsDay  = (slot.day + 1) % 7;
-  const selDay = new Date(date + 'T12:00:00').getDay();
-  const warnEl = document.getElementById('eb-date-warn');
-  if (selDay !== jsDay) {
-    const names = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-    warnEl.innerHTML = `<span style="color:#c0392b;font-size:11px">⚠ Ce cours a lieu le ${DAYS[slot.day]} (date choisie : ${names[selDay]}).
-      <button onclick="document.getElementById('eb-date').value=nextDateForDay(${slot.day},document.getElementById('eb-date').value);document.getElementById('eb-date-warn').innerHTML=''"
-        style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;text-decoration:underline;font-family:inherit;padding:0;margin-left:4px">Corriger →</button></span>`;
-  } else {
-    warnEl.innerHTML = '';
-  }
+function ebOnSlotChange() {
+  apbFillOccurrences('eb-date', ebSelectedSlot());
 }
 
-function editBooking(id) {
+// ===== DÉPLACER UNE RÉSERVATION (changer son cours et/ou sa date) =====
+// Passe par /api/admin-bookings.php (action 'update') -> api_move_booking,
+// qui verrouille l'occurrence quittée et celle rejointe dans la même
+// transaction : capacité, absence du professeur et discipline du carnet sont
+// vérifiées comme à l'inscription.
+//
+// Jusqu'ici cette modale n'écrivait que dans localStorage : elle affichait
+// « ✓ Réservation modifiée » et la base ne bougeait pas (voir
+// supabase/migrations/0012_move_booking.sql).
+//
+// Deux choses ont disparu au passage :
+//   - le mode « Personnalisé » (intitulé, horaire et professeur libres). Une
+//     réservation pointe sur une occurrence, qui pointe sur un cours réel :
+//     il n'y a pas de place en base pour une séance sans cours. Le vrai
+//     besoin derrière ce mode — une séance sur un cours qui n'est plus au
+//     planning — est couvert par les cours retirés, toujours proposés ici.
+//   - le champ date libre, remplacé par les occurrences réelles du cours
+//     (apbFillOccurrences), les mêmes que dans « Nouvelle réservation » :
+//     on ne peut plus choisir une date où le cours ne tourne pas.
+async function editBooking(id) {
   const b = getBookings().find(x => x.id === id);
   if (!b) return;
-  const slots    = getSlots();
-  const allDays  = [...new Set(slots.map(s => s.day))].sort((a,b) => a - b);
-  const curSlot  = slots.find(s => s.id === b.slotId);
-  const isCustom = !curSlot;
-  const initDay  = isCustom ? -1 : curSlot.day;
+  await apbLoadRetiredSlots();
 
   let modal = document.getElementById('edit-booking-modal');
   if (!modal) {
@@ -1065,13 +1186,12 @@ function editBooking(id) {
     document.body.appendChild(modal);
   }
 
-  const dayPills = allDays.map(d =>
-    `<button type="button" class="day-pill${d === initDay ? ' active' : ''}" data-day="${d}" onclick="onEditDayChange(${d})">${DAYS[d]}</button>`
-  ).join('') + `<button type="button" class="day-pill${isCustom ? ' active' : ''}" data-day="-1" onclick="onEditDayChange(-1)">Personnalisé</button>`;
-
-  const daySlots = isCustom ? [] : slots.filter(s => s.day === initDay).sort((a,b) => a.start.localeCompare(b.start));
-  const slotOptions = daySlots.map(s =>
-    `<option value="${s.id}"${s.id === b.slotId ? ' selected' : ''}>${s.start}–${s.end} — ${s.title.replace('Cours ','')}</option>`
+  const locShort = s => (LOCATIONS && LOCATIONS[s.location || 'assas']) ? LOCATIONS[s.location || 'assas'].short : (s.location || '');
+  const slots = apbBookableSlots().sort((a, b2) =>
+    (!!a.retired - !!b2.retired) || a.day - b2.day || a.start.localeCompare(b2.start)
+  );
+  const slotOptions = slots.map(s =>
+    `<option value="${s.id}"${s.id === b.slotId ? ' selected' : ''}>${DAYS[s.day]} ${s.start}–${s.end} — ${escapeHtml(s.title)} (${escapeHtml(locShort(s))})${apbSlotRetiredLabel(s)}</option>`
   ).join('');
 
   modal.innerHTML = `
@@ -1081,37 +1201,23 @@ function editBooking(id) {
         <button onclick="document.getElementById('edit-booking-modal').remove()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="padding:24px">
-        <div style="font-size:10px;color:#aaa;letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px">${id}</div>
+        <div style="font-size:10px;color:#aaa;letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px">${escapeHtml(id)}</div>
+
+        <div style="background:#faf9f6;border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-size:13px">
+          <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin-bottom:6px">Actuellement</div>
+          <div style="font-weight:500">${escapeHtml(b.slotTitle || '')}</div>
+          <div style="color:#888;font-size:12px;margin-top:2px">${escapeHtml(b.courseDate || '')} · ${escapeHtml(b.slotStart || '')}–${escapeHtml(b.slotEnd || '')}</div>
+        </div>
 
         <div class="form-group">
-          <label>Jour</label>
-          <div class="day-pills" id="eb-day-pills" style="flex-wrap:wrap">${dayPills}</div>
-        </div>
-
-        <div class="form-group" id="eb-course-group" style="${isCustom ? 'display:none' : ''}">
           <label>Cours</label>
-          <select id="eb-slot">${slotOptions}</select>
-        </div>
-
-        <div id="eb-custom-fields" style="display:${isCustom ? 'block' : 'none'};background:#faf9f6;border:1px solid var(--border);padding:14px 16px;margin-bottom:2px">
-          <div class="form-group" style="margin-bottom:10px">
-            <label>Intitulé</label>
-            <input type="text" id="eb-custom-title" value="${isCustom ? (b.slotTitle || '') : ''}" placeholder="Ex. Cours Privé Mat">
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Début</label><input type="time" id="eb-custom-start" value="${isCustom ? (b.slotStart || '') : ''}"></div>
-            <div class="form-group"><label>Fin</label><input type="time" id="eb-custom-end" value="${isCustom ? (b.slotEnd || '') : ''}"></div>
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label>Professeur</label>
-            <input type="text" id="eb-custom-teacher" value="${escapeHtml(isCustom ? (b.slotTeacher || '') : '')}">
-          </div>
+          <select id="eb-slot" onchange="ebOnSlotChange()">${slotOptions}</select>
         </div>
 
         <div class="form-group">
           <label>Date du cours</label>
-          <input type="date" id="eb-date" value="${b.courseDate}" onchange="onEditDateChange()">
-          <div id="eb-date-warn" style="margin-top:4px"></div>
+          <select id="eb-date" onchange="apbUpdateRetroNote('eb')"></select>
+          <div id="eb-retro-note" hidden style="margin-top:6px;font-size:11px;color:#b07a00"></div>
         </div>
 
         <div style="background:#faf9f6;border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-size:13px">
@@ -1123,47 +1229,50 @@ function editBooking(id) {
         <div id="eb-alert"></div>
         <div class="form-actions">
           <button class="btn btn-outline" onclick="document.getElementById('edit-booking-modal').remove()">Annuler</button>
-          <button class="btn btn-primary" onclick="saveBookingEdit('${id}')">Enregistrer</button>
+          <button class="btn btn-primary" id="eb-save" onclick="saveBookingEdit('${escapeJsAttr(id)}')">Enregistrer</button>
         </div>
       </div>
     </div>`;
+
+  // Les occurrences dépendent du cours sélectionné ; on repositionne ensuite
+  // sur la date actuelle de la réservation si elle est dans la liste.
+  ebOnSlotChange();
+  const dateSel = document.getElementById('eb-date');
+  if (dateSel && [...dateSel.options].some(o => o.value === b.courseDate)) {
+    dateSel.value = b.courseDate;
+    apbUpdateRetroNote('eb');
+  }
 
   modal.style.display = 'flex';
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-function saveBookingEdit(id) {
-  const isCustom = document.getElementById('eb-course-group').style.display === 'none';
-  const date     = document.getElementById('eb-date').value;
-  if (!date) { document.getElementById('eb-alert').innerHTML = '<div class="alert alert-error">La date est obligatoire.</div>'; return; }
+async function saveBookingEdit(id) {
+  const slot       = ebSelectedSlot();
+  const courseDate = document.getElementById('eb-date').value;
+  const alertEl    = document.getElementById('eb-alert');
+  const btn        = document.getElementById('eb-save');
+  if (!slot)       { alertEl.innerHTML = '<div class="alert alert-error">Choisissez un cours.</div>'; return; }
+  if (!courseDate) { alertEl.innerHTML = '<div class="alert alert-error">Choisissez la date du cours.</div>'; return; }
 
-  let bookings = getBookings();
-  const idx = bookings.findIndex(b => b.id === id);
-  if (idx === -1) return;
-
-  if (isCustom) {
-    const title = document.getElementById('eb-custom-title').value.trim();
-    if (!title) { document.getElementById('eb-alert').innerHTML = '<div class="alert alert-error">L\'intitulé est obligatoire.</div>'; return; }
-    bookings[idx].slotId      = null;
-    bookings[idx].slotTitle   = title;
-    bookings[idx].slotStart   = document.getElementById('eb-custom-start').value;
-    bookings[idx].slotEnd     = document.getElementById('eb-custom-end').value;
-    bookings[idx].slotTeacher = document.getElementById('eb-custom-teacher').value.trim();
-    bookings[idx].slotDay     = null;
-  } else {
-    const slot = getSlots().find(s => s.id === parseInt(document.getElementById('eb-slot').value));
-    if (slot) {
-      bookings[idx].slotId = slot.id; bookings[idx].slotTitle = slot.title;
-      bookings[idx].slotDay = slot.day; bookings[idx].slotStart = slot.start;
-      bookings[idx].slotEnd = slot.end; bookings[idx].slotTeacher = slot.teacher;
-    }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  try {
+    await apbApiFetch('/api/admin-bookings.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', bookingId: id, slotId: slot.id, courseDate }),
+    });
+    await syncAdminDataFromApi();
+  } catch (e) {
+    // Refusée (cours complet, professeur absent, session expirée) ou serveur
+    // injoignable : la réservation n'a pas bougé, on ne dit pas le contraire.
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(adminApiErrorMessage(e))}</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+    return;
   }
-  bookings[idx].courseDate = date;
 
-  saveBookings(bookings);
   document.getElementById('edit-booking-modal').remove();
-  renderBookingList();
-  showAlert('bookings-alert', `✓ Réservation ${id} modifiée.`);
+  apbRerenderCurrentPage();
+  showAlert('bookings-alert', '✓ Réservation déplacée.');
 }
 
 // Neutralizes CSV/formula injection (CWE-1236): a client name/message starting with
@@ -1219,6 +1328,7 @@ function renderCarnetsAdmin() {
 
   const now = new Date();
   const carnetRow = c => {
+    const disc     = cbCarnetDiscipline(c);
     const expired  = c.expiresAt && new Date(c.expiresAt) < now;
     const depleted = c.remainingSessions <= 0;
     const statusColor = (!c.active || expired || depleted) ? '#c0392b' : '#2E6B30';
@@ -1229,7 +1339,10 @@ function renderCarnetsAdmin() {
         <div style="font-size:13px;cursor:pointer;color:var(--accent)" onclick="showStudentProfile('${escapeJsAttr(c.clientEmail)}')">${escapeHtml(getClientName(c))}</div>
         <div style="font-size:11px;color:#aaa">${escapeHtml(c.clientEmail)}</div>
       </td>
-      <td><strong>${c.remainingSessions}</strong> / ${c.totalSessions}<div style="font-size:10px;color:#aaa">${escapeHtml(c.tarifName)}</div></td>
+      <td><strong>${c.remainingSessions}</strong> / ${c.totalSessions}
+        <div style="font-size:10px;color:#aaa">${escapeHtml(c.tarifName)}</div>
+        <div style="font-size:10px;font-weight:500;background:#f2efe9;display:inline-block;padding:1px 6px;margin-top:3px">${escapeHtml(APB_TYPE_LABELS[disc] || disc || '—')}</div>
+      </td>
       <td style="font-size:12px">${c.expiresAt || '—'}</td>
       <td><span style="font-size:11px;font-weight:500;color:${statusColor}">${statusLabel}</span></td>
       <td class="actions">
@@ -1240,7 +1353,7 @@ function renderCarnetsAdmin() {
     </tr>`;
   };
   const q = (document.getElementById('carnet-search')?.value || '').trim().toLowerCase();
-  const match = c => !q || `${c.code} ${getClientName(c)} ${c.clientEmail || ''} ${c.tarifName || ''}`.toLowerCase().includes(q);
+  const match = c => !q || `${c.code} ${getClientName(c)} ${c.clientEmail || ''} ${c.tarifName || ''} ${APB_TYPE_LABELS[cbCarnetDiscipline(c)] || ''}`.toLowerCase().includes(q);
   const filtered  = sorted.filter(match);
   const activeC   = filtered.filter(c => c.active && c.remainingSessions > 0 && (!c.expiresAt || new Date(c.expiresAt) >= now));
   const inactiveC = filtered.filter(c => !c.active || c.remainingSessions <= 0 || (c.expiresAt && new Date(c.expiresAt) < now));
@@ -1265,7 +1378,7 @@ function cbSelectedSlot() {
   return apbBookableSlots().find(s => s.id === id) || null;
 }
 
-const CB_TYPE_LABELS = { collectif: 'Semi-collectif', prive: 'Cours privé', duo: 'Duo', munz: 'Munz Floor', decouverte: 'Découverte' };
+const CB_TYPE_LABELS = APB_TYPE_LABELS;
 
 // Discipline « achetée » du carnet : on privilégie le type de son tarif (fiable)
 // et on retombe sur le type stocké. Sert à trier/étiqueter les cours proposés.
@@ -1633,7 +1746,15 @@ async function adminCancelStudent(email) {
   }
 }
 
-function saveClientEdit(oldEmail) {
+// Passe par /api/admin-clients.php, qui met à jour la fiche, les snapshots
+// nom/téléphone des réservations (ce que lisent les écrans admin) et, si
+// l'email change, l'identifiant de connexion Supabase Auth.
+//
+// Avant, cette fonction réécrivait les tableaux bookings/carnets dans
+// localStorage et son propre commentaire reconnaissait ne pas toucher au
+// compte : la correction tenait jusqu'à la prochaine synchro, sur ce
+// navigateur seulement.
+async function saveClientEdit(oldEmail) {
   const first = document.getElementById('ce-firstname').value.trim();
   const last  = document.getElementById('ce-lastname').value.trim();
   const email = document.getElementById('ce-email').value.trim().toLowerCase();
@@ -1645,31 +1766,27 @@ function saveClientEdit(oldEmail) {
     return;
   }
 
-  const oldLower = oldEmail.toLowerCase();
+  // L'email est aussi l'identifiant de connexion de l'élève : on ne le change
+  // pas sans le dire.
+  if (email !== (oldEmail || '').toLowerCase() &&
+      !confirm(`Remplacer l'email de ${oldEmail} par ${email} ?\n\nC'est aussi son identifiant de connexion : l'élève devra se connecter avec la nouvelle adresse.`)) {
+    return;
+  }
 
-  let bookings = getBookings();
-  bookings = bookings.map(b => {
-    if ((b.clientEmail || '').toLowerCase() !== oldLower) return b;
-    return { ...b, clientFirstName: first, clientLastName: last, clientEmail: email, clientPhone: phone };
-  });
-  saveBookings(bookings);
-
-  let carnets = getCarnets();
-  carnets = carnets.map(c => {
-    if ((c.clientEmail || '').toLowerCase() !== oldLower) return c;
-    return { ...c, clientFirstName: first, clientLastName: last, clientName: `${first} ${last}`, clientEmail: email, clientPhone: phone };
-  });
-  saveCarnets(carnets);
-
-  // Note: this only updates the local booking/carnet records (the admin's CRM
-  // view of the client). It does NOT change their actual Supabase Auth login
-  // email -- that needs a real API call as that user (or via the service-role
-  // key), not something safe to do from the anon-key admin panel today.
+  try {
+    await apbApiFetch('/api/admin-clients.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', currentEmail: oldEmail, firstName: first, lastName: last, email, phone }),
+    });
+    await syncAdminDataFromApi();
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(adminApiErrorMessage(e))}</div>`;
+    return;
+  }
 
   document.getElementById('student-modal').remove();
   showStudentProfile(email);
-  const activePage = document.querySelector('.page.active');
-  if (activePage && activePage.id === 'page-clients') renderClientsAdmin();
+  apbRerenderCurrentPage();
   showAlert('bookings-alert', '✓ Coordonnées client mises à jour.');
 }
 
@@ -1705,6 +1822,93 @@ function adminPrintInvoiceBooking(bookingId) {
     <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#373737;color:#fff;border:none;cursor:pointer;display:block;margin-left:auto">Imprimer / PDF</button>
   <\/body><\/html>`);
   w.document.close();
+}
+
+// ===== UNE SÉANCE DU PLANNING (clic sur un cours) =====
+// Le planning affichait les inscrits en texte : pour annuler ou déplacer
+// quelqu'un, il fallait retrouver sa réservation dans l'onglet Réservations.
+// Un clic sur le cours ouvre maintenant la liste de ses inscrits, avec les
+// mêmes actions que la liste des réservations -- et de quoi inscrire un
+// élève payant sur place directement sur ce cours et cette date.
+function apbCloseOccurrenceModal() {
+  const m = document.getElementById('occurrence-modal');
+  if (m) m.remove();
+}
+
+function openOccurrenceModal(slotId, dateISO) {
+  const slot = apbBookableSlots().find(s => s.id === slotId) || getSlots().find(s => s.id === slotId);
+  if (!slot) return;
+
+  const slotBookings = getBookings().filter(b => b.slotId === slotId && b.courseDate === dateISO);
+  const enrolled  = slotBookings.filter(b => b.status === 'confirmed' || b.status === 'pending');
+  // Le planning montre les annulations barrées : la modale les montre aussi,
+  // sinon cliquer sur un nom barré donne une liste où il a disparu.
+  const cancelled = slotBookings.filter(b => b.status === 'cancelled');
+  const absence   = teacherAbsenceFor(slot, dateISO);
+  const total = enrolled.reduce((n, b) => n + (b.participants || 1), 0);
+
+  const payLabel = { carnet: 'Carnet', onsite: 'Payé sur place', stripe: 'Payé en ligne' };
+  const rows = enrolled.map(b => `
+    <div style="border-top:1px solid var(--border);padding:12px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div style="min-width:0">
+        <div style="font-weight:500;cursor:pointer;color:var(--accent)" onclick="apbCloseOccurrenceModal();showStudentProfile('${escapeJsAttr(b.clientEmail || '')}')">
+          ${escapeHtml(b.clientFirstName || '')} ${escapeHtml(b.clientLastName || '')}${(b.participants || 1) > 1 ? ` (${b.participants} pers.)` : ''}
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:2px">
+          ${escapeHtml(b.clientPhone || b.clientEmail || '')}
+          · ${escapeHtml(payLabel[b.paymentType] || b.paymentType || '')}
+          ${b.status === 'pending' ? ' · <span style="color:#b07a00">en attente d\'un 2e élève</span>' : ''}
+        </div>
+        ${b.clientMessage ? `<div style="font-size:11px;color:#888;margin-top:4px;font-style:italic">« ${escapeHtml(b.clientMessage)} »</div>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-sm btn-outline" onclick="apbCloseOccurrenceModal();editBooking('${escapeJsAttr(b.id)}')">Déplacer</button>
+        <button class="btn btn-sm btn-danger" onclick="apbOccurrenceCancel('${escapeJsAttr(b.id)}',${slotId},'${escapeJsAttr(dateISO)}')">Annuler</button>
+      </div>
+    </div>`).join('');
+
+  const dateLabel = new Date(dateISO + 'T12:00:00')
+    .toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  apbCloseOccurrenceModal();
+  const modal = document.createElement('div');
+  modal.id = 'occurrence-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto';
+  modal.innerHTML = `
+    <div style="background:#fff;max-width:540px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="background:#373737;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300">${escapeHtml(slot.title)}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:2px">${escapeHtml(dateLabel)} · ${escapeHtml(slot.start)}–${escapeHtml(slot.end)} · ${escapeHtml(slot.teacher || '')}</div>
+        </div>
+        <button onclick="apbCloseOccurrenceModal()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:24px">
+        ${absence ? `<div class="alert alert-error" style="margin-bottom:16px">Professeur absent ce jour-là${absence.reason ? ' : ' + escapeHtml(absence.reason) : ''} — ce cours n'a pas lieu.</div>` : ''}
+        <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin-bottom:4px">
+          Inscrits — ${total} / ${slot.capacity}
+        </div>
+        ${rows || '<div style="padding:16px 0;color:#bbb;font-style:italic">Aucune réservation sur cette séance.</div>'}
+        ${cancelled.length ? `<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+          <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin-bottom:6px">Annulées — ${cancelled.length}</div>
+          ${cancelled.map(b => `<div style="font-size:13px;color:#999"><s>${escapeHtml(b.clientFirstName || '')} ${escapeHtml(b.clientLastName || '')}</s></div>`).join('')}
+        </div>` : ''}
+        <div class="form-actions" style="margin-top:20px">
+          <button class="btn btn-outline" onclick="apbCloseOccurrenceModal()">Fermer</button>
+          <button class="btn btn-primary" onclick="apbCloseOccurrenceModal();openNewBookingModal(${slotId},'${escapeJsAttr(dateISO)}')">Inscrire un élève</button>
+        </div>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) apbCloseOccurrenceModal(); });
+  document.body.appendChild(modal);
+}
+
+// Annule puis rouvre la séance : on enchaîne souvent plusieurs annulations
+// sur le même cours, et repartir du planning à chaque fois est pénible.
+async function apbOccurrenceCancel(bookingId, slotId, dateISO) {
+  apbCloseOccurrenceModal();
+  await adminCancelBooking(bookingId);
+  openOccurrenceModal(slotId, dateISO);
 }
 
 // ===== PLANNING =====
@@ -1827,7 +2031,7 @@ function renderPlanningAdmin() {
         ...cancelled.map(b => b.clientFirstName+' '+b.clientLastName+' (annulé)'),
       ].join(', ')||'Aucune réservation'}`;
 
-      return `<div class="cal-event ${typeClass}${absence ? ' cal-event-cancelled' : ''}" style="top:${top}px;height:${height}px;${across}" title="${escapeHtml(tooltip)}">
+      return `<div class="cal-event ${typeClass}${absence ? ' cal-event-cancelled' : ''}" style="top:${top}px;height:${height}px;${across}cursor:pointer" title="${escapeHtml(tooltip)}" onclick="openOccurrenceModal(${slot.id},'${ds}')">
         <div class="cal-event-time">${slot.start}–${slot.end}${absence ? ' · Prof absent' : ''}</div>
         <div class="cal-event-title">${shortTitle}</div>
         ${names ? `<div class="cal-event-students">${names}</div>` : ''}

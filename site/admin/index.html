@@ -61,6 +61,9 @@
         <a class="nav-item" data-page="infos">
           <span class="nav-icon">ℹ</span> Infos pratiques
         </a>
+        <a class="nav-item" data-page="mails">
+          <span class="nav-icon">✉</span> Mails aux élèves
+        </a>
       </div>
       <div class="nav-section">
         <span class="nav-label">Module réservation</span>
@@ -268,6 +271,17 @@
           <div class="card-body">
             <input type="hidden" id="tarif-id">
             <div class="form-group"><label>Nom de la formule</label><input type="text" id="tarif-name" placeholder="Carnet 10 séances"></div>
+            <div class="form-group"><label>Discipline</label>
+              <select id="tarif-type">
+                <option value="">— Choisir la discipline —</option>
+                <option value="collectif">Semi-collectif</option>
+                <option value="prive">Cours privé</option>
+                <option value="duo">Duo</option>
+                <option value="munz">Munz Floor</option>
+                <option value="decouverte">Découverte</option>
+              </select>
+              <div style="font-size:11px;color:#999;margin-top:4px">Décide quels cours ce carnet permet de réserver.</div>
+            </div>
             <div class="form-group"><label>Type de cours</label><input type="text" id="tarif-label" placeholder="Semi-collectif Mat"></div>
             <div class="form-group"><label>Description / Nb séances</label><input type="text" id="tarif-sessions" placeholder="10 séances — valable 6 mois"></div>
             <div class="form-row">
@@ -342,6 +356,15 @@
       <div style="margin-top:16px">
         <button class="btn btn-primary" onclick="saveInfosForm()">Enregistrer les modifications</button>
       </div>
+    </div>
+
+    <div class="page" id="page-mails">
+      <div class="page-header">
+        <h2>Mails aux élèves</h2>
+        <p>Le texte des messages envoyés automatiquement aux élèves. Une modification s'applique au prochain envoi.</p>
+      </div>
+      <div id="mails-alert"></div>
+      <div id="mails-content"></div>
     </div>
 
     <!-- STRIPE CONFIG -->

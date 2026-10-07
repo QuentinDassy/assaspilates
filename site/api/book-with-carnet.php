@@ -63,5 +63,5 @@ try {
     apbJsonError(422, $code, $errorMessages[$code] ?? 'Impossible de réserver ce cours pour le moment.');
 }
 
-apbNotifyTeacherBooking($booking);
+apbNotifyBookingCreated($booking);
 apbJsonSuccess($booking);
