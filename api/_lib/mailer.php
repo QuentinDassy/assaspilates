@@ -1,7 +1,7 @@
 <?php
 /**
- * Teacher notifications sent through Resend (https://resend.com), over its
- * plain HTTPS API -- no SDK, same reasoning as supabase.php.
+ * Teacher and studio notifications sent through Resend (https://resend.com),
+ * over its plain HTTPS API -- no SDK, same reasoning as supabase.php.
  *
  * Nothing here ever throws or blocks the caller's own work: a booking or a
  * cancellation that already happened in the database must not turn into an
@@ -168,53 +168,88 @@ function apbCourseAlreadyStarted(array $booking): bool
     }
 }
 
-/** Mail the teacher that a student booked. $booking is a full bookings row. */
+/**
+ * The studio's own notification address (MAIL_ADMIN in config.php), copied on
+ * every booking and cancellation whoever teaches the course -- otherwise the
+ * studio only ever hears about the courses it teaches itself, and nothing at
+ * all about a teacher whose team_members row has no email. It lives in
+ * config.php rather than in that table because team_members.email is read
+ * straight from the browser with the anon key (site/js/data.js), so anything
+ * put there is public.
+ */
+function apbAdminMailAddress(): string
+{
+    return trim((string) (apbConfig()['MAIL_ADMIN'] ?? ''));
+}
+
+/**
+ * One notification body. $teacherName greets the teacher when the mail is
+ * theirs; null builds the studio copy, which names the teacher under the
+ * course instead of greeting them.
+ */
+function apbNotifyBody(array $booking, string $lead, string $attendees, ?string $teacherName): string
+{
+    $body = $teacherName !== null ? '<p>Bonjour ' . apbEsc($teacherName) . ',</p>' : '';
+    $body .= '<p><strong>' . apbEsc(apbClientName($booking)) . '</strong> ' . $lead . '</p>'
+        . apbCourseLine($booking);
+    if ($teacherName === null) {
+        $body .= '<p style="margin:0 0 16px">Professeur : ' . apbEsc($booking['slot_teacher_snapshot']) . '</p>';
+    }
+    return $body . $attendees;
+}
+
+/**
+ * Mails the teacher (when they have an address) and the studio. The studio
+ * copy is skipped when MAIL_ADMIN is the teacher's own address, so whoever
+ * teaches their own course gets one mail and not two.
+ */
+function apbSendNotification(array $booking, string $title, string $subject, string $lead): void
+{
+    $teacher = apbTeacherForBooking($booking);
+    $admin = apbAdminMailAddress();
+    if (!$teacher && $admin === '') {
+        return;
+    }
+    $attendees = apbAttendeeList(apbOccurrenceAttendees($booking['slot_occurrence_id']));
+    if ($teacher) {
+        apbSendMail($teacher['email'], $subject, apbMailLayout($title, apbNotifyBody($booking, $lead, $attendees, $teacher['name'])));
+    }
+    if ($admin !== '' && (!$teacher || strcasecmp($admin, $teacher['email']) !== 0)) {
+        apbSendMail($admin, $subject, apbMailLayout($title, apbNotifyBody($booking, $lead, $attendees, null)));
+    }
+}
+
+/** Mail the teacher and the studio that a student booked. $booking is a full bookings row. */
 function apbNotifyTeacherBooking(array $booking): void
 {
     try {
         if (apbCourseAlreadyStarted($booking)) {
             return;
         }
-        $teacher = apbTeacherForBooking($booking);
-        if (!$teacher) {
-            return;
-        }
-        $body = '<p>Bonjour ' . apbEsc($teacher['name']) . ',</p>'
-            . '<p><strong>' . apbEsc(apbClientName($booking)) . '</strong> vient de réserver :</p>'
-            . apbCourseLine($booking)
-            . apbAttendeeList(apbOccurrenceAttendees($booking['slot_occurrence_id']));
         $subject = 'Nouvelle réservation — ' . $booking['slot_title_snapshot'] . ', '
             . apbFrenchDate($booking['course_date']) . ' ' . apbShortTime($booking['slot_start_snapshot']);
-        apbSendMail($teacher['email'], $subject, apbMailLayout('Nouvelle réservation', $body));
+        apbSendNotification($booking, 'Nouvelle réservation', $subject, 'vient de réserver :');
     } catch (Throwable $e) {
         error_log('apbNotifyTeacherBooking failed: ' . $e->getMessage());
     }
 }
 
-/** Mail the teacher that a booking was cancelled. $booking is the bookings row as it was before cancelling. */
+/** Mail the teacher and the studio that a booking was cancelled. $booking is the bookings row as it was before cancelling. */
 function apbNotifyTeacherCancellation(array $booking): void
 {
     try {
-        // A hold that was never paid was never announced to the teacher either.
+        // A hold that was never paid was never announced to anyone either.
         if (($booking['payment_status'] ?? '') !== 'paid') {
             return;
         }
         // Same reasoning as the booking mail: tidying up a past course in the
-        // admin isn't news the teacher needs.
+        // admin isn't news anyone needs.
         if (apbCourseAlreadyStarted($booking)) {
             return;
         }
-        $teacher = apbTeacherForBooking($booking);
-        if (!$teacher) {
-            return;
-        }
-        $body = '<p>Bonjour ' . apbEsc($teacher['name']) . ',</p>'
-            . '<p><strong>' . apbEsc(apbClientName($booking)) . '</strong> a annulé sa réservation :</p>'
-            . apbCourseLine($booking)
-            . apbAttendeeList(apbOccurrenceAttendees($booking['slot_occurrence_id']));
         $subject = 'Annulation — ' . $booking['slot_title_snapshot'] . ', '
             . apbFrenchDate($booking['course_date']) . ' ' . apbShortTime($booking['slot_start_snapshot']);
-        apbSendMail($teacher['email'], $subject, apbMailLayout('Annulation', $body));
+        apbSendNotification($booking, 'Annulation', $subject, 'a annulé sa réservation :');
     } catch (Throwable $e) {
         error_log('apbNotifyTeacherCancellation failed: ' . $e->getMessage());
     }
@@ -225,9 +260,291 @@ function apbNotifyTeacherBookingById(string $bookingId): void
     try {
         $rows = apbSupabaseSelect('bookings', '?id=eq.' . urlencode($bookingId) . '&select=*');
         if (!empty($rows) && $rows[0]['status'] !== 'cancelled') {
-            apbNotifyTeacherBooking($rows[0]);
+            apbNotifyBookingCreated($rows[0]);
         }
     } catch (Throwable $e) {
         error_log('apbNotifyTeacherBookingById failed: ' . $e->getMessage());
     }
+}
+
+/**
+ * Mail the teachers and the studio that a booking moved. $before is the row
+ * as it stood, $after the one api_move_booking() returned. A move can change
+ * teacher, so both the one losing the student and the one gaining her are
+ * written to -- a single mail each, showing where the student went.
+ */
+function apbNotifyBookingMoved(array $before, array $after): void
+{
+    try {
+        // A correction made entirely in the past is bookkeeping, not news --
+        // same reasoning as the booking and cancellation mails.
+        if (apbCourseAlreadyStarted($before) && apbCourseAlreadyStarted($after)) {
+            return;
+        }
+
+        $label = '<p style="margin:0 0 4px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#aaa">';
+        $body = '<p>La réservation de <strong>' . apbEsc(apbClientName($after)) . '</strong> a été déplacée :</p>'
+            . $label . 'Avant</p>' . apbCourseLine($before)
+            . $label . 'Après</p>' . apbCourseLine($after)
+            . apbAttendeeList(apbOccurrenceAttendees($after['slot_occurrence_id']));
+
+        $subject = 'Réservation déplacée — ' . apbClientName($after) . ', '
+            . apbFrenchDate($after['course_date']) . ' ' . apbShortTime($after['slot_start_snapshot']);
+        $html = apbMailLayout('Réservation déplacée', $body);
+
+        // One mail per address: the same teacher on both sides, or a teacher
+        // who is also MAIL_ADMIN, must not receive it twice.
+        $sent = [];
+        foreach ([apbTeacherForBooking($before), apbTeacherForBooking($after)] as $teacher) {
+            if ($teacher) {
+                $sent[strtolower($teacher['email'])] = $teacher['email'];
+            }
+        }
+        $admin = apbAdminMailAddress();
+        if ($admin !== '') {
+            $sent[strtolower($admin)] = $admin;
+        }
+        foreach ($sent as $address) {
+            apbSendMail($address, $subject, $html);
+        }
+
+        apbNotifyClientMoved($before, $after);
+
+        // Arriver sur un semi-collectif qui n'attendait qu'une deuxième
+        // inscrite le confirme : les élèves déjà là doivent l'apprendre.
+        if (!empty($after['slot_occurrence_id'])) {
+            apbNotifyOccurrenceConfirmed($after['slot_occurrence_id']);
+        }
+    } catch (Throwable $e) {
+        error_log('apbNotifyBookingMoved failed: ' . $e->getMessage());
+    }
+}
+
+/* ===================================================================
+ * Mails aux élèves (gabarits éditables -- supabase/migrations/0013)
+ * =================================================================== */
+
+/** Les gabarits, chargés une fois par requête. */
+function apbMailTemplate(string $key): ?array
+{
+    static $templates = null;
+    if ($templates === null) {
+        $templates = [];
+        try {
+            foreach (apbSupabaseSelect('mail_templates', '?select=key,subject,body_html,enabled') as $t) {
+                $templates[$t['key']] = $t;
+            }
+        } catch (Throwable $e) {
+            // Table absente (migration pas encore passée) ou Supabase muet :
+            // on n'écrit pas à l'élève, et le reste de la requête continue.
+            error_log('mail_templates unreadable: ' . $e->getMessage());
+        }
+    }
+    $t = $templates[$key] ?? null;
+    return ($t && !empty($t['enabled'])) ? $t : null;
+}
+
+/** Coordonnées du studio, pour {studio_email} / {studio_tel}. */
+function apbStudioSettings(): array
+{
+    static $settings = null;
+    if ($settings === null) {
+        try {
+            $rows = apbSupabaseSelect('site_settings', '?id=eq.1&select=email,phone');
+            $settings = $rows[0] ?? [];
+        } catch (Throwable $e) {
+            $settings = [];
+        }
+    }
+    return $settings;
+}
+
+/** Les variables offertes aux gabarits pour une réservation donnée. */
+function apbMailVars(array $booking): array
+{
+    $studio = apbStudioSettings();
+    return [
+        'prenom' => $booking['client_first_name_snapshot'] ?? '',
+        'nom' => $booking['client_last_name_snapshot'] ?? '',
+        'cours' => $booking['slot_title_snapshot'] ?? '',
+        'date' => apbFrenchDate($booking['course_date']),
+        'heure_debut' => apbShortTime($booking['slot_start_snapshot']),
+        'heure_fin' => apbShortTime($booking['slot_end_snapshot']),
+        'lieu' => apbLocationName($booking['slot_location_snapshot'] ?? ''),
+        'professeur' => $booking['slot_teacher_snapshot'] ?? '',
+        'reference' => $booking['booking_ref'] ?? '',
+        'studio_email' => $studio['email'] ?? '',
+        'studio_tel' => $studio['phone'] ?? '',
+    ];
+}
+
+/**
+ * Remplit un gabarit. Les valeurs sont échappées dans le corps HTML (elles
+ * viennent de champs saisis par le client : un prénom « <script> » ne doit
+ * pas devenir du balisage) mais pas dans l'objet, qui est du texte brut --
+ * un « Prévost & Cie » échappé s'y afficherait « Prévost &amp; Cie ».
+ */
+function apbRenderMailTemplate(string $key, array $vars): ?array
+{
+    $t = apbMailTemplate($key);
+    if (!$t) {
+        return null;
+    }
+    $needles = $plain = $escaped = [];
+    foreach ($vars as $name => $value) {
+        $needles[] = '{' . $name . '}';
+        $plain[] = (string) $value;
+        $escaped[] = apbEsc((string) $value);
+    }
+    return [
+        'subject' => str_replace($needles, $plain, $t['subject']),
+        'html' => str_replace($needles, $escaped, $t['body_html']),
+    ];
+}
+
+/** Même habillage que les mails aux profs, sans le titre : le gabarit porte son propre texte. */
+function apbClientMailLayout(string $body): string
+{
+    return '<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#2b2b2b;max-width:560px">'
+        . $body
+        . '<p style="color:#999;font-size:12px;margin-top:32px">Assas Pilates Ballet</p>'
+        . '</div>';
+}
+
+/** L'adresse de connexion de l'élève, que bookings ne porte pas (seulement client_id). */
+function apbClientEmailForBooking(array $booking): string
+{
+    if (empty($booking['client_id'])) {
+        return '';
+    }
+    $rows = apbSupabaseSelect('clients', '?id=eq.' . urlencode($booking['client_id']) . '&select=email&limit=1');
+    return (string) ($rows[0]['email'] ?? '');
+}
+
+/** Envoie un gabarit à l'élève d'une réservation. Retourne false si rien n'est parti. */
+function apbSendClientTemplate(array $booking, string $key, array $extraVars = []): bool
+{
+    $to = apbClientEmailForBooking($booking);
+    if ($to === '') {
+        return false;
+    }
+    $rendered = apbRenderMailTemplate($key, array_merge(apbMailVars($booking), $extraVars));
+    if (!$rendered) {
+        return false;
+    }
+    return apbSendMail($to, $rendered['subject'], apbClientMailLayout($rendered['html']));
+}
+
+/**
+ * Accuse réception à l'élève : confirmé, ou en attente d'un 2e élève pour un
+ * semi-collectif. Rien n'est envoyé pour un cours déjà commencé -- une
+ * inscription rétroactive n'est pas une nouvelle à annoncer.
+ */
+function apbNotifyClientBooking(array $booking): void
+{
+    try {
+        if (apbCourseAlreadyStarted($booking)) {
+            return;
+        }
+        if (($booking['status'] ?? '') === 'pending') {
+            apbSendClientTemplate($booking, 'booking_pending');
+            return;
+        }
+        if (($booking['status'] ?? '') === 'confirmed') {
+            apbSendClientTemplate($booking, 'booking_confirmed');
+            // Confirmée et prévenue : le balayage « cours confirmé » ci-dessous
+            // ne doit pas lui réécrire.
+            apbMarkConfirmedNotified([$booking['id']]);
+        }
+    } catch (Throwable $e) {
+        error_log('apbNotifyClientBooking failed: ' . $e->getMessage());
+    }
+}
+
+function apbMarkConfirmedNotified(array $bookingIds): void
+{
+    foreach ($bookingIds as $id) {
+        apbSupabaseUpdate('bookings', '?id=eq.' . urlencode($id), ['confirmed_notified_at' => gmdate('c')]);
+    }
+}
+
+/**
+ * Prévient les élèves qu'un semi-collectif vient d'être confirmé.
+ *
+ * Le passage pending -> confirmed se fait dans api_book_slot(), à l'intérieur
+ * de sa transaction : le PHP ne voit pas qui a basculé. On s'appuie donc sur
+ * confirmed_notified_at (0013) -- une réservation confirmée jamais notifiée
+ * est exactement une réservation à prévenir. Marquer avant d'envoyer serait
+ * plus sûr contre un doublon, mais perdrait le mail en cas d'échec ; on
+ * marque après, l'envoi en double restant moins grave que le silence.
+ */
+function apbNotifyOccurrenceConfirmed(string $occurrenceId): void
+{
+    try {
+        $rows = apbSupabaseSelect('bookings',
+            '?slot_occurrence_id=eq.' . urlencode($occurrenceId)
+            . '&status=eq.confirmed&payment_status=eq.paid&confirmed_notified_at=is.null&select=*');
+        foreach ($rows as $b) {
+            if (apbCourseAlreadyStarted($b)) {
+                continue;
+            }
+            apbSendClientTemplate($b, 'booking_now_confirmed');
+            apbMarkConfirmedNotified([$b['id']]);
+        }
+    } catch (Throwable $e) {
+        error_log('apbNotifyOccurrenceConfirmed failed: ' . $e->getMessage());
+    }
+}
+
+function apbNotifyClientCancellation(array $booking): void
+{
+    try {
+        if (($booking['payment_status'] ?? '') !== 'paid' || apbCourseAlreadyStarted($booking)) {
+            return;
+        }
+        apbSendClientTemplate($booking, 'booking_cancelled');
+    } catch (Throwable $e) {
+        error_log('apbNotifyClientCancellation failed: ' . $e->getMessage());
+    }
+}
+
+function apbNotifyClientMoved(array $before, array $after): void
+{
+    try {
+        if (apbCourseAlreadyStarted($before) && apbCourseAlreadyStarted($after)) {
+            return;
+        }
+        apbSendClientTemplate($after, 'booking_moved', [
+            'ancien_cours' => $before['slot_title_snapshot'] ?? '',
+            'ancienne_date' => apbFrenchDate($before['course_date']),
+            'ancienne_heure' => apbShortTime($before['slot_start_snapshot']) . '–' . apbShortTime($before['slot_end_snapshot']),
+        ]);
+    } catch (Throwable $e) {
+        error_log('apbNotifyClientMoved failed: ' . $e->getMessage());
+    }
+}
+
+/* ===================================================================
+ * Les trois points d'entrée appelés par les endpoints
+ * =================================================================== */
+
+/**
+ * Une réservation vient d'être enregistrée (carnet, Stripe payé, ou inscrite
+ * par le studio) : professeur + studio, l'élève, et les élèves qu'elle vient
+ * éventuellement de faire passer de « en attente » à « confirmé ».
+ */
+function apbNotifyBookingCreated(array $booking): void
+{
+    apbNotifyTeacherBooking($booking);
+    apbNotifyClientBooking($booking);
+    if (!empty($booking['slot_occurrence_id'])) {
+        apbNotifyOccurrenceConfirmed($booking['slot_occurrence_id']);
+    }
+}
+
+/** $booking est la ligne telle qu'elle était avant l'annulation. */
+function apbNotifyBookingCancelled(array $booking): void
+{
+    apbNotifyTeacherCancellation($booking);
+    apbNotifyClientCancellation($booking);
 }

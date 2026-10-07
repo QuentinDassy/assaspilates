@@ -29,6 +29,11 @@ return [
     'RESEND_API_KEY' => 're_...',
     'MAIL_FROM' => 'Assas Pilates Ballet <notifications@assas-pilates-ballet.com>',
     'MAIL_REPLY_TO' => 'contact@assas-pilates-ballet.com', // optional
+    // Copied on every booking and cancellation whoever teaches the course --
+    // the studio inbox, which team_members.email cannot be (that column is
+    // read from the browser with the anon key, so anything in it is public).
+    // Leave it out and only the teacher of each course is mailed.
+    'MAIL_ADMIN' => 'contact@assas-pilates-ballet.com', // optional
 
     // Leave unset on OVH. Only needed locally if something on your machine
     // does TLS interception (e.g. an antivirus like Avast) -- the Stripe SDK
