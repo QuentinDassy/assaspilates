@@ -64,7 +64,7 @@ try {
     apbJsonError(422, $code, $errorMessages[$code] ?? 'Impossible d\'annuler cette réservation pour le moment.');
 }
 
-apbNotifyTeacherCancellation($booking);
+apbNotifyBookingCancelled($booking);
 
 $refunded = false;
 if ($booking['payment_type'] === 'stripe' && $booking['payment_status'] === 'paid' && $booking['payment_intent_id']) {

@@ -102,5 +102,5 @@ try {
     apbJsonError(422, $code, $errorMessages[$code] ?? "Impossible d'inscrire l'élève à ce cours.");
 }
 
-apbNotifyTeacherBooking($booking);
+apbNotifyBookingCreated($booking);
 apbJsonSuccess($booking);

@@ -3,6 +3,7 @@
 
 # PHP backend secrets (never committed -- see site/api/_lib/config.php.example)
 /site/api/_lib/config.php
+/config.php
 # Runtime JWKS cache (site/api/_lib/auth.php) -- regenerated automatically
 /site/api/_lib/jwks_cache.json
 # site/api/vendor/ IS committed -- OVH's native Git deploy has no build step
